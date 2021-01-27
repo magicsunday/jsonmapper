@@ -1,0 +1,35 @@
+{
+  "name": "magicsunday/jsonmapper",
+  "description": "Map JSON to PHP",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Rico Sonntag",
+      "email": "mail@ricosonntag.de",
+      "role": "Developer",
+      "homepage": "http://www.ricosonntag.de/"
+    }
+  ],
+  "support": {
+    "issues": "https://github.com/magicsunday/jsonmapper/issues"
+  },
+  "require": {
+    "php": "^7.4",
+    "ext-json": "*",
+    "symfony/property-info": "^5.0",
+    "symfony/property-access": "^5.0"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^9.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "MagicSunday\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "MagicSunday\\Test\\": "test/"
+    }
+  }
+}
