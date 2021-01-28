@@ -1,0 +1,10 @@
+{
+  "foo1": {
+    "bar": null,
+    "name": "Foo 1"
+  },
+  "foo2": {
+    "bar": null,
+    "name": "Foo 2"
+  }
+}
