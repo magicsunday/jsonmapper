@@ -156,12 +156,12 @@ class JsonMapper
      * Creates an instance of the given class name. If a dependency injection container is provided,
      * it returns the instance for this.
      *
-     * @param string|Closure $className            The class to instantiate
-     * @param array|mixed[]  $constructorArguments The arguments for the constructor
+     * @param string|Closure $className                The class to instantiate
+     * @param mixed          $constructorArguments,... The arguments for the constructor
      *
      * @return object
      */
-    private function makeInstance($className, array ...$constructorArguments): object
+    private function makeInstance($className, ...$constructorArguments): object
     {
         return new $className(...$constructorArguments);
     }
