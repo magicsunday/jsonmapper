@@ -260,4 +260,49 @@ class JsonMapperTest extends TestCase
         self::assertInstanceOf(CustomConstructor::class, $result->customContructor);
         self::assertSame('John Doe', $result->customContructor->name);
     }
+
+    /**
+     * @return string[][]
+     */
+    public function mapSimpleTypesJsonDataProvider(): array
+    {
+        return [
+            'mapCustomType' => [
+                DataProvider::mapSimpleTypesJson(),
+            ],
+        ];
+    }
+
+    /**
+     * Tests mapping simple types.
+     *
+     * @dataProvider mapSimpleTypesJsonDataProvider
+     *
+     * @test
+     *
+     * @param string $jsonString
+     */
+    public function mapSimpleTypesJson(string $jsonString)
+    {
+        /** @var Collection $result */
+        $result = $this->getJsonMapper()
+            ->map(
+                $this->getJsonArray($jsonString),
+                Simple::class,
+                Collection::class
+            );
+
+        self::assertInstanceOf(Collection::class, $result);
+        self::assertContainsOnlyInstancesOf(Simple::class, $result);
+
+        self::assertSame(123, $result[0]->int);
+        self::assertSame(123.45, $result[0]->float);
+        self::assertTrue($result[0]->bool);
+        self::assertSame('string', $result[0]->string);
+
+        self::assertSame(0, $result[1]->int);
+        self::assertSame(0.0, $result[1]->float);
+        self::assertFalse($result[1]->bool);
+        self::assertSame('', $result[1]->string);
+    }
 }

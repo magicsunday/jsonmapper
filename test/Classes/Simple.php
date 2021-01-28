@@ -26,7 +26,29 @@ class Simple
     public int $id;
 
     /**
+     * PHP7.4 typed property
+     *
      * @var string
      */
-    public $name;
+    public string $name;
+
+    /**
+     * @var int
+     */
+    public $int;
+
+    /**
+     * @var float
+     */
+    public $float;
+
+    /**
+     * @var bool
+     */
+    public $bool;
+
+    /**
+     * @var string
+     */
+    public $string;
 }

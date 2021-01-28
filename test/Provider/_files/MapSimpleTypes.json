@@ -1,0 +1,14 @@
+[
+  {
+    "int": 123,
+    "float": 123.45,
+    "bool": true,
+    "string": "string"
+  },
+  {
+    "int": 0,
+    "float": 0,
+    "bool": false,
+    "string": ""
+  }
+]

@@ -59,4 +59,12 @@ class DataProvider
     {
         return file_get_contents(__DIR__ . '/_files/MapSimpleCollection.json');
     }
+
+    /**
+     * @return string
+     */
+    public static function mapSimpleTypesJson(): string
+    {
+        return file_get_contents(__DIR__ . '/_files/MapSimpleTypes.json');
+    }
 }

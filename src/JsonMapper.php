@@ -235,7 +235,7 @@ class JsonMapper
         }
 
         // Ignore empty values
-        if (!$json) {
+        if ($json === null) {
             return null;
         }
 
