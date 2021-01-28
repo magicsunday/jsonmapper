@@ -23,6 +23,23 @@ composer remove magicsunday/jsonmapper
 
 
 ## Usage
+### PHP classes
+In order to guarantee a seamless mapping of a JSON response into PHP classes you should prepare your classes well.
+Annotate all properties with the requested type.
+
+In order to ensure correct mapping of a collection, the property has to be annotated using
+the phpDocumentor collection annotation type. A collection is a non-scalar value capable of containing other
+values.
+
+For example:
+
+```php
+@var SomeCollection<DateTime>
+@var SomeCollection<string>
+@var Collection\SomeCollection<App\Entity\SomeEntity>
+```
+
+### Instantiation
 Create instances of Symfony's property info extractors to use together with the mapper. Each list of extractors
 could contain any number of available extractors. You could also create your own extractors to adjust the process
 of extracting property info to your needs.
