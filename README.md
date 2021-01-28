@@ -28,9 +28,15 @@ could contain any number of available extractors. You could also create your own
 of extracting property info to your needs.
 
 ```php
+// A common extractor setup
 $listExtractors = [ new ReflectionExtractor() ];
-$typeExtractors = [ new ReflectionExtractor(), new PhpDocExtractor() ];
+$typeExtractors = [ new PhpDocExtractor() ];
 $propertyInfoExtractor = new PropertyInfoExtractor($listExtractors, $typeExtractors);
+```
+
+To extract PHP 7.4 typed properties you should use the `ReflectionExtractor` inside the type extractor list too:
+```php
+$typeExtractors = [ new ReflectionExtractor(), new PhpDocExtractor() ];
 ```
 
 Create an instance of the property accessor:
@@ -57,8 +63,9 @@ Add a custom type handler to map a JSON value into a custom class:
 // Perform special treatment if an object of type Bar should be mapped 
 $mapper->addType(
     Bar::class,
+    /* @var mixed $value JSON data */
     static function ($value): ?Bar {
-        return $value ? new Bar($value) : null;
+        return $value ? new Bar($value['name']) : null;
     }
 );
 ```

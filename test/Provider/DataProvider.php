@@ -43,4 +43,20 @@ class DataProvider
     {
         return file_get_contents(__DIR__ . '/_files/MapCustomType.json');
     }
+
+    /**
+     * @return string
+     */
+    public static function mapSimpleArrayJson(): string
+    {
+        return file_get_contents(__DIR__ . '/_files/MapSimpleArray.json');
+    }
+
+    /**
+     * @return string
+     */
+    public static function mapSimpleCollectionJson(): string
+    {
+        return file_get_contents(__DIR__ . '/_files/MapSimpleCollection.json');
+    }
 }

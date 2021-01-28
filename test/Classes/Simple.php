@@ -12,18 +12,18 @@ declare(strict_types=1);
 namespace MagicSunday\Test\Classes;
 
 /**
- * Class Foo.
+ * Class Simple.
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
  */
-class Foo
+class Simple
 {
     /**
-     * @var Bar
+     * PHP7.4 typed property
      */
-    public $bar;
+    public int $id;
 
     /**
      * @var string

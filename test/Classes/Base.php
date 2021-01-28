@@ -12,13 +12,13 @@ declare(strict_types=1);
 namespace MagicSunday\Test\Classes;
 
 /**
- * Class Bar.
+ * Class Base.
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
  */
-class Bar
+class Base
 {
     /**
      * @var string
@@ -26,12 +26,30 @@ class Bar
     public $name;
 
     /**
-     * Bar constructor.
+     * A class with a constructor and arguments.
      *
-     * @param string $name
+     * @var CustomConstructor
      */
-    public function __construct(string $name)
-    {
-        $this->name = $name;
-    }
+    public $customContructor;
+
+    /**
+     * A class without a constructor.
+     *
+     * @var Simple
+     */
+    public $simple;
+
+    /**
+     * An array of Simple instances.
+     *
+     * @var Simple[]
+     */
+    public $simpleArray;
+
+    /**
+     * A collection of Simple instances.
+     *
+     * @var Collection<Simple>
+     */
+    public $simpleCollection;
 }

@@ -13,9 +13,10 @@ namespace MagicSunday\Test;
 
 use JsonException;
 use MagicSunday\JsonMapper;
-use MagicSunday\Test\Classes\Bar;
+use MagicSunday\Test\Classes\Base;
 use MagicSunday\Test\Classes\Collection;
-use MagicSunday\Test\Classes\Foo;
+use MagicSunday\Test\Classes\CustomConstructor;
+use MagicSunday\Test\Classes\Simple;
 use MagicSunday\Test\Provider\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\PropertyAccess\PropertyAccess;
@@ -42,7 +43,7 @@ class JsonMapperTest extends TestCase
     private function getJsonMapper(array $classMap = []): JsonMapper
     {
         $listExtractors = [ new ReflectionExtractor() ];
-        $typeExtractors = [ new PhpDocExtractor() ];
+        $typeExtractors = [ new ReflectionExtractor(), new PhpDocExtractor() ];
         $extractor      = new PropertyInfoExtractor($listExtractors, $typeExtractors);
 
         return new JsonMapper(
@@ -53,7 +54,7 @@ class JsonMapperTest extends TestCase
     }
 
     /**
-     * Returns the decoded JSON array.
+     * Returns the decoded JSON as array.
      *
      * @param string $jsonString
      *
@@ -88,17 +89,18 @@ class JsonMapperTest extends TestCase
      */
     public function mapArray(string $jsonString)
     {
+        /** @var Collection $result */
         $result = $this->getJsonMapper()
             ->map(
                 $this->getJsonArray($jsonString),
-                Foo::class,
+                Base::class,
                 Collection::class
             );
 
         self::assertInstanceOf(Collection::class, $result);
-        self::assertContainsOnlyInstancesOf(Foo::class, $result);
-        self::assertSame('Foo 1', $result[0]->name);
-        self::assertSame('Foo 2', $result[1]->name);
+        self::assertContainsOnlyInstancesOf(Base::class, $result);
+        self::assertSame('Item 1', $result[0]->name);
+        self::assertSame('Item 2', $result[1]->name);
     }
 
     /**
@@ -124,17 +126,98 @@ class JsonMapperTest extends TestCase
      */
     public function mapCollection(string $jsonString)
     {
+        /** @var Collection $result */
         $result = $this->getJsonMapper()
             ->map(
                 $this->getJsonArray($jsonString),
-                Foo::class,
+                Base::class,
                 Collection::class
             );
 
         self::assertInstanceOf(Collection::class, $result);
-        self::assertContainsOnlyInstancesOf(Foo::class, $result);
-        self::assertSame('Foo 1', $result[0]->name);
-        self::assertSame('Foo 2', $result[1]->name);
+        self::assertContainsOnlyInstancesOf(Base::class, $result);
+        self::assertSame('Item 1', $result[0]->name);
+        self::assertSame('Item 2', $result[1]->name);
+    }
+
+    /**
+     * @return string[][]
+     */
+    public function mapSimpleArrayJsonDataProvider(): array
+    {
+        return [
+            'mapSimpleArray' => [
+                DataProvider::mapSimpleArrayJson(),
+            ],
+        ];
+    }
+
+    /**
+     * Tests mapping an array of objects to a property.
+     *
+     * @dataProvider mapSimpleArrayJsonDataProvider
+     *
+     * @test
+     *
+     * @param string $jsonString
+     */
+    public function mapSimpleArray(string $jsonString)
+    {
+        /** @var Base $result */
+        $result = $this->getJsonMapper()
+            ->map(
+                $this->getJsonArray($jsonString),
+                Base::class
+            );
+
+        self::assertInstanceOf(Base::class, $result);
+        self::assertIsArray($result->simpleArray);
+        self::assertCount(2, $result->simpleArray);
+        self::assertContainsOnlyInstancesOf(Simple::class, $result->simpleArray);
+        self::assertSame(1, $result->simpleArray[0]->id);
+        self::assertSame('Item 1', $result->simpleArray[0]->name);
+        self::assertSame(2, $result->simpleArray[1]->id);
+        self::assertSame('Item 2', $result->simpleArray[1]->name);
+    }
+
+    /**
+     * @return string[][]
+     */
+    public function mapSimpleCollectionJsonDataProvider(): array
+    {
+        return [
+            'mapSimpleCollection' => [
+                DataProvider::mapSimpleCollectionJson(),
+            ],
+        ];
+    }
+
+    /**
+     * Tests mapping a collection of objects to a property.
+     *
+     * @dataProvider mapSimpleCollectionJsonDataProvider
+     *
+     * @test
+     *
+     * @param string $jsonString
+     */
+    public function mapSimpleCollection(string $jsonString)
+    {
+        /** @var Base $result */
+        $result = $this->getJsonMapper()
+            ->map(
+                $this->getJsonArray($jsonString),
+                Base::class
+            );
+
+        self::assertInstanceOf(Base::class, $result);
+        self::assertInstanceOf(Collection::class, $result->simpleCollection);
+        self::assertCount(2, $result->simpleCollection);
+        self::assertContainsOnlyInstancesOf(Simple::class, $result->simpleCollection);
+        self::assertSame(1, $result->simpleCollection[0]->id);
+        self::assertSame('Item 1', $result->simpleCollection[0]->name);
+        self::assertSame(2, $result->simpleCollection[1]->id);
+        self::assertSame('Item 2', $result->simpleCollection[1]->name);
     }
 
     /**
@@ -160,20 +243,21 @@ class JsonMapperTest extends TestCase
      */
     public function mapCustomType(string $jsonString)
     {
+        /** @var Base $result */
         $result = $this->getJsonMapper()
             ->addType(
-                Bar::class,
-                static function ($value): ?Bar {
-                    return $value ? new Bar($value['name']) : null;
+                CustomConstructor::class,
+                static function ($value): ?CustomConstructor {
+                    return $value ? new CustomConstructor($value['name']) : null;
                 }
             )
             ->map(
                 $this->getJsonArray($jsonString),
-                Foo::class
+                Base::class
             );
 
-        self::assertInstanceOf(Foo::class, $result);
-        self::assertInstanceOf(Bar::class, $result->bar);
-        self::assertSame('Foo bar', $result->bar->name);
+        self::assertInstanceOf(Base::class, $result);
+        self::assertInstanceOf(CustomConstructor::class, $result->customContructor);
+        self::assertSame('John Doe', $result->customContructor->name);
     }
 }
