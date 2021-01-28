@@ -2,3 +2,13 @@ checks:
   php:
     code_rating: true
     duplication: true
+
+build:
+  nodes:
+    coverage:
+      tests:
+        override:
+          - command: 'vendor/bin/phpunit --configuration test/phpunit.xml --coverage-clover test/coverage.xml'
+            coverage:
+              file: 'test/coverage.xml'
+              format: 'clover'
