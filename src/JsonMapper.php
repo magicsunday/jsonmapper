@@ -84,10 +84,13 @@ class JsonMapper
      *
      * @param string  $type    The type name
      * @param Closure $closure The closure to execute for the defined type
+     *
+     * @return JsonMapper
      */
-    public function addType(string $type, Closure $closure): void
+    public function addType(string $type, Closure $closure): JsonMapper
     {
         $this->types[$type] = $closure;
+        return $this;
     }
 
     /**
@@ -95,10 +98,13 @@ class JsonMapper
      *
      * @param string  $className The name of the base class
      * @param Closure $closure   The closure to execute if the base class was found
+     *
+     * @return JsonMapper
      */
-    public function addCustomClassMapEntry(string $className, Closure $closure): void
+    public function addCustomClassMapEntry(string $className, Closure $closure): JsonMapper
     {
         $this->classMap[$className] = $closure;
+        return $this;
     }
 
     /**
@@ -118,12 +124,12 @@ class JsonMapper
             throw new InvalidArgumentException("Class [$className] does not exist");
         }
 
-        if ($collectionClassName && !class_exists($collectionClassName)) {
-            throw new InvalidArgumentException("Class [$collectionClassName] does not exist");
-        }
-
-        // If a collection class name is given map all elements of the array to this collection
         if ($collectionClassName) {
+            if (!class_exists($collectionClassName)) {
+                throw new InvalidArgumentException("Class [$collectionClassName] does not exist");
+            }
+
+            // Map all elements of the JSON array to this collection
             return $this->makeInstance(
                 $collectionClassName,
                 $this->asCollection(
