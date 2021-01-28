@@ -2,7 +2,7 @@
 [![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/?branch=master)
 [![Code Climate](https://codeclimate.com/github/magicsunday/jsonmapper/badges/gpa.svg)](https://codeclimate.com/github/magicsunday/jsonmapper)
 
-# JSON-Mapper
+# JsonMapper
 This module provides a mapper to map JSON to PHP classes utilizing Symfony's property info and access packages.
 
 ## Installation
