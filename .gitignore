@@ -3,3 +3,4 @@
 /test/coverage
 /coverage
 composer.lock
+.phpunit.result.cache

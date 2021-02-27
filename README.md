@@ -1,6 +1,11 @@
 [![License: GPL v3](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/badges/build.png?b=master)](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/build-status/master)
+
+[![PHPStan](https://img.shields.io/badge/PHPStan-level%208-brightgreen.svg?style=flat)](https://github.com/phpstan/phpstan)
+[![PHPStan](https://img.shields.io/badge/PHP_CodeSniffer-PSR12-brightgreen.svg?style=flat)](https://github.com/squizlabs/PHP_CodeSniffer)
+[![PHPStan](https://img.shields.io/badge/PHPUnit-passed-brightgreen.svg?style=flat)](https://github.com/sebastianbergmann/phpunit)
+
 [![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/?branch=master)
+[![Build Status](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/badges/build.png?b=master)](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/build-status/master)
 [![Code Coverage](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/badges/coverage.png?b=master)](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/?branch=master)
 [![Code Climate](https://codeclimate.com/github/magicsunday/jsonmapper/badges/gpa.svg)](https://codeclimate.com/github/magicsunday/jsonmapper)
 
@@ -12,12 +17,12 @@ This module provides a mapper to map JSON to PHP classes utilizing Symfony's pro
 ### Using Composer
 To install using [composer](https://getcomposer.org/), just run the following command from the command line.
 
-```
+```bash
 composer require magicsunday/jsonmapper
 ```
 
 To remove the module run:
-```
+```bash
 composer remove magicsunday/jsonmapper
 ```
 
@@ -44,6 +49,15 @@ Create instances of Symfony's property info extractors to use together with the 
 could contain any number of available extractors. You could also create your own extractors to adjust the process
 of extracting property info to your needs.
 
+To use the `PhpDocExtractor` extractor you need to install the `phpdocumentor/reflection-docblock` library too.
+
+```php
+use \Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
+use \Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
+use \Symfony\Component\PropertyInfo\PropertyInfoExtractor;
+use \Symfony\Component\PropertyAccess\PropertyAccessor;
+```
+
 ```php
 // A common extractor setup
 $listExtractors = [ new ReflectionExtractor() ];
@@ -68,7 +82,7 @@ $classMap = [];
 
 Create an instance of the JsonMapper:
 ```php
-$mapper = new JsonMapper(
+$mapper = new \MagicSunday\JsonMapper(
     $propertyInfoExtractor,
     $propertyAccessor,
     $classMap
@@ -96,4 +110,14 @@ Call method `map` to do the actual mapping of the JSON object/array into PHP cla
 and optional the name of a collection class to the method.
 ```php
 $mappedResult = $mapper->map($json, Foo::class, FooCollection::class);
+```
+
+## Development
+
+### Testing
+```bash
+composer update
+vendor/bin/phpcs ./src  --standard=PSR12
+vendor/bin/phpstan analyse -c phpstan.neon
+vendor/bin/phpunit
 ```

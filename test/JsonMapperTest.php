@@ -43,7 +43,7 @@ class JsonMapperTest extends TestCase
     private function getJsonMapper(array $classMap = []): JsonMapper
     {
         $listExtractors = [ new ReflectionExtractor() ];
-        $typeExtractors = [ new ReflectionExtractor(), new PhpDocExtractor() ];
+        $typeExtractors = [ new PhpDocExtractor() ];
         $extractor      = new PropertyInfoExtractor($listExtractors, $typeExtractors);
 
         return new JsonMapper(

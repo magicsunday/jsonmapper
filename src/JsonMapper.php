@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday;
 
 use Closure;
+use DomainException;
 use InvalidArgumentException;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractorInterface;
@@ -57,9 +58,9 @@ class JsonMapper
     /**
      * The custom types.
      *
-     * @var array
+     * @var Closure[]
      */
-    private array $types = [];
+    private $types = [];
 
     /**
      * XmlDecoder constructor.
@@ -117,6 +118,7 @@ class JsonMapper
      * @return null|object|object[]
      *
      * @throws InvalidArgumentException
+     * @throws DomainException
      */
     public function map($json, string $className, string $collectionClassName = null)
     {
@@ -206,7 +208,7 @@ class JsonMapper
      */
     private function getType(string $className, string $propertyName): Type
     {
-        return $this->extractor->getTypes($className, $propertyName)[0] ?: $this->defaultType;
+        return $this->extractor->getTypes($className, $propertyName)[0] ?? $this->defaultType;
     }
 
     /**
@@ -216,11 +218,13 @@ class JsonMapper
      * @param Type  $type
      *
      * @return null|array|bool|float|mixed
+     *
+     * @throws DomainException
      */
     private function getValue($json, Type $type)
     {
         if ($type->isCollection()) {
-            $collectionType = $type->getCollectionValueType() ?: $this->defaultType;
+            $collectionType = $type->getCollectionValueType() ?? $this->defaultType;
             $collection     = $this->asCollection($json, $collectionType);
 
             // Create a new instance of the collection class
@@ -256,10 +260,16 @@ class JsonMapper
      * @param Type $type
      *
      * @return string|Closure
+     *
+     * @throws DomainException
      */
     private function getClassName(Type $type)
     {
         $className = $type->getClassName();
+
+        if ($className === null) {
+            throw new DomainException('Class name missing');
+        }
 
         if (array_key_exists($className, $this->classMap)) {
             return $this->classMap[$className];
@@ -274,7 +284,9 @@ class JsonMapper
      * @param mixed $json
      * @param Type  $type
      *
-     * @return array
+     * @return mixed[]
+     *
+     * @throws DomainException
      */
     private function asCollection($json, Type $type): array
     {
@@ -294,6 +306,8 @@ class JsonMapper
      * @param Type  $type
      *
      * @return mixed
+     *
+     * @throws DomainException
      */
     private function asObject($json, Type $type)
     {
