@@ -3,12 +3,14 @@
     "int": 123,
     "float": 123.45,
     "bool": true,
-    "string": "string"
+    "string": "string",
+    "missingProperty": "There is no property in the Simple::class, so this should be ignored and not throw an error"
   },
   {
     "int": 0,
     "float": 0,
     "bool": false,
-    "string": ""
+    "string": "",
+    "empty": null
   }
 ]

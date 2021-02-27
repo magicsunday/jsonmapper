@@ -11,15 +11,19 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\Classes;
 
-use ArrayObject;
-
 /**
- * Class Collection.
+ * Class CustomClass.
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
  */
-class Collection extends ArrayObject
+class CustomClass
 {
+    /**
+     * @var VipPerson[]|Person[]
+     *
+     * or alternatively use Collection<Person>
+     */
+    public array $persons = [];
 }

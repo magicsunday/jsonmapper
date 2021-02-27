@@ -11,12 +11,17 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test;
 
+use Closure;
+use InvalidArgumentException;
 use JsonException;
 use MagicSunday\JsonMapper;
 use MagicSunday\Test\Classes\Base;
 use MagicSunday\Test\Classes\Collection;
+use MagicSunday\Test\Classes\CustomClass;
 use MagicSunday\Test\Classes\CustomConstructor;
+use MagicSunday\Test\Classes\Person;
 use MagicSunday\Test\Classes\Simple;
+use MagicSunday\Test\Classes\VipPerson;
 use MagicSunday\Test\Provider\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\PropertyAccess\PropertyAccess;
@@ -36,7 +41,7 @@ class JsonMapperTest extends TestCase
     /**
      * Returns an instance of the JsonMapper for testing.
      *
-     * @param array $classMap
+     * @param string[]|Closure[] $classMap
      *
      * @return JsonMapper
      */
@@ -58,12 +63,50 @@ class JsonMapperTest extends TestCase
      *
      * @param string $jsonString
      *
-     * @return array
-     * @throws JsonException
+     * @return mixed[]
      */
     private function getJsonArray(string $jsonString): array
     {
-        return json_decode($jsonString, true, 512, JSON_THROW_ON_ERROR);
+        try {
+            return json_decode($jsonString, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $exception) {
+            return [];
+        }
+    }
+
+    /**
+     * Tests if an exception is thrown if the given class name did not exists.
+     *
+     * @test
+     */
+    public function checkThatNotExistingClassNameThrowsException(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Class [\This\Class\Does\Not\Exists] does not exist');
+
+        $this->getJsonMapper()
+            ->map(
+                $this->getJsonArray(''),
+                '\This\Class\Does\Not\Exists'
+            );
+    }
+
+    /**
+     * Tests if an exception is thrown if the given collection class name did not exists.
+     *
+     * @test
+     */
+    public function checkThatNotExistingCollectionClassNameThrowsException(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Class [\This\Collection\Class\Does\Not\Exists] does not exist');
+
+        $this->getJsonMapper()
+            ->map(
+                $this->getJsonArray(''),
+                Base::class,
+                '\This\Collection\Class\Does\Not\Exists'
+            );
     }
 
     /**
@@ -82,14 +125,13 @@ class JsonMapperTest extends TestCase
      * Tests mapping an array of objects.
      *
      * @dataProvider mapArrayJsonDataProvider
-     *
      * @test
      *
      * @param string $jsonString
      */
-    public function mapArray(string $jsonString)
+    public function mapArray(string $jsonString): void
     {
-        /** @var Collection $result */
+        /** @var Collection<Base> $result */
         $result = $this->getJsonMapper()
             ->map(
                 $this->getJsonArray($jsonString),
@@ -124,9 +166,9 @@ class JsonMapperTest extends TestCase
      *
      * @param string $jsonString
      */
-    public function mapCollection(string $jsonString)
+    public function mapCollection(string $jsonString): void
     {
-        /** @var Collection $result */
+        /** @var Collection<Base> $result */
         $result = $this->getJsonMapper()
             ->map(
                 $this->getJsonArray($jsonString),
@@ -161,7 +203,7 @@ class JsonMapperTest extends TestCase
      *
      * @param string $jsonString
      */
-    public function mapSimpleArray(string $jsonString)
+    public function mapSimpleArray(string $jsonString): void
     {
         /** @var Base $result */
         $result = $this->getJsonMapper()
@@ -201,7 +243,7 @@ class JsonMapperTest extends TestCase
      *
      * @param string $jsonString
      */
-    public function mapSimpleCollection(string $jsonString)
+    public function mapSimpleCollection(string $jsonString): void
     {
         /** @var Base $result */
         $result = $this->getJsonMapper()
@@ -241,7 +283,7 @@ class JsonMapperTest extends TestCase
      *
      * @param string $jsonString
      */
-    public function mapCustomType(string $jsonString)
+    public function mapCustomType(string $jsonString): void
     {
         /** @var Base $result */
         $result = $this->getJsonMapper()
@@ -282,9 +324,9 @@ class JsonMapperTest extends TestCase
      *
      * @param string $jsonString
      */
-    public function mapSimpleTypesJson(string $jsonString)
+    public function mapSimpleTypesJson(string $jsonString): void
     {
-        /** @var Collection $result */
+        /** @var Collection<Simple> $result */
         $result = $this->getJsonMapper()
             ->map(
                 $this->getJsonArray($jsonString),
@@ -304,5 +346,85 @@ class JsonMapperTest extends TestCase
         self::assertSame(0.0, $result[1]->float);
         self::assertFalse($result[1]->bool);
         self::assertSame('', $result[1]->string);
+        self::assertNull($result[1]->empty);
+    }
+
+    /**
+     * @return string[][]
+     */
+    public function mapObjectUsingCustomClassNameJsonDataProvider(): array
+    {
+        return [
+            'mapCustomClassName' => [
+                DataProvider::mapCustomClassNameJson(),
+            ],
+        ];
+    }
+
+    /**
+     * Tests mapping an object using a custom class name provider closure.
+     *
+     * @dataProvider mapObjectUsingCustomClassNameJsonDataProvider
+     *
+     * @test
+     *
+     * @param string $jsonString
+     */
+    public function mapObjectUsingCustomClassName(string $jsonString): void
+    {
+        /** @var Base $result */
+        $result = $this->getJsonMapper()
+            ->addCustomClassMapEntry(
+                Person::class,
+                // Map each entry of the collection to a separate class
+                static function ($value): string {
+                    if ($value['is_vip']) {
+                        return VipPerson::class;
+                    }
+
+                    return Person::class;
+                }
+            )
+            ->map(
+                $this->getJsonArray($jsonString),
+                Base::class
+            );
+
+        self::assertInstanceOf(Base::class, $result);
+        self::assertInstanceOf(CustomClass::class, $result->customClass);
+        self::assertIsArray($result->customClass->persons);
+        self::assertCount(2, $result->customClass->persons);
+
+        self::assertInstanceOf(Person::class, $result->customClass->persons[0]);
+        self::assertFalse($result->customClass->persons[0]->is_vip);
+        self::assertSame('John Doe', $result->customClass->persons[0]->name);
+
+        self::assertInstanceOf(VipPerson::class, $result->customClass->persons[1]);
+        self::assertTrue($result->customClass->persons[1]->is_vip);
+        self::assertSame(2, $result->customClass->persons[1]->oscars);
+        self::assertSame('Jane Doe', $result->customClass->persons[1]->name);
+    }
+
+    /**
+     * Tests mapping null to an object not failing.
+     *
+     * @test
+     */
+    public function mapEmptyObject(): void
+    {
+        /** @var Base $result */
+        $result = $this->getJsonMapper()
+            ->map(
+                $this->getJsonArray(<<<JSON
+{
+    "simple": null
+}
+JSON
+            ),
+                Base::class
+        );
+
+        self::assertInstanceOf(Base::class, $result);
+        self::assertNull($result->simple);
     }
 }

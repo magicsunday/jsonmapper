@@ -1,0 +1,15 @@
+{
+  "customClass": {
+    "persons": [
+      {
+        "is_vip": false,
+        "name": "John Doe"
+      },
+      {
+        "is_vip": true,
+        "name": "Jane Doe",
+        "oscars": 2
+      }
+    ]
+  }
+}

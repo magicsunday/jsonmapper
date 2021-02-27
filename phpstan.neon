@@ -5,4 +5,7 @@ parameters:
     paths:
         - src
         # if you have tests and want to analyze this folder, uncomment the line below
-        # - test
+        - test
+
+    # Ignored validations
+    checkGenericClassInNonGenericObjectType: false

@@ -67,7 +67,7 @@ class JsonMapper
      *
      * @param PropertyInfoExtractorInterface $extractor
      * @param PropertyAccessorInterface      $accessor
-     * @param string[]                       $classMap  A class map to override the class names
+     * @param string[]|Closure[]             $classMap  A class map to override the class names
      */
     public function __construct(
         PropertyInfoExtractorInterface $extractor,
@@ -267,9 +267,12 @@ class JsonMapper
     {
         $className = $type->getClassName();
 
+        // @codeCoverageIgnoreStart
         if ($className === null) {
-            throw new DomainException('Class name missing');
+            // This should never happen
+            throw new DomainException('Type has no valid class name');
         }
+        // @codeCoverageIgnoreEnd
 
         if (array_key_exists($className, $this->classMap)) {
             return $this->classMap[$className];

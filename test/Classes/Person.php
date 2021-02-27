@@ -11,15 +11,24 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\Classes;
 
-use ArrayObject;
-
 /**
- * Class Collection.
+ * Class Person.
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
+ *
+ * @property int $oscars
  */
-class Collection extends ArrayObject
+class Person
 {
+    /**
+     * @var bool
+     */
+    public bool $is_vip = false;
+
+    /**
+     * @var string
+     */
+    public string $name;
 }

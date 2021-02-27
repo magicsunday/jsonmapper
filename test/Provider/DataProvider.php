@@ -25,7 +25,7 @@ class DataProvider
      */
     public static function mapArrayJson(): string
     {
-        return file_get_contents(__DIR__ . '/_files/MapArray.json');
+        return (string) file_get_contents(__DIR__ . '/_files/MapArray.json');
     }
 
     /**
@@ -33,7 +33,7 @@ class DataProvider
      */
     public static function mapCollectionJson(): string
     {
-        return file_get_contents(__DIR__ . '/_files/MapCollection.json');
+        return (string) file_get_contents(__DIR__ . '/_files/MapCollection.json');
     }
 
     /**
@@ -41,7 +41,7 @@ class DataProvider
      */
     public static function mapCustomTypeJson(): string
     {
-        return file_get_contents(__DIR__ . '/_files/MapCustomType.json');
+        return (string) file_get_contents(__DIR__ . '/_files/MapCustomType.json');
     }
 
     /**
@@ -49,7 +49,7 @@ class DataProvider
      */
     public static function mapSimpleArrayJson(): string
     {
-        return file_get_contents(__DIR__ . '/_files/MapSimpleArray.json');
+        return (string) file_get_contents(__DIR__ . '/_files/MapSimpleArray.json');
     }
 
     /**
@@ -57,7 +57,7 @@ class DataProvider
      */
     public static function mapSimpleCollectionJson(): string
     {
-        return file_get_contents(__DIR__ . '/_files/MapSimpleCollection.json');
+        return (string) file_get_contents(__DIR__ . '/_files/MapSimpleCollection.json');
     }
 
     /**
@@ -65,6 +65,14 @@ class DataProvider
      */
     public static function mapSimpleTypesJson(): string
     {
-        return file_get_contents(__DIR__ . '/_files/MapSimpleTypes.json');
+        return (string) file_get_contents(__DIR__ . '/_files/MapSimpleTypes.json');
+    }
+
+    /**
+     * @return string
+     */
+    public static function mapCustomClassNameJson(): string
+    {
+        return (string) file_get_contents(__DIR__ . '/_files/MapCustomClassName.json');
     }
 }

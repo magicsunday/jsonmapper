@@ -51,4 +51,9 @@ class Simple
      * @var string
      */
     public $string;
+
+    /**
+     * @var mixed
+     */
+    public $empty;
 }

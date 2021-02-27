@@ -52,4 +52,9 @@ class Base
      * @var Collection<Simple>
      */
     public $simpleCollection;
+
+    /**
+     * @var CustomClass
+     */
+    public $customClass;
 }
