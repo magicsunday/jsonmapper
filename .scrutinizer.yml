@@ -4,11 +4,15 @@ checks:
     duplication: true
 
 build:
+  environment:
+    php:
+      ini:
+        "xdebug.mode": coverage
   nodes:
     coverage:
       tests:
         override:
-          - command: 'vendor/bin/phpunit --configuration test/phpunit.xml --coverage-clover test/coverage.xml'
+          - command: 'vendor/bin/phpunit --configuration phpunit.xml --coverage-clover test/coverage.xml'
             coverage:
               file: 'test/coverage.xml'
               format: 'clover'

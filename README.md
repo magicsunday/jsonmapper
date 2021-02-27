@@ -1,9 +1,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 [![PHPStan](https://img.shields.io/badge/PHPStan-level%208-brightgreen.svg?style=flat)](https://github.com/phpstan/phpstan)
-[![PHPStan](https://img.shields.io/badge/PHP_CodeSniffer-PSR12-brightgreen.svg?style=flat)](https://github.com/squizlabs/PHP_CodeSniffer)
-[![PHPStan](https://img.shields.io/badge/PHPUnit-passed-brightgreen.svg?style=flat)](https://github.com/sebastianbergmann/phpunit)
-
+[![PHP_CodeSniffer](https://img.shields.io/badge/PHP_CodeSniffer-PSR12-brightgreen.svg?style=flat)](https://github.com/squizlabs/PHP_CodeSniffer)
 [![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/?branch=master)
 [![Build Status](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/badges/build.png?b=master)](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/build-status/master)
 [![Code Coverage](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/badges/coverage.png?b=master)](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/?branch=master)

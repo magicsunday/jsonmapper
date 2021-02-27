@@ -21,7 +21,7 @@ namespace MagicSunday\Test\Classes;
 class CustomClass
 {
     /**
-     * @var VipPerson[]|Person[]
+     * @var Person[]
      *
      * or alternatively use Collection<Person>
      */
