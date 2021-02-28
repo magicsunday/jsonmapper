@@ -56,16 +56,11 @@ use \Symfony\Component\PropertyInfo\PropertyInfoExtractor;
 use \Symfony\Component\PropertyAccess\PropertyAccessor;
 ```
 
+A common extractor setup:
 ```php
-// A common extractor setup
 $listExtractors = [ new ReflectionExtractor() ];
 $typeExtractors = [ new PhpDocExtractor() ];
 $propertyInfoExtractor = new PropertyInfoExtractor($listExtractors, $typeExtractors);
-```
-
-To extract PHP 7.4 typed properties you should use the `ReflectionExtractor` inside the type extractor list too:
-```php
-$typeExtractors = [ new ReflectionExtractor(), new PhpDocExtractor() ];
 ```
 
 Create an instance of the property accessor:
