@@ -11,10 +11,7 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test;
 
-use Closure;
 use InvalidArgumentException;
-use JsonException;
-use MagicSunday\JsonMapper;
 use MagicSunday\Test\Classes\Base;
 use MagicSunday\Test\Classes\Collection;
 use MagicSunday\Test\Classes\CustomClass;
@@ -23,11 +20,6 @@ use MagicSunday\Test\Classes\Person;
 use MagicSunday\Test\Classes\Simple;
 use MagicSunday\Test\Classes\VipPerson;
 use MagicSunday\Test\Provider\DataProvider;
-use PHPUnit\Framework\TestCase;
-use Symfony\Component\PropertyAccess\PropertyAccess;
-use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
-use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
-use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
 
 /**
  * Class JsonMapperTest
@@ -38,42 +30,6 @@ use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
  */
 class JsonMapperTest extends TestCase
 {
-    /**
-     * Returns an instance of the JsonMapper for testing.
-     *
-     * @param string[]|Closure[] $classMap
-     *
-     * @return JsonMapper
-     */
-    private function getJsonMapper(array $classMap = []): JsonMapper
-    {
-        $listExtractors = [ new ReflectionExtractor() ];
-        $typeExtractors = [ new PhpDocExtractor() ];
-        $extractor      = new PropertyInfoExtractor($listExtractors, $typeExtractors);
-
-        return new JsonMapper(
-            $extractor,
-            PropertyAccess::createPropertyAccessor(),
-            $classMap
-        );
-    }
-
-    /**
-     * Returns the decoded JSON as array.
-     *
-     * @param string $jsonString
-     *
-     * @return mixed[]
-     */
-    private function getJsonArray(string $jsonString): array
-    {
-        try {
-            return json_decode($jsonString, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException $exception) {
-            return [];
-        }
-    }
-
     /**
      * Tests if an exception is thrown if the given class name did not exists.
      *
@@ -112,45 +68,12 @@ class JsonMapperTest extends TestCase
     /**
      * @return string[][]
      */
-    public function mapArrayJsonDataProvider(): array
+    public function mapArrayOrCollectionJsonDataProvider(): array
     {
         return [
             'mapArray' => [
                 DataProvider::mapArrayJson(),
             ],
-        ];
-    }
-
-    /**
-     * Tests mapping an array of objects.
-     *
-     * @dataProvider mapArrayJsonDataProvider
-     * @test
-     *
-     * @param string $jsonString
-     */
-    public function mapArray(string $jsonString): void
-    {
-        /** @var Collection<Base> $result */
-        $result = $this->getJsonMapper()
-            ->map(
-                $this->getJsonArray($jsonString),
-                Base::class,
-                Collection::class
-            );
-
-        self::assertInstanceOf(Collection::class, $result);
-        self::assertContainsOnlyInstancesOf(Base::class, $result);
-        self::assertSame('Item 1', $result[0]->name);
-        self::assertSame('Item 2', $result[1]->name);
-    }
-
-    /**
-     * @return string[][]
-     */
-    public function mapCollectionJsonDataProvider(): array
-    {
-        return [
             'mapCollection' => [
                 DataProvider::mapCollectionJson(),
             ],
@@ -158,15 +81,14 @@ class JsonMapperTest extends TestCase
     }
 
     /**
-     * Tests mapping an array of objects.
+     * Tests mapping an array or collection of objects.
      *
-     * @dataProvider mapCollectionJsonDataProvider
-     *
+     * @dataProvider mapArrayOrCollectionJsonDataProvider
      * @test
      *
      * @param string $jsonString
      */
-    public function mapCollection(string $jsonString): void
+    public function mapArrayOrCollection(string $jsonString): void
     {
         /** @var Collection<Base> $result */
         $result = $this->getJsonMapper()
@@ -426,5 +348,51 @@ JSON
 
         self::assertInstanceOf(Base::class, $result);
         self::assertNull($result->simple);
+    }
+
+    /**
+     * Tests mapping a value to a private property using a setter method.
+     *
+     * @test
+     */
+    public function mapToPrivateProperty(): void
+    {
+        /** @var Base $result */
+        $result = $this->getJsonMapper()
+            ->map(
+                $this->getJsonArray(<<<JSON
+{
+    "privateProperty": "Private property value"
+}
+JSON
+                ),
+                Base::class
+            );
+
+        self::assertInstanceOf(Base::class, $result);
+        self::assertSame('Private property value', $result->getPrivateProperty());
+    }
+
+    /**
+     * Tests mapping json properties to camel case.
+     *
+     * @test
+     */
+    public function checkCamelCasePropertyConverter(): void
+    {
+        /** @var Base $result */
+        $result = $this->getJsonMapper()
+            ->map(
+                $this->getJsonArray(<<<JSON
+{
+    "private_property": "Private property value"
+}
+JSON
+                ),
+                Base::class
+            );
+
+        self::assertInstanceOf(Base::class, $result);
+        self::assertSame('Private property value', $result->getPrivateProperty());
     }
 }

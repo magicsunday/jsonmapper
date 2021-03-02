@@ -43,9 +43,14 @@ For example:
 ```
 
 ### Instantiation
-Create instances of Symfony's property info extractors to use together with the mapper. Each list of extractors
-could contain any number of available extractors. You could also create your own extractors to adjust the process
-of extracting property info to your needs.
+
+In order to create an instance of the JsonMapper you are required to pass some arguments to the constructor. The
+constructor requires an instance of `\Symfony\Component\PropertyInfo\PropertyInfoExtractor` and an instance of
+`\Symfony\Component\PropertyAccess\PropertyAccessor`. The other arguments are optional.
+
+So first create instances of Symfony's property info extractors. Each list of extractors could contain any number of 
+available extractors. You could also create your own extractors to adjust the process of extracting property info to 
+your needs.
 
 To use the `PhpDocExtractor` extractor you need to install the `phpdocumentor/reflection-docblock` library too.
 
@@ -68,9 +73,19 @@ Create an instance of the property accessor:
 $propertyAccessor = PropertyAccess::createPropertyAccessor();
 ```
 
-Add an optional class map to the JsonMapper in order to change the default mapping behaviour.
+Using the third argument you can pass a property name converter instance to the mapper. With this you can convert 
+the JSON property names to you desired format your PHP classes are using.
 ```php
-$classMap = [];
+$nameConverter = new \MagicSunday\CamelCasePropertyNameConverter();
+```
+
+The last constructor parameter allows you to pass a class map to JsonMapper in order to change the default mapping 
+behaviour. For instance if you have an SDK which maps the JSON response of a webservice to PHP. Using the class map you could override
+the default mapping to the SDK's classes by providing an alternative list of classes used to map.
+```php
+$classMap = [
+    SdkFoo::class => Foo::class,
+];
 ```
 
 Create an instance of the JsonMapper:
@@ -78,6 +93,7 @@ Create an instance of the JsonMapper:
 $mapper = new \MagicSunday\JsonMapper(
     $propertyInfoExtractor,
     $propertyAccessor,
+    $nameConverter,
     $classMap
 );
 ```
@@ -87,7 +103,7 @@ Add a custom type handler to map a JSON value into a custom class:
 // Perform special treatment if an object of type Bar should be mapped 
 $mapper->addType(
     Bar::class,
-    /* @var mixed $value JSON data */
+    /** @var mixed $value JSON data */
     static function ($value): ?Bar {
         return $value ? new Bar($value['name']) : null;
     }

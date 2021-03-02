@@ -57,4 +57,25 @@ class Base
      * @var CustomClass
      */
     public $customClass;
+
+    /**
+     * @var string
+     */
+    private string $privateProperty = '';
+
+    /**
+     * @return string
+     */
+    public function getPrivateProperty(): string
+    {
+        return $this->privateProperty;
+    }
+
+    /**
+     * @param string $privateProperty
+     */
+    public function setPrivateProperty(string $privateProperty): void
+    {
+        $this->privateProperty = $privateProperty;
+    }
 }

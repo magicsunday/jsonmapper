@@ -41,6 +41,13 @@ class JsonMapper
     private PropertyAccessorInterface $accessor;
 
     /**
+     * The property name converter instance.
+     *
+     * @var null|PropertyNameConverterInterface
+     */
+    protected ?PropertyNameConverterInterface $nameConverter = null;
+
+    /**
      * Override class names that JsonMapper uses to create objects. Useful when your
      * setter methods accept abstract classes or interfaces.
      *
@@ -65,19 +72,22 @@ class JsonMapper
     /**
      * XmlDecoder constructor.
      *
-     * @param PropertyInfoExtractorInterface $extractor
-     * @param PropertyAccessorInterface      $accessor
-     * @param string[]|Closure[]             $classMap  A class map to override the class names
+     * @param PropertyInfoExtractorInterface      $extractor
+     * @param PropertyAccessorInterface           $accessor
+     * @param null|PropertyNameConverterInterface $nameConverter A name converter instance
+     * @param string[]|Closure[]                  $classMap      A class map to override the class names
      */
     public function __construct(
         PropertyInfoExtractorInterface $extractor,
         PropertyAccessorInterface $accessor,
+        PropertyNameConverterInterface $nameConverter = null,
         array $classMap = []
     ) {
-        $this->extractor   = $extractor;
-        $this->accessor    = $accessor;
-        $this->defaultType = new Type('string');
-        $this->classMap    = $classMap;
+        $this->extractor     = $extractor;
+        $this->accessor      = $accessor;
+        $this->nameConverter = $nameConverter;
+        $this->defaultType   = new Type('string');
+        $this->classMap      = $classMap;
     }
 
     /**
@@ -122,15 +132,9 @@ class JsonMapper
      */
     public function map($json, string $className, string $collectionClassName = null)
     {
-        if (!class_exists($className)) {
-            throw new InvalidArgumentException("Class [$className] does not exist");
-        }
+        $this->assertClassesExists($className, $collectionClassName);
 
         if ($collectionClassName) {
-            if (!class_exists($collectionClassName)) {
-                throw new InvalidArgumentException("Class [$collectionClassName] does not exist");
-            }
-
             // Map all elements of the JSON array to this collection
             return $this->makeInstance(
                 $collectionClassName,
@@ -146,18 +150,39 @@ class JsonMapper
 
         // Process all children
         foreach ($json as $propertyName => $propertyValue) {
-            // Ignore all not defined properties
-            if (!in_array($propertyName, $properties, true)) {
-                continue;
+            if ($this->nameConverter) {
+                $propertyName = $this->nameConverter->convert($propertyName);
             }
 
-            $type  = $this->getType($className, $propertyName);
-            $value = $this->getValue($propertyValue, $type);
+            // Ignore all not defined properties
+            if (in_array($propertyName, $properties, true)) {
+                $type  = $this->getType($className, $propertyName);
+                $value = $this->getValue($propertyValue, $type);
 
-            $this->setProperty($entity, $propertyName, $value);
+                $this->setProperty($entity, $propertyName, $value);
+            }
         }
 
         return $entity;
+    }
+
+    /**
+     * Assert that the given classes exists.
+     *
+     * @param string      $className           The class name of the initial element
+     * @param null|string $collectionClassName The class name of a collection used to assign the initial elements
+     *
+     * @throws InvalidArgumentException
+     */
+    private function assertClassesExists(string $className, string $collectionClassName = null): void
+    {
+        if (!class_exists($className)) {
+            throw new InvalidArgumentException("Class [$className] does not exist");
+        }
+
+        if ($collectionClassName && !class_exists($collectionClassName)) {
+            throw new InvalidArgumentException("Class [$collectionClassName] does not exist");
+        }
     }
 
     /**
