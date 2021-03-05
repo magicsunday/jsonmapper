@@ -39,6 +39,14 @@ class DataProvider
     /**
      * @return string
      */
+    public static function mapCollectionWithStringKeys(): string
+    {
+        return (string) file_get_contents(__DIR__ . '/_files/MapCollectionWithStringKeys.json');
+    }
+
+    /**
+     * @return string
+     */
     public static function mapCustomTypeJson(): string
     {
         return (string) file_get_contents(__DIR__ . '/_files/MapCustomType.json');

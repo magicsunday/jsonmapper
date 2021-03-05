@@ -68,7 +68,7 @@ class JsonMapperTest extends TestCase
     /**
      * @return string[][]
      */
-    public function mapArrayOrCollectionJsonDataProvider(): array
+    public function mapArrayOrCollectionWithIntegerKeysJsonDataProvider(): array
     {
         return [
             'mapArray' => [
@@ -83,7 +83,7 @@ class JsonMapperTest extends TestCase
     /**
      * Tests mapping an array or collection of objects.
      *
-     * @dataProvider mapArrayOrCollectionJsonDataProvider
+     * @dataProvider mapArrayOrCollectionWithIntegerKeysJsonDataProvider
      * @test
      *
      * @param string $jsonString
@@ -100,8 +100,64 @@ class JsonMapperTest extends TestCase
 
         self::assertInstanceOf(Collection::class, $result);
         self::assertContainsOnlyInstancesOf(Base::class, $result);
-        self::assertSame('Item 1', $result[0]->name);
-        self::assertSame('Item 2', $result[1]->name);
+
+        $iterator = $result->getIterator();
+
+        $iterator->rewind();
+
+        self::assertSame(0, $iterator->key());
+        self::assertSame('Item 1', $iterator->current()->name);
+
+        $iterator->next();
+
+        self::assertSame(1, $iterator->key());
+        self::assertSame('Item 2', $iterator->current()->name);
+    }
+
+    /**
+     * @return string[][]
+     */
+    public function mapArrayOrCollectionWithStringKeysJsonDataProvider(): array
+    {
+        return [
+            'mapCollectionWithStringKeys' => [
+                DataProvider::mapCollectionWithStringKeys(),
+            ],
+        ];
+    }
+
+    /**
+     * Tests mapping an array or collection of objects.
+     *
+     * @dataProvider mapArrayOrCollectionWithStringKeysJsonDataProvider
+     * @test
+     *
+     * @param string $jsonString
+     */
+    public function mapArrayOrCollectionWithStringKeys(string $jsonString): void
+    {
+        /** @var Collection<Base> $result */
+        $result = $this->getJsonMapper()
+            ->map(
+                $this->getJsonArray($jsonString),
+                Base::class,
+                Collection::class
+            );
+
+        self::assertInstanceOf(Collection::class, $result);
+        self::assertContainsOnlyInstancesOf(Base::class, $result);
+
+        $iterator = $result->getIterator();
+
+        $iterator->rewind();
+
+        self::assertSame('foo', $iterator->key());
+        self::assertSame('Item 1', $iterator->current()->name);
+
+        $iterator->next();
+
+        self::assertSame('bar', $iterator->key());
+        self::assertSame('Item 2', $iterator->current()->name);
     }
 
     /**

@@ -56,7 +56,7 @@ class JsonMapper
     private array $classMap;
 
     /**
-     * The default type instance.
+     * The default value type instance.
      *
      * @var Type
      */
@@ -70,7 +70,7 @@ class JsonMapper
     private $types = [];
 
     /**
-     * XmlDecoder constructor.
+     * JsonMapper constructor.
      *
      * @param PropertyInfoExtractorInterface      $extractor
      * @param PropertyAccessorInterface           $accessor
@@ -320,8 +320,8 @@ class JsonMapper
     {
         $collection = [];
 
-        foreach ($json as $node) {
-            $collection[] = $this->getValue($node, $type);
+        foreach ($json as $key => $value) {
+            $collection[$key] = $this->getValue($value, $type);
         }
 
         return $collection;
