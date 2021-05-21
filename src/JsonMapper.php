@@ -20,6 +20,7 @@ use Symfony\Component\PropertyInfo\Type;
 
 use function array_key_exists;
 use function in_array;
+use function is_array;
 
 /**
  * JsonMapper
@@ -86,7 +87,7 @@ class JsonMapper
         $this->extractor     = $extractor;
         $this->accessor      = $accessor;
         $this->nameConverter = $nameConverter;
-        $this->defaultType   = new Type('string');
+        $this->defaultType   = new Type(Type::BUILTIN_TYPE_STRING);
         $this->classMap      = $classMap;
     }
 
@@ -125,7 +126,7 @@ class JsonMapper
      * @param string      $className           The class name of the initial element
      * @param null|string $collectionClassName The class name of a collection used to assign the initial elements
      *
-     * @return null|object|object[]
+     * @return null|mixed
      *
      * @throws InvalidArgumentException
      * @throws DomainException
@@ -134,15 +135,31 @@ class JsonMapper
     {
         $this->assertClassesExists($className, $collectionClassName);
 
-        if ($collectionClassName) {
-            // Map all elements of the JSON array to this collection
-            return $this->makeInstance(
-                $collectionClassName,
-                $this->asCollection(
+        // Handle collections
+        if ($this->isArrayOrObject($json)) {
+            if ($collectionClassName) {
+                // Map array into collection class if given
+                return $this->makeInstance(
+                    $collectionClassName,
+                    $this->asCollection(
+                        $json,
+                        new Type(
+                            Type::BUILTIN_TYPE_OBJECT,
+                            false,
+                            $className
+                        )
+                    )
+                );
+            }
+
+            // Handle plain array collections
+            if ($this->isNumericIndexArray($json)) {
+                // Map all elements of the JSON array to an array
+                return $this->asCollection(
                     $json,
-                    new Type('object', false, $className, false)
-                )
-            );
+                    new Type(Type::BUILTIN_TYPE_OBJECT, false, $className)
+                );
+            }
         }
 
         $properties = $this->getProperties($className);
@@ -164,6 +181,42 @@ class JsonMapper
         }
 
         return $entity;
+    }
+
+    /**
+     * Returns TRUE if the given json contains integer property keys.
+     *
+     * @param mixed $json
+     *
+     * @return bool
+     */
+    private function isNumericIndexArray($json): bool
+    {
+        foreach ($json as $propertyName => $propertyValue) {
+            if (is_int($propertyName)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Returns TRUE if the given json is an array or object.
+     *
+     * @param mixed $json
+     *
+     * @return bool
+     */
+    private function isArrayOrObject($json): bool
+    {
+        foreach ($json as $propertyValue) {
+            if (!is_array($propertyValue) && !is_object($propertyValue)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -192,9 +245,9 @@ class JsonMapper
      * @param string|Closure $className                The class to instantiate
      * @param mixed          $constructorArguments,... The arguments for the constructor
      *
-     * @return object
+     * @return mixed
      */
-    private function makeInstance($className, ...$constructorArguments): object
+    private function makeInstance($className, ...$constructorArguments)
     {
         return new $className(...$constructorArguments);
     }
@@ -242,7 +295,7 @@ class JsonMapper
      * @param mixed $json
      * @param Type  $type
      *
-     * @return null|array|bool|float|mixed
+     * @return null|mixed
      *
      * @throws DomainException
      */
@@ -253,7 +306,7 @@ class JsonMapper
             $collection     = $this->asCollection($json, $collectionType);
 
             // Create a new instance of the collection class
-            if ($type->getBuiltinType() === 'object') {
+            if ($type->getBuiltinType() === Type::BUILTIN_TYPE_OBJECT) {
                 return $this->makeInstance(
                     $this->getClassName($type),
                     $collection
@@ -270,7 +323,7 @@ class JsonMapper
 
         $builtinType = $type->getBuiltinType();
 
-        if ($builtinType === 'object') {
+        if ($builtinType === Type::BUILTIN_TYPE_OBJECT) {
             return $this->asObject($json, $type);
         }
 
@@ -312,12 +365,16 @@ class JsonMapper
      * @param mixed $json
      * @param Type  $type
      *
-     * @return mixed[]
+     * @return null|array<mixed>
      *
      * @throws DomainException
      */
-    private function asCollection($json, Type $type): array
+    private function asCollection($json, Type $type): ?array
     {
+        if ($json === null) {
+            return null;
+        }
+
         $collection = [];
 
         foreach ($json as $key => $value) {
@@ -333,7 +390,7 @@ class JsonMapper
      * @param mixed $json
      * @param Type  $type
      *
-     * @return mixed
+     * @return null|mixed
      *
      * @throws DomainException
      */

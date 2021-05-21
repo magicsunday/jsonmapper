@@ -115,31 +115,27 @@ class JsonMapperTest extends TestCase
     }
 
     /**
-     * @return string[][]
-     */
-    public function mapArrayOrCollectionWithStringKeysJsonDataProvider(): array
-    {
-        return [
-            'mapCollectionWithStringKeys' => [
-                DataProvider::mapCollectionWithStringKeys(),
-            ],
-        ];
-    }
-
-    /**
      * Tests mapping an array or collection of objects.
      *
-     * @dataProvider mapArrayOrCollectionWithStringKeysJsonDataProvider
      * @test
-     *
-     * @param string $jsonString
      */
-    public function mapArrayOrCollectionWithStringKeys(string $jsonString): void
+    public function mapArrayOrCollectionWithStringKeys(): void
     {
         /** @var Collection<Base> $result */
         $result = $this->getJsonMapper()
             ->map(
-                $this->getJsonArray($jsonString),
+                $this->getJsonArray(
+                    <<<JSON
+{
+  "foo": {
+    "name": "Item 1"
+  },
+  "bar": {
+    "name": "Item 2"
+  }
+}
+JSON
+                ),
                 Base::class,
                 Collection::class
             );
@@ -268,7 +264,15 @@ class JsonMapperTest extends TestCase
             ->addType(
                 CustomConstructor::class,
                 static function ($value): ?CustomConstructor {
-                    return $value ? new CustomConstructor($value['name']) : null;
+                    if (is_array($value) && $value['name']) {
+                        return new CustomConstructor($value['name']);
+                    }
+
+                    if ($value->name) {
+                        return new CustomConstructor($value->name);
+                    }
+
+                    return null;
                 }
             )
             ->map(
@@ -356,7 +360,7 @@ class JsonMapperTest extends TestCase
                 Person::class,
                 // Map each entry of the collection to a separate class
                 static function ($value): string {
-                    if ($value['is_vip']) {
+                    if ((is_array($value) && $value['is_vip']) || (($value instanceof \stdClass) && $value->is_vip)) {
                         return VipPerson::class;
                     }
 
@@ -450,5 +454,58 @@ JSON
 
         self::assertInstanceOf(Base::class, $result);
         self::assertSame('Private property value', $result->getPrivateProperty());
+    }
+
+    /**
+     * Tests mapping a JSON array with objects into a plain PHP array with objects of given class.
+     *
+     * @test
+     */
+    public function mapArrayOfObjects(): void
+    {
+        $result = $this->getJsonMapper()
+            ->map(
+                $this->getJsonArray(<<<JSON
+[
+    {
+        "name": "foo"
+    },
+    {
+        "name": "bar"
+    }
+]
+JSON
+                ),
+                Base::class
+            );
+
+        self::assertIsArray($result);
+        self::assertContainsOnlyInstancesOf(Base::class, $result);
+        self::assertSame('foo', $result[0]->name);
+        self::assertSame('bar', $result[1]->name);
+    }
+
+    /**
+     * Tests mapping a JSON object into an PHP object ignoring a given collection class as the
+     * JSON does not contain a collection.
+     *
+     * @test
+     */
+    public function mapSingleObjectWithGivenCollection(): void
+    {
+        $result = $this->getJsonMapper()
+            ->map(
+                $this->getJsonArray(<<<JSON
+{
+    "name": "foo"
+}
+JSON
+                ),
+                Base::class,
+                Collection::class
+            );
+
+        self::assertInstanceOf(Base::class, $result);
+        self::assertSame('foo', $result->name);
     }
 }

@@ -55,12 +55,12 @@ class TestCase extends \PHPUnit\Framework\TestCase
      *
      * @param string $jsonString
      *
-     * @return mixed[]
+     * @return object[]|object
      */
-    protected function getJsonArray(string $jsonString): array
+    protected function getJsonArray(string $jsonString)
     {
         try {
-            return json_decode($jsonString, true, 512, JSON_THROW_ON_ERROR);
+            return json_decode($jsonString, false, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $exception) {
             return [];
         }
