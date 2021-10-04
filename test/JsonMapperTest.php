@@ -16,6 +16,7 @@ use MagicSunday\Test\Classes\Base;
 use MagicSunday\Test\Classes\Collection;
 use MagicSunday\Test\Classes\CustomClass;
 use MagicSunday\Test\Classes\CustomConstructor;
+use MagicSunday\Test\Classes\Initialized;
 use MagicSunday\Test\Classes\MultidimensionalArray;
 use MagicSunday\Test\Classes\Person;
 use MagicSunday\Test\Classes\Simple;
@@ -511,17 +512,12 @@ JSON
     }
 
     /**
-     * Tests mapping an object using a custom class name provider closure.
+     * Tests mapping of a multidimensional array.
      *
      * @test
      */
     public function mapArrayOfArray(): void
     {
-
-        ini_set('xdebug.var_display_max_depth', '-1');
-        ini_set('xdebug.var_display_max_children', '-1');
-        ini_set('xdebug.var_display_max_data', '-1');
-
         $result = $this->getJsonMapper()
             ->map(
                 $this->getJsonArray(<<<JSON
@@ -555,5 +551,24 @@ JSON
         self::assertContainsOnly('array', $result->persons);
         self::assertContainsOnlyInstancesOf(Person::class, $result->persons[0]);
         self::assertContainsOnlyInstancesOf(Person::class, $result->persons[1]);
+    }
+
+    /**
+     * Tests mapping of values with an initial value.
+     *
+     * @test
+     */
+    public function mapInitialized(): void
+    {
+        $result = $this->getJsonMapper()
+            ->map(
+                $this->getJsonArray('{}'),
+                Initialized::class
+            );
+
+        self::assertInstanceOf(Initialized::class, $result);
+        self::assertSame(10, $result->integer);
+        self::assertSame([], $result->array);
+        self::assertFalse($result->bool);
     }
 }

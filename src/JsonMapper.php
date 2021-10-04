@@ -345,7 +345,7 @@ class JsonMapper
         if (!method_exists($type, 'getCollectionValueTypes')) {
             $collectionValueType = $type->getCollectionValueType();
         } else {
-            $collectionValueType = $type->getCollectionValueTypes()[0];
+            $collectionValueType = $type->getCollectionValueTypes()[0] ?? null;
         }
 
         return $collectionValueType ?? $this->defaultType;
