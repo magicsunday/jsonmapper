@@ -22,16 +22,22 @@ class Initialized
 {
     /**
      * @var int
+     *
+     * @MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue
      */
     public int $integer = 10;
 
     /**
      * @var bool
+     *
+     * @MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue
      */
     public bool $bool = false;
 
     /**
-     * @var array
+     * @var array<string>
+     *
+     * @MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue
      */
     public array $array = [];
 }

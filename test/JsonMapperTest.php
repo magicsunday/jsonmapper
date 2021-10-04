@@ -571,4 +571,30 @@ JSON
         self::assertSame([], $result->array);
         self::assertFalse($result->bool);
     }
+
+    /**
+     * Tests mapping of default values using @MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue
+     * annotation in case JSON contains NULL.
+     *
+     * @test
+     */
+    public function mapNullToDefaultValueUsingAnnotation(): void
+    {
+        $result = $this->getJsonMapper()
+            ->map(
+                $this->getJsonArray(<<<JSON
+{
+    "integer": null,
+    "bool": null,
+    "array": null
+}
+JSON),
+                Initialized::class
+            );
+
+        self::assertInstanceOf(Initialized::class, $result);
+        self::assertSame(10, $result->integer);
+        self::assertSame([], $result->array);
+        self::assertFalse($result->bool);
+    }
 }

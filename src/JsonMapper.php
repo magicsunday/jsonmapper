@@ -12,8 +12,13 @@ declare(strict_types=1);
 namespace MagicSunday;
 
 use Closure;
+use Doctrine\Common\Annotations\Annotation;
+use Doctrine\Common\Annotations\AnnotationReader;
 use DomainException;
 use InvalidArgumentException;
+use MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue;
+use ReflectionException;
+use ReflectionProperty;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractorInterface;
 use Symfony\Component\PropertyInfo\Type;
@@ -176,11 +181,78 @@ class JsonMapper
                 $type  = $this->getType($className, $propertyName);
                 $value = $this->getValue($propertyValue, $type);
 
+                if (
+                    ($value === null)
+                    && $this->isReplaceNullWithDefaultValueAnnotation($className, $propertyName)
+                ) {
+                    // Get the default value of the property
+                    $value = $this->getDefaultValue($className, $propertyName);
+                }
+
                 $this->setProperty($entity, $propertyName, $value);
             }
         }
 
         return $entity;
+    }
+
+    /**
+     * Returns TRUE if the property contains an "ReplaceNullWithDefaultValue" annotation.
+     *
+     * @param string $className    The class name of the initial element
+     * @param string $propertyName The name of the property
+     *
+     * @return bool
+     */
+    private function isReplaceNullWithDefaultValueAnnotation(string $className, string $propertyName): bool
+    {
+        return $this->extractPropertyAnnotation($className, $propertyName) instanceof ReplaceNullWithDefaultValue;
+    }
+
+    /**
+     * Extracts possible property annotations.
+     *
+     * @param string $className    The class name of the initial element
+     * @param string $propertyName The name of the property
+     *
+     * @return null|Annotation
+     */
+    private function extractPropertyAnnotation(string $className, string $propertyName): ?Annotation
+    {
+        try {
+            $reflectionProperty = new ReflectionProperty($className, $propertyName);
+
+            return (new AnnotationReader())->getPropertyAnnotation(
+                $reflectionProperty,
+                ReplaceNullWithDefaultValue::class
+            );
+        } catch (ReflectionException $exception) {
+            return null;
+        }
+    }
+
+    /**
+     * Extracts the default value of a property.
+     *
+     * @param string $className    The class name of the initial element
+     * @param string $propertyName The name of the property
+     *
+     * @return null|mixed
+     */
+    private function getDefaultValue(string $className, string $propertyName)
+    {
+        try {
+            $reflectionProperty = new ReflectionProperty($className, $propertyName);
+
+            // PHP 8+, use getDefaultValue() method
+            if (method_exists($reflectionProperty, 'getDefaultValue')) {
+                return $reflectionProperty->getDefaultValue();
+            }
+
+            return $reflectionProperty->getDeclaringClass()->getDefaultProperties()[$propertyName] ?? null;
+        } catch (ReflectionException $exception) {
+            return null;
+        }
     }
 
     /**
