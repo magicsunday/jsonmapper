@@ -62,6 +62,7 @@ class TestCase extends \PHPUnit\Framework\TestCase
         try {
             return json_decode($jsonString, false, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $exception) {
+            $this->addWarning('JSON: ' . $exception->getMessage() . "\n\n" . $exception->getTraceAsString());
             return [];
         }
     }

@@ -1,6 +1,7 @@
 /.idea
 /vendor
 /test/coverage
+/tests
 /coverage
 composer.lock
 .phpunit.result.cache

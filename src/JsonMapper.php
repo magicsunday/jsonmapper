@@ -68,7 +68,7 @@ class JsonMapper
      *
      * @var Closure[]
      */
-    private $types = [];
+    private array $types = [];
 
     /**
      * JsonMapper constructor.
@@ -302,7 +302,7 @@ class JsonMapper
     private function getValue($json, Type $type)
     {
         if ($type->isCollection()) {
-            $collectionType = $type->getCollectionValueType() ?? $this->defaultType;
+            $collectionType = $this->getCollectionValueType($type);
             $collection     = $this->asCollection($json, $collectionType);
 
             // Create a new instance of the collection class
@@ -330,6 +330,25 @@ class JsonMapper
         settype($json, $builtinType);
 
         return $json;
+    }
+
+    /**
+     * Gets collection value type.
+     *
+     * @param Type $type
+     *
+     * @return Type
+     */
+    public function getCollectionValueType(Type $type): Type
+    {
+        // BC for symfony < 5.3
+        if (!method_exists($type, 'getCollectionValueTypes')) {
+            $collectionValueType = $type->getCollectionValueType();
+        } else {
+            $collectionValueType = $type->getCollectionValueTypes()[0];
+        }
+
+        return $collectionValueType ?? $this->defaultType;
     }
 
     /**

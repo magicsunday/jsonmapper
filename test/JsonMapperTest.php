@@ -16,6 +16,7 @@ use MagicSunday\Test\Classes\Base;
 use MagicSunday\Test\Classes\Collection;
 use MagicSunday\Test\Classes\CustomClass;
 use MagicSunday\Test\Classes\CustomConstructor;
+use MagicSunday\Test\Classes\MultidimensionalArray;
 use MagicSunday\Test\Classes\Person;
 use MagicSunday\Test\Classes\Simple;
 use MagicSunday\Test\Classes\VipPerson;
@@ -42,7 +43,7 @@ class JsonMapperTest extends TestCase
 
         $this->getJsonMapper()
             ->map(
-                $this->getJsonArray(''),
+                $this->getJsonArray('""'), // Empty JSON
                 '\This\Class\Does\Not\Exists'
             );
     }
@@ -59,7 +60,7 @@ class JsonMapperTest extends TestCase
 
         $this->getJsonMapper()
             ->map(
-                $this->getJsonArray(''),
+                $this->getJsonArray('""'), // Empty JSON
                 Base::class,
                 '\This\Collection\Class\Does\Not\Exists'
             );
@@ -507,5 +508,52 @@ JSON
 
         self::assertInstanceOf(Base::class, $result);
         self::assertSame('foo', $result->name);
+    }
+
+    /**
+     * Tests mapping an object using a custom class name provider closure.
+     *
+     * @test
+     */
+    public function mapArrayOfArray(): void
+    {
+
+        ini_set('xdebug.var_display_max_depth', '-1');
+        ini_set('xdebug.var_display_max_children', '-1');
+        ini_set('xdebug.var_display_max_data', '-1');
+
+        $result = $this->getJsonMapper()
+            ->map(
+                $this->getJsonArray(<<<JSON
+{
+    "persons": [
+        [
+            {
+                "name": "John Doe 1"
+            },
+            {
+                "name": "Jane Doe 1"
+            }
+        ],
+        [
+            {
+                "name": "John Doe 2"
+            },
+            {
+                "name": "Jane Doe 2"
+            }
+        ]
+    ]
+}
+JSON
+                ),
+                MultidimensionalArray::class
+            );
+
+        self::assertInstanceOf(MultidimensionalArray::class, $result);
+        self::assertIsArray($result->persons);
+        self::assertContainsOnly('array', $result->persons);
+        self::assertContainsOnlyInstancesOf(Person::class, $result->persons[0]);
+        self::assertContainsOnlyInstancesOf(Person::class, $result->persons[1]);
     }
 }
