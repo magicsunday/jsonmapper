@@ -43,6 +43,30 @@ For example:
 @var Collection\SomeCollection<App\Entity\SomeEntity>
 ```
 
+
+#### Custom annotations
+Sometimes its may be required to circumvent the limitations of a poorly designed API. Together with custom
+annotations it becomes possible to fix some API design issues (e.g. mismatch between documentation and webservice
+response), to create a clean SDK.
+
+##### @MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue
+This annotation is used to inform the JsonMapper that an existing default value should be used when
+setting a property, if the value derived from the JSON is a NULL value instead of the expected property type.
+
+This can be necessary, for example, in the case of a bad API design, if the API documentation defines a
+certain type (e.g. array), but the API call itself then returns NULL if no data is available for a property
+instead of an empty array that can be expected.
+
+    /**
+     * @var array<string>
+     *
+     * @MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue
+     */
+    public array $array = [];
+
+If the mapping tries to assign NULL to the property, the default value will be used, as annotated.
+
+
 ### Instantiation
 
 In order to create an instance of the JsonMapper you are required to pass some arguments to the constructor. The
@@ -121,6 +145,7 @@ and optional the name of a collection class to the method.
 ```php
 $mappedResult = $mapper->map($json, Foo::class, FooCollection::class);
 ```
+
 
 ## Development
 
