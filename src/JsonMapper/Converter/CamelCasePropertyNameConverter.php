@@ -9,7 +9,7 @@
 
 declare(strict_types=1);
 
-namespace MagicSunday;
+namespace MagicSunday\JsonMapper\Converter;
 
 use Doctrine\Inflector\Inflector;
 use Doctrine\Inflector\InflectorFactory;

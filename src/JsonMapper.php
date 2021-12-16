@@ -17,6 +17,7 @@ use Doctrine\Common\Annotations\AnnotationReader;
 use DomainException;
 use InvalidArgumentException;
 use MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue;
+use MagicSunday\JsonMapper\Converter\PropertyNameConverterInterface;
 use ReflectionException;
 use ReflectionProperty;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
@@ -143,7 +144,7 @@ class JsonMapper
         // Handle collections
         if ($this->isArrayOrObject($json)) {
             if ($collectionClassName) {
-                // Map array into collection class if given
+                // Map arrays into collection class if given
                 return $this->makeInstance(
                     $collectionClassName,
                     $this->asCollection(

@@ -13,8 +13,8 @@ namespace MagicSunday\Test;
 
 use Closure;
 use JsonException;
-use MagicSunday\CamelCasePropertyNameConverter;
 use MagicSunday\JsonMapper;
+use MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
