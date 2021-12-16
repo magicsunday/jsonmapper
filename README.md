@@ -1,8 +1,9 @@
 [![License: GPL v3](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-[![PHPStan](https://img.shields.io/badge/PHPStan-level%208-brightgreen.svg?style=flat)](https://github.com/phpstan/phpstan)
-[![PHP_CodeSniffer](https://img.shields.io/badge/PHP_CodeSniffer-PSR12-brightgreen.svg?style=flat)](https://github.com/squizlabs/PHP_CodeSniffer)
-[![Unit tests](https://github.com/magicsunday/jsonmapper/actions/workflows/phpunit.yml/badge.svg)](https://github.com/magicsunday/jsonmapper/actions/workflows/phpunit.yml)
+[![PHPStan](https://github.com/magicsunday/jsonmapper/actions/workflows/phpstan.yml/badge.svg)](https://github.com/magicsunday/jsonmapper/actions/workflows/phpstan.yml)
+[![PHP_CodeSniffer](https://github.com/magicsunday/jsonmapper/actions/workflows/phpcs.yml/badge.svg)](https://github.com/magicsunday/jsonmapper/actions/workflows/phpcs.yml)
+[![PHPUnit](https://github.com/magicsunday/jsonmapper/actions/workflows/phpunit.yml/badge.svg)](https://github.com/magicsunday/jsonmapper/actions/workflows/phpunit.yml)
+
 [![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/?branch=master)
 [![Build Status](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/badges/build.png?b=master)](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/build-status/master)
 [![Code Coverage](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/badges/coverage.png?b=master)](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/?branch=master)
@@ -101,7 +102,7 @@ $propertyAccessor = PropertyAccess::createPropertyAccessor();
 Using the third argument you can pass a property name converter instance to the mapper. With this you can convert 
 the JSON property names to you desired format your PHP classes are using.
 ```php
-$nameConverter = new \MagicSunday\CamelCasePropertyNameConverter();
+$nameConverter = new \MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter();
 ```
 
 The last constructor parameter allows you to pass a class map to JsonMapper in order to change the default mapping 
