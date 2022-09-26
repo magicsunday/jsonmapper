@@ -24,4 +24,5 @@ jobs:
 
       - run: composer validate
       - run: composer install --no-progress
+      - run: composer require phpdocumentor/reflection-docblock
       - run: vendor/bin/phpunit --coverage-clover=tests/coverage.xml
