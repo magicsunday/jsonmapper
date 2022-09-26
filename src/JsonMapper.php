@@ -211,6 +211,23 @@ class JsonMapper
     }
 
     /**
+     * Returns the specified reflection property.
+     *
+     * @param string $className    The class name of the initial element
+     * @param string $propertyName The name of the property
+     *
+     * @return null|ReflectionProperty
+     */
+    private function getProperty(string $className, string $propertyName): ?ReflectionProperty
+    {
+        try {
+            return new ReflectionProperty($className, $propertyName);
+        } catch (ReflectionException $exception) {
+            return null;
+        }
+    }
+
+    /**
      * Extracts possible property annotations.
      *
      * @param string $className    The class name of the initial element
@@ -220,16 +237,17 @@ class JsonMapper
      */
     private function extractPropertyAnnotation(string $className, string $propertyName): ?Annotation
     {
-        try {
-            $reflectionProperty = new ReflectionProperty($className, $propertyName);
+        $reflectionProperty = $this->getProperty($className, $propertyName);
 
-            return (new AnnotationReader())->getPropertyAnnotation(
-                $reflectionProperty,
-                ReplaceNullWithDefaultValue::class
-            );
-        } catch (ReflectionException $exception) {
-            return null;
+        if ($reflectionProperty) {
+            return (new AnnotationReader())
+                ->getPropertyAnnotation(
+                    $reflectionProperty,
+                    ReplaceNullWithDefaultValue::class
+                );
         }
+
+        return null;
     }
 
     /**
@@ -242,18 +260,18 @@ class JsonMapper
      */
     private function getDefaultValue(string $className, string $propertyName)
     {
-        try {
-            $reflectionProperty = new ReflectionProperty($className, $propertyName);
+        $reflectionProperty = $this->getProperty($className, $propertyName);
 
-            // PHP 8+, use getDefaultValue() method
-            if (method_exists($reflectionProperty, 'getDefaultValue')) {
-                return $reflectionProperty->getDefaultValue();
-            }
-
-            return $reflectionProperty->getDeclaringClass()->getDefaultProperties()[$propertyName] ?? null;
-        } catch (ReflectionException $exception) {
+        if (!$reflectionProperty) {
             return null;
         }
+
+        if (method_exists($reflectionProperty, 'getDefaultValue')) {
+            // PHP 8+, use getDefaultValue() method
+            return $reflectionProperty->getDefaultValue();
+        }
+
+        return $reflectionProperty->getDeclaringClass()->getDefaultProperties()[$propertyName] ?? null;
     }
 
     /**
