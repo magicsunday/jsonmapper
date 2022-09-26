@@ -4,6 +4,9 @@ checks:
     duplication: true
 
 build:
+  dependencies:
+    before:
+      - composer require phpdocumentor/reflection-docblock
   environment:
     php:
       ini:
