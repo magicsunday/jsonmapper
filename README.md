@@ -153,7 +153,7 @@ $mappedResult = $mapper->map($json, Foo::class, FooCollection::class);
 ### Testing
 ```bash
 composer update
-vendor/bin/phpcs ./src  --standard=PSR12
+vendor/bin/phpcs ./src --standard=PSR12
 vendor/bin/phpstan analyse -c phpstan.neon
 vendor/bin/phpunit
 ```
