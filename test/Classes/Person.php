@@ -18,8 +18,9 @@ namespace MagicSunday\Test\Classes;
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
  *
- * @property int $oscars
+ * @property int $oscars Dynamic created property
  */
+#[\AllowDynamicProperties]
 class Person
 {
     /**
