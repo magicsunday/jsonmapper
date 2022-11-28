@@ -22,6 +22,8 @@ class Simple
 {
     /**
      * PHP7.4 typed property
+     *
+     * @var int
      */
     public int $id;
 
