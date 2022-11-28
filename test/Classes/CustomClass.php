@@ -25,5 +25,5 @@ class CustomClass
      *
      * or alternatively use Collection<Person>
      */
-    public array $persons = [];
+    public $persons = [];
 }

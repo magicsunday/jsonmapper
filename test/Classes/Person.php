@@ -26,10 +26,10 @@ class Person
     /**
      * @var bool
      */
-    public bool $is_vip = false;
+    public $is_vip = false;
 
     /**
      * @var string
      */
-    public string $name;
+    public $name;
 }
