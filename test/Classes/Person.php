@@ -18,6 +18,7 @@ use AllowDynamicProperties;
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
+ *
  * @link    https://github.com/magicsunday/jsonmapper/
  *
  * @property int $oscars Dynamic created property
@@ -28,10 +29,10 @@ class Person
     /**
      * @var bool
      */
-    public bool $is_vip = false;
+    public $is_vip = false;
 
     /**
      * @var string
      */
-    public string $name;
+    public $name;
 }

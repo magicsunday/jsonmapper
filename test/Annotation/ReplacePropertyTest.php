@@ -20,14 +20,16 @@ use PHPUnit\Framework\Attributes\Test;
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
+ *
  * @link    https://github.com/magicsunday/jsonmapper/
  */
 class ReplacePropertyTest extends TestCase
 {
     /**
      * Tests replacing a property.
+     *
+     * @test
      */
-    #[Test]
     public function replaceProperty(): void
     {
         $result = $this->getJsonMapper()

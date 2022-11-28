@@ -16,6 +16,7 @@ namespace MagicSunday\JsonMapper\Converter;
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
+ *
  * @link    https://github.com/magicsunday/jsonmapper/
  */
 interface PropertyNameConverterInterface

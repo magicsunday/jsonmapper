@@ -18,6 +18,7 @@ use MagicSunday\JsonMapper\Annotation\ReplaceProperty;
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
+ *
  * @link    https://github.com/magicsunday/jsonmapper/
  *
  * @ReplaceProperty("type", replaces="ftype")

@@ -19,6 +19,7 @@ use Doctrine\Inflector\InflectorFactory;
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
+ *
  * @link    https://github.com/magicsunday/jsonmapper/
  */
 class CamelCasePropertyNameConverter implements PropertyNameConverterInterface
@@ -26,7 +27,7 @@ class CamelCasePropertyNameConverter implements PropertyNameConverterInterface
     /**
      * @var Inflector
      */
-    private Inflector $inflector;
+    private $inflector;
 
     /**
      * CamelCasePropertyNameConverter constructor.

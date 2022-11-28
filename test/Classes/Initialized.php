@@ -11,11 +11,14 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\Classes;
 
+use MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue;
+
 /**
  * Class Initialized.
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
+ *
  * @link    https://github.com/magicsunday/jsonmapper/
  */
 class Initialized
@@ -23,21 +26,21 @@ class Initialized
     /**
      * @var int
      *
-     * @MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue
+     * @ReplaceNullWithDefaultValue
      */
-    public int $integer = 10;
+    public $integer = 10;
 
     /**
      * @var bool
      *
-     * @MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue
+     * @ReplaceNullWithDefaultValue
      */
-    public bool $bool = false;
+    public $bool = false;
 
     /**
      * @var array<string>
      *
-     * @MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue
+     * @ReplaceNullWithDefaultValue
      */
-    public array $array = [];
+    public $array = [];
 }

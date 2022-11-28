@@ -16,6 +16,7 @@ namespace MagicSunday\Test\Classes;
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
+ *
  * @link    https://github.com/magicsunday/jsonmapper/
  */
 class Base
@@ -61,7 +62,7 @@ class Base
     /**
      * @var string
      */
-    private string $privateProperty = '';
+    private $privateProperty = '';
 
     /**
      * @return string
