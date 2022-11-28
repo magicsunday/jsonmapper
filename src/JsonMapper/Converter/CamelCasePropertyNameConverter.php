@@ -26,7 +26,7 @@ class CamelCasePropertyNameConverter implements PropertyNameConverterInterface
     /**
      * @var Inflector
      */
-    private Inflector $inflector;
+    private $inflector;
 
     /**
      * CamelCasePropertyNameConverter constructor.
