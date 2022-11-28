@@ -25,19 +25,19 @@ class Initialized
      *
      * @MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue
      */
-    public int $integer = 10;
+    public $integer = 10;
 
     /**
      * @var bool
      *
      * @MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue
      */
-    public bool $bool = false;
+    public $bool = false;
 
     /**
      * @var array<string>
      *
      * @MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue
      */
-    public array $array = [];
+    public $array = [];
 }

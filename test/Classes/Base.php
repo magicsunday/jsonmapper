@@ -61,7 +61,7 @@ class Base
     /**
      * @var string
      */
-    private string $privateProperty = '';
+    private $privateProperty = '';
 
     /**
      * @return string

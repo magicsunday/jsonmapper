@@ -23,7 +23,7 @@ class PlainArrayClass
     /**
      * @var array<int>
      */
-    public array $values;
+    public $values;
 
     /**
      * @return array<int>
