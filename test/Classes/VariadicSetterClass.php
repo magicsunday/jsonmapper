@@ -23,7 +23,7 @@ class VariadicSetterClass
     /**
      * @var int[]
      */
-    private array $values;
+    private $values;
 
     /**
      * @return int[]

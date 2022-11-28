@@ -23,17 +23,17 @@ class VipPerson extends Person
     /**
      * @var bool
      */
-    public bool $is_vip = true;
+    public $is_vip = true;
 
     /**
      * Number of oscars won.
      *
      * @var int
      */
-    public int $oscars;
+    public $oscars;
 
     /**
      * @var string
      */
-    public string $name;
+    public $name;
 }

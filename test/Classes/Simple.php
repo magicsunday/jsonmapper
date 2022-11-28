@@ -25,14 +25,14 @@ class Simple
      *
      * @var int
      */
-    public int $id;
+    public $id;
 
     /**
      * PHP7.4 typed property
      *
      * @var string
      */
-    public string $name;
+    public $name;
 
     /**
      * @var int

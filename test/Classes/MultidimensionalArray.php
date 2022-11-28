@@ -25,5 +25,5 @@ class MultidimensionalArray
      *
      * or alternatively use @var array<array<Person>>
      */
-    public array $persons;
+    public $persons;
 }

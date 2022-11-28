@@ -44,19 +44,19 @@ class JsonMapper
     /**
      * @var PropertyInfoExtractorInterface
      */
-    private PropertyInfoExtractorInterface $extractor;
+    private $extractor;
 
     /**
      * @var PropertyAccessorInterface
      */
-    private PropertyAccessorInterface $accessor;
+    private $accessor;
 
     /**
      * The property name converter instance.
      *
      * @var null|PropertyNameConverterInterface
      */
-    protected ?PropertyNameConverterInterface $nameConverter = null;
+    protected $nameConverter = null;
 
     /**
      * Override class names that JsonMapper uses to create objects. Useful when your
@@ -64,21 +64,21 @@ class JsonMapper
      *
      * @var string[]|Closure[]
      */
-    private array $classMap;
+    private $classMap;
 
     /**
      * The default value type instance.
      *
      * @var Type
      */
-    private Type $defaultType;
+    private $defaultType;
 
     /**
      * The custom types.
      *
      * @var Closure[]
      */
-    private array $types = [];
+    private $types = [];
 
     /**
      * JsonMapper constructor.
