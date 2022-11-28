@@ -16,21 +16,24 @@ namespace MagicSunday\Test\Classes;
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
+ *
  * @link    https://github.com/magicsunday/jsonmapper/
  */
 class Simple
 {
     /**
      * PHP7.4 typed property.
+     *
+     * @var int
      */
-    public int $id;
+    public $id;
 
     /**
      * PHP7.4 typed property.
      *
      * @var string
      */
-    public string $name;
+    public $name;
 
     /**
      * @var int

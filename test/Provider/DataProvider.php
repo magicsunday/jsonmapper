@@ -16,6 +16,7 @@ namespace MagicSunday\Test\Provider;
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
+ *
  * @link    https://github.com/magicsunday/jsonmapper/
  */
 class DataProvider

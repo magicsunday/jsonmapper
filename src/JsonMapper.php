@@ -11,11 +11,14 @@ declare(strict_types=1);
 
 namespace MagicSunday;
 
+use function array_key_exists;
 use Closure;
 use Doctrine\Common\Annotations\Annotation;
 use Doctrine\Common\Annotations\AnnotationReader;
 use DomainException;
+use function in_array;
 use InvalidArgumentException;
+use function is_array;
 use MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue;
 use MagicSunday\JsonMapper\Annotation\ReplaceProperty;
 use MagicSunday\JsonMapper\Converter\PropertyNameConverterInterface;
@@ -27,15 +30,12 @@ use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractorInterface;
 use Symfony\Component\PropertyInfo\Type;
 
-use function array_key_exists;
-use function in_array;
-use function is_array;
-
 /**
  * JsonMapper.
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
+ *
  * @link    https://github.com/magicsunday/jsonmapper/
  *
  * @template TEntity
@@ -46,19 +46,19 @@ class JsonMapper
     /**
      * @var PropertyInfoExtractorInterface
      */
-    private PropertyInfoExtractorInterface $extractor;
+    private $extractor;
 
     /**
      * @var PropertyAccessorInterface
      */
-    private PropertyAccessorInterface $accessor;
+    private $accessor;
 
     /**
      * The property name converter instance.
      *
      * @var PropertyNameConverterInterface|null
      */
-    protected ?PropertyNameConverterInterface $nameConverter;
+    protected $nameConverter;
 
     /**
      * Override class names that JsonMapper uses to create objects. Useful when your
@@ -66,21 +66,21 @@ class JsonMapper
      *
      * @var string[]|Closure[]
      */
-    private array $classMap;
+    private $classMap;
 
     /**
      * The default value type instance.
      *
      * @var Type
      */
-    private Type $defaultType;
+    private $defaultType;
 
     /**
      * The custom types.
      *
      * @var Closure[]
      */
-    private array $types = [];
+    private $types = [];
 
     /**
      * JsonMapper constructor.
@@ -308,7 +308,7 @@ class JsonMapper
     {
         try {
             return new ReflectionProperty($className, $propertyName);
-        } catch (ReflectionException) {
+        } catch (ReflectionException $exception) {
             return null;
         }
     }
@@ -419,7 +419,7 @@ class JsonMapper
      *
      * @return mixed|null
      */
-    private function getDefaultValue(string $className, string $propertyName): mixed
+    private function getDefaultValue(string $className, string $propertyName)
     {
         $reflectionProperty = $this->getReflectionProperty($className, $propertyName);
 
@@ -427,7 +427,7 @@ class JsonMapper
             return null;
         }
 
-        return $reflectionProperty->getDefaultValue();
+        return $reflectionProperty->getDeclaringClass()->getDefaultProperties()[$propertyName] ?? null;
     }
 
     /**
@@ -437,7 +437,7 @@ class JsonMapper
      *
      * @return bool
      */
-    private function isNumericIndexArray(mixed $json): bool
+    private function isNumericIndexArray($json): bool
     {
         foreach ($json as $propertyName => $propertyValue) {
             if (is_int($propertyName)) {
@@ -455,7 +455,7 @@ class JsonMapper
      *
      * @return bool
      */
-    private function isIterableWithArraysOrObjects(mixed $json): bool
+    private function isIterableWithArraysOrObjects($json): bool
     {
         // Return false if JSON is not an array or object (is_iterable won't work here)
         if (!is_array($json) && !is_object($json)) {
@@ -510,7 +510,7 @@ class JsonMapper
      * @param string $name
      * @param mixed  $value
      */
-    private function setProperty(object $entity, string $name, mixed $value): void
+    private function setProperty(object $entity, string $name, $value): void
     {
         // Handle variadic setters
         if (is_array($value)) {
@@ -570,7 +570,7 @@ class JsonMapper
      *
      * @throws DomainException
      */
-    private function getValue(mixed $json, Type $type): mixed
+    private function getValue($json, Type $type)
     {
         if ((is_array($json) || is_object($json)) && $type->isCollection()) {
             $collectionType = $this->getCollectionValueType($type);
@@ -652,7 +652,7 @@ class JsonMapper
      *
      * @throws DomainException
      */
-    private function getMappedClassName(string $className, mixed $json): string
+    private function getMappedClassName(string $className, $json): string
     {
         if (array_key_exists($className, $this->classMap)) {
             $classNameOrClosure = $this->classMap[$className];
@@ -680,7 +680,7 @@ class JsonMapper
      *
      * @throws DomainException
      */
-    private function getClassName(mixed $json, Type $type): string
+    private function getClassName($json, Type $type): string
     {
         return $this->getMappedClassName(
             $this->getClassNameFromType($type),
@@ -698,7 +698,7 @@ class JsonMapper
      *
      * @throws DomainException
      */
-    private function asCollection(mixed $json, Type $type): ?array
+    private function asCollection($json, Type $type): ?array
     {
         if ($json === null) {
             return null;
@@ -723,7 +723,7 @@ class JsonMapper
      *
      * @throws DomainException
      */
-    private function asObject(mixed $json, Type $type): mixed
+    private function asObject($json, Type $type)
     {
         /** @var class-string<TEntity> $className */
         $className = $this->getClassName($json, $type);
@@ -759,7 +759,7 @@ class JsonMapper
      *
      * @return mixed
      */
-    private function callCustomClosure(mixed $json, string $typeClassName): mixed
+    private function callCustomClosure($json, string $typeClassName)
     {
         $callback = $this->types[$typeClassName];
 

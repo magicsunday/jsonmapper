@@ -25,6 +25,7 @@ use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
+ *
  * @link    https://github.com/magicsunday/jsonmapper/
  */
 class TestCase extends \PHPUnit\Framework\TestCase
@@ -57,7 +58,7 @@ class TestCase extends \PHPUnit\Framework\TestCase
      *
      * @return mixed|null
      */
-    protected function getJsonAsArray(string $jsonString): mixed
+    protected function getJsonAsArray(string $jsonString)
     {
         try {
             return json_decode($jsonString, true, 512, JSON_THROW_ON_ERROR);
@@ -73,7 +74,7 @@ class TestCase extends \PHPUnit\Framework\TestCase
      *
      * @return mixed|null
      */
-    protected function getJsonAsObject(string $jsonString): mixed
+    protected function getJsonAsObject(string $jsonString)
     {
         try {
             return json_decode($jsonString, false, 512, JSON_THROW_ON_ERROR);

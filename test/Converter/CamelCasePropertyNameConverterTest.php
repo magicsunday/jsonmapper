@@ -20,14 +20,16 @@ use PHPUnit\Framework\TestCase;
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
+ *
  * @link    https://github.com/magicsunday/jsonmapper/
  */
 class CamelCasePropertyNameConverterTest extends TestCase
 {
     /**
      * Tests mapping json properties to camel case.
+     *
+     * @test
      */
-    #[Test]
     public function checkCamelCasePropertyNameConverter(): void
     {
         $converter = new CamelCasePropertyNameConverter();

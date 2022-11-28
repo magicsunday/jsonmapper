@@ -16,6 +16,7 @@ namespace MagicSunday\Test\Classes;
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
+ *
  * @link    https://github.com/magicsunday/jsonmapper/
  */
 class VariadicSetterClass
@@ -23,7 +24,7 @@ class VariadicSetterClass
     /**
      * @var int[]
      */
-    private array $values;
+    private $values;
 
     /**
      * @return int[]

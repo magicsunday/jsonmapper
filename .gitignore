@@ -15,6 +15,7 @@ composer.lock
 
 # Cache
 .php-cs-fixer.cache
+.php_cs.cache
 .phplint.cache
 .phpunit.result.cache
 .phpunit.cache

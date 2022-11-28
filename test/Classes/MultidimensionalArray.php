@@ -16,6 +16,7 @@ namespace MagicSunday\Test\Classes;
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
+ *
  * @link    https://github.com/magicsunday/jsonmapper/
  */
 class MultidimensionalArray
@@ -25,5 +26,5 @@ class MultidimensionalArray
      *
      * or alternatively use @var array<array<Person>>
      */
-    public array $persons;
+    public $persons;
 }
