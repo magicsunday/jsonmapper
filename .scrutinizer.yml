@@ -9,6 +9,7 @@ build:
       - composer require phpdocumentor/reflection-docblock
   environment:
     php:
+      version: "7.4"
       ini:
         "xdebug.mode": coverage
   nodes:
