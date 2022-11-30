@@ -19,6 +19,7 @@ use InvalidArgumentException;
 use MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue;
 use MagicSunday\JsonMapper\Converter\PropertyNameConverterInterface;
 use ReflectionException;
+use ReflectionMethod;
 use ReflectionProperty;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractorInterface;
@@ -357,6 +358,21 @@ class JsonMapper
      */
     private function setProperty(object $entity, string $name, $value): void
     {
+        // Handle variadic setters
+        if (is_array($value)) {
+            $methodName = 'set' . ucfirst($name);
+
+            if (method_exists($entity, $methodName)) {
+                $method     = new ReflectionMethod($entity, $methodName);
+                $parameters = $method->getParameters();
+
+                if ((count($parameters) === 1) && ($parameters[0]->isVariadic())) {
+                    $entity->$methodName(...$value);
+                    return;
+                }
+            }
+        }
+
         $this->accessor->setValue($entity, $name, $value);
     }
 

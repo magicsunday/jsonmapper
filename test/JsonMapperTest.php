@@ -21,6 +21,7 @@ use MagicSunday\Test\Classes\MapPlainArrayKeyValueClass;
 use MagicSunday\Test\Classes\MultidimensionalArray;
 use MagicSunday\Test\Classes\Person;
 use MagicSunday\Test\Classes\Simple;
+use MagicSunday\Test\Classes\VariadicSetterClass;
 use MagicSunday\Test\Classes\VipPerson;
 use MagicSunday\Test\Provider\DataProvider;
 use stdClass;
@@ -696,5 +697,34 @@ JSON),
         self::assertSame(1, $result->a);
         self::assertObjectHasAttribute('z', $result);
         self::assertSame(26, $result->z);
+    }
+
+    /**
+     * Tests settings a class property using a variadic setter method.
+     *
+     * @test
+     */
+    public function variadicSetter(): void
+    {
+        /** @var VariadicSetterClass $result */
+        $result = $this->getJsonMapper()
+            ->map(
+                $this->getJsonAsObject(
+                    <<<JSON
+{
+    "values": [
+        1,
+        2,
+        3,
+        4,
+        5
+    ]
+}
+JSON
+                ),
+                VariadicSetterClass::class
+            );
+
+        self::assertEquals([1, 2, 3, 4, 5], $result->getValues());
     }
 }
