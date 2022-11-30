@@ -20,6 +20,7 @@ use MagicSunday\Test\Classes\Initialized;
 use MagicSunday\Test\Classes\MapPlainArrayKeyValueClass;
 use MagicSunday\Test\Classes\MultidimensionalArray;
 use MagicSunday\Test\Classes\Person;
+use MagicSunday\Test\Classes\PlainArrayClass;
 use MagicSunday\Test\Classes\Simple;
 use MagicSunday\Test\Classes\VariadicSetterClass;
 use MagicSunday\Test\Classes\VipPerson;
@@ -95,7 +96,6 @@ class JsonMapperTest extends TestCase
      */
     public function mapArrayOrCollection(string $jsonString): void
     {
-        /** @var Collection<Base> $result */
         $result = $this->getJsonMapper()
             ->map(
                 $this->getJsonAsArray($jsonString),
@@ -105,18 +105,8 @@ class JsonMapperTest extends TestCase
 
         self::assertInstanceOf(Collection::class, $result);
         self::assertContainsOnlyInstancesOf(Base::class, $result);
-
-        $iterator = $result->getIterator();
-
-        $iterator->rewind();
-
-        self::assertSame(0, $iterator->key());
-        self::assertSame('Item 1', $iterator->current()->name);
-
-        $iterator->next();
-
-        self::assertSame(1, $iterator->key());
-        self::assertSame('Item 2', $iterator->current()->name);
+        self::assertSame('Item 1', $result[0]->name);
+        self::assertSame('Item 2', $result[1]->name);
     }
 
     /**
@@ -126,7 +116,6 @@ class JsonMapperTest extends TestCase
      */
     public function mapArrayOrCollectionWithStringKeys(): void
     {
-        /** @var Collection<Base> $result */
         $result = $this->getJsonMapper()
             ->map(
                 $this->getJsonAsArray(
@@ -149,7 +138,6 @@ JSON
         self::assertContainsOnlyInstancesOf(Base::class, $result);
 
         $iterator = $result->getIterator();
-
         $iterator->rewind();
 
         self::assertSame('foo', $iterator->key());
@@ -184,7 +172,6 @@ JSON
      */
     public function mapSimpleArray(string $jsonString): void
     {
-        /** @var Base $result */
         $result = $this->getJsonMapper()
             ->map(
                 $this->getJsonAsArray($jsonString),
@@ -224,7 +211,6 @@ JSON
      */
     public function mapSimpleCollection(string $jsonString): void
     {
-        /** @var Base $result */
         $result = $this->getJsonMapper()
             ->map(
                 $this->getJsonAsArray($jsonString),
@@ -264,7 +250,6 @@ JSON
      */
     public function mapCustomType(string $jsonString): void
     {
-        /** @var Base $result */
         $result = $this->getJsonMapper()
             ->addType(
                 CustomConstructor::class,
@@ -313,7 +298,6 @@ JSON
      */
     public function mapSimpleTypesJson(string $jsonString): void
     {
-        /** @var Collection<Simple> $result */
         $result = $this->getJsonMapper()
             ->map(
                 $this->getJsonAsArray($jsonString),
@@ -359,7 +343,6 @@ JSON
      */
     public function mapObjectUsingCustomClassName(string $jsonString): void
     {
-        /** @var Base $result */
         $result = $this->getJsonMapper()
             ->addCustomClassMapEntry(
                 Person::class,
@@ -399,7 +382,6 @@ JSON
      */
     public function mapEmptyObject(): void
     {
-        /** @var Base $result */
         $result = $this->getJsonMapper()
             ->map(
                 $this->getJsonAsArray(<<<JSON
@@ -422,7 +404,6 @@ JSON
      */
     public function mapToPrivateProperty(): void
     {
-        /** @var Base $result */
         $result = $this->getJsonMapper()
             ->map(
                 $this->getJsonAsArray(<<<JSON
@@ -445,7 +426,6 @@ JSON
      */
     public function checkCamelCasePropertyConverter(): void
     {
-        /** @var Base $result */
         $result = $this->getJsonMapper()
             ->map(
                 $this->getJsonAsArray(<<<JSON
@@ -706,7 +686,6 @@ JSON),
      */
     public function variadicSetter(): void
     {
-        /** @var VariadicSetterClass $result */
         $result = $this->getJsonMapper()
             ->map(
                 $this->getJsonAsObject(
@@ -723,6 +702,34 @@ JSON),
 JSON
                 ),
                 VariadicSetterClass::class
+            );
+
+        self::assertEquals([1, 2, 3, 4, 5], $result->getValues());
+    }
+
+    /**
+     * Tests settings a plain array.
+     *
+     * @test
+     */
+    public function plainArrayClass(): void
+    {
+        $result = $this->getJsonMapper()
+            ->map(
+                $this->getJsonAsObject(
+                    <<<JSON
+{
+    "values": [
+        1,
+        2,
+        3,
+        4,
+        5
+    ]
+}
+JSON
+                ),
+                PlainArrayClass::class
             );
 
         self::assertEquals([1, 2, 3, 4, 5], $result->getValues());

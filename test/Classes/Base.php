@@ -49,7 +49,7 @@ class Base
     /**
      * A collection of Simple instances.
      *
-     * @var Collection<Simple>
+     * @var Collection<Simple>|Simple[]
      */
     public $simpleCollection;
 

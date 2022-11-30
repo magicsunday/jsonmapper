@@ -12,34 +12,24 @@ declare(strict_types=1);
 namespace MagicSunday\Test\Classes;
 
 /**
- * Class VariadicSetterClass.
+ * Class PlainArrayClass.
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
  */
-class VariadicSetterClass
+class PlainArrayClass
 {
     /**
-     * @var int[]
+     * @var array<int>
      */
-    private array $values;
+    public array $values;
 
     /**
-     * @return int[]
+     * @return array<int>
      */
     public function getValues(): array
     {
         return $this->values;
-    }
-
-    /**
-     * @param int ...$values
-     *
-     * @return void
-     */
-    public function setValues(int ...$values): void
-    {
-        $this->values = $values;
     }
 }
