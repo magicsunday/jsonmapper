@@ -35,6 +35,9 @@ use function is_array;
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
+ *
+ * @template T1 of object
+ * @template T2 of object
  */
 class JsonMapper
 {
@@ -129,11 +132,12 @@ class JsonMapper
     /**
      * Maps the JSON to the specified class entity.
      *
-     * @param mixed       $json                The JSON to map
-     * @param null|string $className           The class name of the initial element
-     * @param null|string $collectionClassName The class name of a collection used to assign the initial elements
+     * @param mixed                        $json                The JSON to map
+     * @param null|string|class-string<T1> $className           The class name of the initial element
+     * @param null|string|class-string<T2> $collectionClassName The class name of a collection used to assign
+     *                                                          the initial elements
      *
-     * @return null|mixed
+     * @return null|mixed|T1|T2
      *
      * @throws InvalidArgumentException
      * @throws DomainException
@@ -148,18 +152,14 @@ class JsonMapper
         $this->assertClassesExists($className, $collectionClassName);
 
         // Handle collections
-        if ($this->isArrayOrObject($json)) {
-            if ($collectionClassName) {
+        if ($this->isIterableWithArraysOrObjects($json)) {
+            if ($collectionClassName !== null) {
                 // Map arrays into collection class if given
                 return $this->makeInstance(
                     $collectionClassName,
                     $this->asCollection(
                         $json,
-                        new Type(
-                            Type::BUILTIN_TYPE_OBJECT,
-                            false,
-                            $className
-                        )
+                        new Type(Type::BUILTIN_TYPE_OBJECT, false, $className)
                     )
                 );
             }
@@ -184,23 +184,41 @@ class JsonMapper
             }
 
             // Ignore all not defined properties
-            if (in_array($propertyName, $properties, true)) {
-                $type  = $this->getType($className, $propertyName);
-                $value = $this->getValue($propertyValue, $type);
-
-                if (
-                    ($value === null)
-                    && $this->isReplaceNullWithDefaultValueAnnotation($className, $propertyName)
-                ) {
-                    // Get the default value of the property
-                    $value = $this->getDefaultValue($className, $propertyName);
-                }
-
-                $this->setProperty($entity, $propertyName, $value);
+            if (!in_array($propertyName, $properties, true)) {
+                continue;
             }
+
+            $type  = $this->getType($className, $propertyName);
+            $value = $this->getValue($propertyValue, $type);
+
+            if (
+                ($value === null)
+                && $this->isReplaceNullWithDefaultValueAnnotation($className, $propertyName)
+            ) {
+                // Get the default value of the property
+                $value = $this->getDefaultValue($className, $propertyName);
+            }
+
+            $this->setProperty($entity, $propertyName, $value);
         }
 
         return $entity;
+    }
+
+    /**
+     * Creates an instance of the given class name. If a dependency injection container is provided,
+     * it returns the instance for this.
+     *
+     * @template T of object
+     *
+     * @param Closure|string|class-string<T> $className               The class to instantiate
+     * @param mixed                          ...$constructorArguments The arguments of the constructor
+     *
+     * @return ($className is class-string<T> ? T : object)
+     */
+    private function makeInstance($className, ...$constructorArguments)
+    {
+        return new $className(...$constructorArguments);
     }
 
     /**
@@ -299,13 +317,13 @@ class JsonMapper
     }
 
     /**
-     * Returns TRUE if the given json is an array or object.
+     * Returns TRUE if the given json is a plain array or object.
      *
      * @param mixed $json
      *
      * @return bool
      */
-    private function isArrayOrObject($json): bool
+    private function isIterableWithArraysOrObjects($json): bool
     {
         foreach ($json as $propertyValue) {
             if (!is_array($propertyValue) && !is_object($propertyValue)) {
@@ -333,20 +351,6 @@ class JsonMapper
         if ($collectionClassName && !class_exists($collectionClassName)) {
             throw new InvalidArgumentException("Class [$collectionClassName] does not exist");
         }
-    }
-
-    /**
-     * Creates an instance of the given class name. If a dependency injection container is provided,
-     * it returns the instance for this.
-     *
-     * @param string|Closure $className               The class to instantiate
-     * @param mixed          ...$constructorArguments The arguments of the constructor
-     *
-     * @return mixed
-     */
-    private function makeInstance($className, ...$constructorArguments)
-    {
-        return new $className(...$constructorArguments);
     }
 
     /**
@@ -413,7 +417,7 @@ class JsonMapper
      */
     private function getValue($json, Type $type)
     {
-        if ($type->isCollection()) {
+        if ((is_array($json) || is_object($json)) && $type->isCollection()) {
             $collectionType = $this->getCollectionValueType($type);
             $collection     = $this->asCollection($json, $collectionType);
 
@@ -496,7 +500,7 @@ class JsonMapper
      * @param mixed $json
      * @param Type  $type
      *
-     * @return null|array<mixed>
+     * @return null|mixed[]
      *
      * @throws DomainException
      */
