@@ -58,12 +58,14 @@ This can be necessary, for example, in the case of a bad API design, if the API 
 certain type (e.g. array), but the API call itself then returns NULL if no data is available for a property
 instead of an empty array that can be expected.
 
-    /**
-     * @var array<string>
-     *
-     * @MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue
-     */
-    public array $array = [];
+```php
+/**
+ * @var array<string>
+ *
+ * @MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue
+ */
+public array $array = [];
+```
 
 If the mapping tries to assign NULL to the property, the default value will be used, as annotated.
 
@@ -124,14 +126,25 @@ $mapper = new \MagicSunday\JsonMapper(
 );
 ```
 
-Add a custom type handler to map a JSON value into a custom class:
+To handle custom or special types of objects, add them to the mapper. For instance to perform
+special treatment if an object of type Bar should be mapped:
 ```php
-// Perform special treatment if an object of type Bar should be mapped 
 $mapper->addType(
     Bar::class,
     /** @var mixed $value JSON data */
     static function ($value): ?Bar {
         return $value ? new Bar($value['name']) : null;
+    }
+);
+```
+
+or add a handler to map DateTime values:
+```php
+$mapper->addType(
+    \DateTime::class,
+    /** @var mixed $value JSON data */
+    static function ($value): ?\DateTime {
+        return $value ? new \DateTime($value) : null;
     }
 );
 ```
@@ -147,6 +160,30 @@ and optional the name of a collection class to the method.
 $mappedResult = $mapper->map($json, Foo::class, FooCollection::class);
 ```
 
+A complete set-up may look like this:
+
+```php
+/**
+ * Returns an instance of the JsonMapper for testing.
+ *
+ * @param string[]|Closure[] $classMap A class map to override the class names
+ *
+ * @return \MagicSunday\JsonMapper
+ */
+protected function getJsonMapper(array $classMap = []): \MagicSunday\JsonMapper
+{
+    $listExtractors = [ new ReflectionExtractor() ];
+    $typeExtractors = [ new PhpDocExtractor() ];
+    $extractor      = new PropertyInfoExtractor($listExtractors, $typeExtractors);
+
+    return new \MagicSunday\JsonMapper(
+        $extractor,
+        PropertyAccess::createPropertyAccessor(),
+        new CamelCasePropertyNameConverter(),
+        $classMap
+    );
+}
+```
 
 ## Development
 
