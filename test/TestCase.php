@@ -55,15 +55,32 @@ class TestCase extends \PHPUnit\Framework\TestCase
      *
      * @param string $jsonString
      *
-     * @return object[]|object
+     * @return null|mixed
      */
-    protected function getJsonArray(string $jsonString)
+    protected function getJsonAsArray(string $jsonString)
+    {
+        try {
+            return json_decode($jsonString, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $exception) {
+            $this->addWarning('JSON: ' . $exception->getMessage() . "\n\n" . $exception->getTraceAsString());
+            return null;
+        }
+    }
+
+    /**
+     * Returns the decoded JSON as object.
+     *
+     * @param string $jsonString
+     *
+     * @return null|mixed
+     */
+    protected function getJsonAsObject(string $jsonString)
     {
         try {
             return json_decode($jsonString, false, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $exception) {
             $this->addWarning('JSON: ' . $exception->getMessage() . "\n\n" . $exception->getTraceAsString());
-            return [];
+            return null;
         }
     }
 }

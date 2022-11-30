@@ -33,37 +33,37 @@ use MagicSunday\Test\Provider\DataProvider;
 class JsonMapperTest extends TestCase
 {
     /**
-     * Tests if an exception is thrown if the given class name did not exists.
+     * Tests if an exception is thrown if the given class name did not exist.
      *
      * @test
      */
     public function checkThatNotExistingClassNameThrowsException(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Class [\This\Class\Does\Not\Exists] does not exist');
+        $this->expectExceptionMessage('Class [\This\Class\Does\Not\Exist] does not exist');
 
         $this->getJsonMapper()
             ->map(
-                $this->getJsonArray('""'), // Empty JSON
-                '\This\Class\Does\Not\Exists'
+                $this->getJsonAsArray('""'), // Empty JSON
+                '\This\Class\Does\Not\Exist'
             );
     }
 
     /**
-     * Tests if an exception is thrown if the given collection class name did not exists.
+     * Tests if an exception is thrown if the given collection class name did not exist.
      *
      * @test
      */
     public function checkThatNotExistingCollectionClassNameThrowsException(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Class [\This\Collection\Class\Does\Not\Exists] does not exist');
+        $this->expectExceptionMessage('Class [\This\Collection\Class\Does\Not\Exist] does not exist');
 
         $this->getJsonMapper()
             ->map(
-                $this->getJsonArray('""'), // Empty JSON
+                $this->getJsonAsArray('""'), // Empty JSON
                 Base::class,
-                '\This\Collection\Class\Does\Not\Exists'
+                '\This\Collection\Class\Does\Not\Exist'
             );
     }
 
@@ -95,7 +95,7 @@ class JsonMapperTest extends TestCase
         /** @var Collection<Base> $result */
         $result = $this->getJsonMapper()
             ->map(
-                $this->getJsonArray($jsonString),
+                $this->getJsonAsArray($jsonString),
                 Base::class,
                 Collection::class
             );
@@ -126,7 +126,7 @@ class JsonMapperTest extends TestCase
         /** @var Collection<Base> $result */
         $result = $this->getJsonMapper()
             ->map(
-                $this->getJsonArray(
+                $this->getJsonAsArray(
                     <<<JSON
 {
   "foo": {
@@ -184,7 +184,7 @@ JSON
         /** @var Base $result */
         $result = $this->getJsonMapper()
             ->map(
-                $this->getJsonArray($jsonString),
+                $this->getJsonAsArray($jsonString),
                 Base::class
             );
 
@@ -224,7 +224,7 @@ JSON
         /** @var Base $result */
         $result = $this->getJsonMapper()
             ->map(
-                $this->getJsonArray($jsonString),
+                $this->getJsonAsArray($jsonString),
                 Base::class
             );
 
@@ -278,7 +278,7 @@ JSON
                 }
             )
             ->map(
-                $this->getJsonArray($jsonString),
+                $this->getJsonAsArray($jsonString),
                 Base::class
             );
 
@@ -313,7 +313,7 @@ JSON
         /** @var Collection<Simple> $result */
         $result = $this->getJsonMapper()
             ->map(
-                $this->getJsonArray($jsonString),
+                $this->getJsonAsArray($jsonString),
                 Simple::class,
                 Collection::class
             );
@@ -362,7 +362,7 @@ JSON
                 Person::class,
                 // Map each entry of the collection to a separate class
                 static function ($value): string {
-                    if ((is_array($value) && $value['is_vip']) || (($value instanceof \stdClass) && $value->is_vip)) {
+                    if ((is_array($value) && $value['is_vip']) || (($value instanceof stdClass) && $value->is_vip)) {
                         return VipPerson::class;
                     }
 
@@ -370,7 +370,7 @@ JSON
                 }
             )
             ->map(
-                $this->getJsonArray($jsonString),
+                $this->getJsonAsArray($jsonString),
                 Base::class
             );
 
@@ -399,7 +399,7 @@ JSON
         /** @var Base $result */
         $result = $this->getJsonMapper()
             ->map(
-                $this->getJsonArray(<<<JSON
+                $this->getJsonAsArray(<<<JSON
 {
     "simple": null
 }
@@ -422,7 +422,7 @@ JSON
         /** @var Base $result */
         $result = $this->getJsonMapper()
             ->map(
-                $this->getJsonArray(<<<JSON
+                $this->getJsonAsArray(<<<JSON
 {
     "privateProperty": "Private property value"
 }
@@ -445,7 +445,7 @@ JSON
         /** @var Base $result */
         $result = $this->getJsonMapper()
             ->map(
-                $this->getJsonArray(<<<JSON
+                $this->getJsonAsArray(<<<JSON
 {
     "private_property": "Private property value"
 }
@@ -467,7 +467,7 @@ JSON
     {
         $result = $this->getJsonMapper()
             ->map(
-                $this->getJsonArray(<<<JSON
+                $this->getJsonAsArray(<<<JSON
 [
     {
         "name": "foo"
@@ -497,7 +497,7 @@ JSON
     {
         $result = $this->getJsonMapper()
             ->map(
-                $this->getJsonArray(<<<JSON
+                $this->getJsonAsArray(<<<JSON
 {
     "name": "foo"
 }
@@ -520,7 +520,7 @@ JSON
     {
         $result = $this->getJsonMapper()
             ->map(
-                $this->getJsonArray(<<<JSON
+                $this->getJsonAsArray(<<<JSON
 {
     "persons": [
         [
@@ -562,7 +562,7 @@ JSON
     {
         $result = $this->getJsonMapper()
             ->map(
-                $this->getJsonArray('{}'),
+                $this->getJsonAsArray('{}'),
                 Initialized::class
             );
 
@@ -582,7 +582,7 @@ JSON
     {
         $result = $this->getJsonMapper()
             ->map(
-                $this->getJsonArray(<<<JSON
+                $this->getJsonAsArray(<<<JSON
 {
     "integer": null,
     "bool": null,
