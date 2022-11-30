@@ -17,11 +17,13 @@ use MagicSunday\Test\Classes\Collection;
 use MagicSunday\Test\Classes\CustomClass;
 use MagicSunday\Test\Classes\CustomConstructor;
 use MagicSunday\Test\Classes\Initialized;
+use MagicSunday\Test\Classes\MapPlainArrayKeyValueClass;
 use MagicSunday\Test\Classes\MultidimensionalArray;
 use MagicSunday\Test\Classes\Person;
 use MagicSunday\Test\Classes\Simple;
 use MagicSunday\Test\Classes\VipPerson;
 use MagicSunday\Test\Provider\DataProvider;
+use stdClass;
 
 /**
  * Class JsonMapperTest
@@ -596,5 +598,103 @@ JSON),
         self::assertSame(10, $result->integer);
         self::assertSame([], $result->array);
         self::assertFalse($result->bool);
+    }
+
+    /**
+     * @return string[][]
+     */
+    public function mapPlainArrayJsonDataProvider(): array
+    {
+        return [
+            'mapPlainArray' => [
+                DataProvider::mapPlainArrayJson(),
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider mapPlainArrayJsonDataProvider
+     *
+     * @param string $jsonString
+     *
+     * @test
+     */
+    public function mapPlainArray(string $jsonString): void
+    {
+        $result = $this->getJsonMapper()
+            ->map(
+                $this->getJsonAsArray($jsonString)
+            );
+
+        self::assertIsArray($result);
+        self::assertCount(26, $result);
+
+        $result = $this->getJsonMapper()
+            ->map(
+                $this->getJsonAsObject($jsonString)
+            );
+
+        self::assertIsArray($result);
+        self::assertCount(26, $result);
+    }
+
+    /**
+     * @return string[][]
+     */
+    public function mapPlainArrayKeyValueJsonDataProvider(): array
+    {
+        return [
+            'mapPlainArrayKeyValue' => [
+                DataProvider::mapPlainArrayKeyValueJson(),
+            ],
+        ];
+    }
+
+    /**
+     * @dataProvider mapPlainArrayKeyValueJsonDataProvider
+     *
+     * @param string $jsonString
+     *
+     * @test
+     */
+    public function mapPlainArrayKeyValue(string $jsonString): void
+    {
+        $result = $this->getJsonMapper()
+            ->map(
+                $this->getJsonAsArray($jsonString)
+            );
+
+        self::assertIsArray($result);
+        self::assertCount(26, $result);
+        self::assertArrayHasKey('A', $result);
+        self::assertSame(1, $result['A']);
+        self::assertArrayHasKey('Z', $result);
+        self::assertSame(26, $result['Z']);
+
+        $result = $this->getJsonMapper()
+            ->map(
+                $this->getJsonAsObject($jsonString)
+            );
+
+        self::assertIsObject($result);
+        self::assertInstanceOf(stdClass::class, $result);
+        self::assertObjectHasAttribute('A', $result);
+        self::assertSame(1, $result->A);
+        self::assertObjectHasAttribute('Z', $result);
+        self::assertSame(26, $result->Z);
+
+        // Map plain array with key <=> value pair to a custom class
+        $result = $this->getJsonMapper()
+            ->map(
+                $this->getJsonAsObject($jsonString),
+                MapPlainArrayKeyValueClass::class
+            );
+
+        self::assertIsObject($result);
+        self::assertInstanceOf(MapPlainArrayKeyValueClass::class, $result);
+        self::assertObjectHasAttribute('a', $result);
+        self::assertSame(1, $result->a);
+        self::assertObjectHasAttribute('z', $result);
+        self::assertSame(26, $result->z);
     }
 }

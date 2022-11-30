@@ -128,8 +128,8 @@ class JsonMapper
     /**
      * Maps the JSON to the specified class entity.
      *
-     * @param mixed       $json                The JSON to map
-     * @param string      $className           The class name of the initial element
+     * @param mixd        $json                The JSON to map
+     * @param null|string $className           The class name of the initial element
      * @param null|string $collectionClassName The class name of a collection used to assign the initial elements
      *
      * @return null|mixed
@@ -137,8 +137,13 @@ class JsonMapper
      * @throws InvalidArgumentException
      * @throws DomainException
      */
-    public function map($json, string $className, string $collectionClassName = null)
+    public function map($json, string $className = null, string $collectionClassName = null)
     {
+        // Return plain JSON if no mapping classes are provided
+        if (($className === null) && ($collectionClassName === null)) {
+            return $json;
+        }
+
         $this->assertClassesExists($className, $collectionClassName);
 
         // Handle collections

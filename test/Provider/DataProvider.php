@@ -75,4 +75,20 @@ class DataProvider
     {
         return (string) file_get_contents(__DIR__ . '/_files/MapCustomClassName.json');
     }
+
+    /**
+     * @return string
+     */
+    public static function mapPlainArrayJson(): string
+    {
+        return (string) file_get_contents(__DIR__ . '/_files/MapPlainArray.json');
+    }
+
+    /**
+     * @return string
+     */
+    public static function mapPlainArrayKeyValueJson(): string
+    {
+        return (string) file_get_contents(__DIR__ . '/_files/MapPlainArrayKeyValue.json');
+    }
 }
