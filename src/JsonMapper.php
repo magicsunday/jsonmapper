@@ -338,8 +338,8 @@ class JsonMapper
      * Creates an instance of the given class name. If a dependency injection container is provided,
      * it returns the instance for this.
      *
-     * @param string|Closure $className                The class to instantiate
-     * @param mixed          $constructorArguments,... The arguments for the constructor
+     * @param string|Closure $className               The class to instantiate
+     * @param mixed          ...$constructorArguments The arguments of the constructor
      *
      * @return mixed
      */
