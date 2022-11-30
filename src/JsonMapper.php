@@ -129,7 +129,7 @@ class JsonMapper
     /**
      * Maps the JSON to the specified class entity.
      *
-     * @param mixd        $json                The JSON to map
+     * @param mixed       $json                The JSON to map
      * @param null|string $className           The class name of the initial element
      * @param null|string $collectionClassName The class name of a collection used to assign the initial elements
      *
@@ -141,7 +141,7 @@ class JsonMapper
     public function map($json, string $className = null, string $collectionClassName = null)
     {
         // Return plain JSON if no mapping classes are provided
-        if (($className === null) && ($collectionClassName === null)) {
+        if ($className === null) {
             return $json;
         }
 
