@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\Classes;
 
+use ArrayAccess;
 use ArrayObject;
 
 /**
@@ -19,7 +20,12 @@ use ArrayObject;
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
+ *
+ * @template TKey of array-key
+ * @template TValue
+ *
+ * @implements ArrayAccess<array-key, Base>
  */
-class Collection extends ArrayObject
+class Collection extends ArrayObject implements ArrayAccess
 {
 }

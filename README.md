@@ -69,6 +69,24 @@ public array $array = [];
 
 If the mapping tries to assign NULL to the property, the default value will be used, as annotated.
 
+##### @MagicSunday\JsonMapper\Annotation\ReplaceProperty
+This annotation is used to inform the JsonMapper to replace one or more properties with another one. It's
+used in class context.
+
+For instance if you want to replace a cryptic named property to a more human-readable name.
+```php
+/**
+ * @MagicSunday\JsonMapper\Annotation\ReplaceProperty("type", replaces="crypticTypeNameProperty")
+ */
+class FooClass
+{
+    /**
+     * @var string
+     */
+    public $type;
+}
+```
+
 
 ### Instantiation
 

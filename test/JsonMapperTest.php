@@ -37,41 +37,6 @@ use stdClass;
 class JsonMapperTest extends TestCase
 {
     /**
-     * Tests if an exception is thrown if the given class name did not exist.
-     *
-     * @test
-     */
-    public function checkThatNotExistingClassNameThrowsException(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Class [\This\Class\Does\Not\Exist] does not exist');
-
-        $this->getJsonMapper()
-            ->map(
-                $this->getJsonAsArray('""'), // Empty JSON
-                '\This\Class\Does\Not\Exist'
-            );
-    }
-
-    /**
-     * Tests if an exception is thrown if the given collection class name did not exist.
-     *
-     * @test
-     */
-    public function checkThatNotExistingCollectionClassNameThrowsException(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Class [\This\Collection\Class\Does\Not\Exist] does not exist');
-
-        $this->getJsonMapper()
-            ->map(
-                $this->getJsonAsArray('""'), // Empty JSON
-                Base::class,
-                '\This\Collection\Class\Does\Not\Exist'
-            );
-    }
-
-    /**
      * @return string[][]
      */
     public function mapArrayOrCollectionWithIntegerKeysJsonDataProvider(): array

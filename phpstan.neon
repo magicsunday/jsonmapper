@@ -9,3 +9,8 @@ parameters:
 
     # Ignored validations
     checkGenericClassInNonGenericObjectType: false
+
+    # Ignore errors
+    ignoreErrors:
+        - '#^Method MagicSunday\\JsonMapper\:\:getReflectionClass\(\) never returns null so it can be removed from the return type.$#'
+        - '#^Dead catch - ReflectionException is never thrown in the try block.$#'

@@ -17,7 +17,9 @@ use Doctrine\Common\Annotations\AnnotationReader;
 use DomainException;
 use InvalidArgumentException;
 use MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue;
+use MagicSunday\JsonMapper\Annotation\ReplaceProperty;
 use MagicSunday\JsonMapper\Converter\PropertyNameConverterInterface;
+use ReflectionClass;
 use ReflectionException;
 use ReflectionMethod;
 use ReflectionProperty;
@@ -36,8 +38,8 @@ use function is_array;
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
  *
- * @template T1 of object
- * @template T2 of object
+ * @template TEntity
+ * @template TEntityCollection
  */
 class JsonMapper
 {
@@ -56,7 +58,7 @@ class JsonMapper
      *
      * @var null|PropertyNameConverterInterface
      */
-    protected ?PropertyNameConverterInterface $nameConverter = null;
+    protected ?PropertyNameConverterInterface $nameConverter;
 
     /**
      * Override class names that JsonMapper uses to create objects. Useful when your
@@ -118,8 +120,10 @@ class JsonMapper
     /**
      * Add a custom class map entry.
      *
-     * @param string  $className The name of the base class
-     * @param Closure $closure   The closure to execute if the base class was found
+     * @template T
+     *
+     * @param class-string<T> $className The name of the base class
+     * @param Closure         $closure   The closure to execute if the base class was found
      *
      * @return JsonMapper
      */
@@ -132,15 +136,19 @@ class JsonMapper
     /**
      * Maps the JSON to the specified class entity.
      *
-     * @param mixed                        $json                The JSON to map
-     * @param null|string|class-string<T1> $className           The class name of the initial element
-     * @param null|string|class-string<T2> $collectionClassName The class name of a collection used to assign
-     *                                                          the initial elements
+     * @param mixed                                $json                The JSON to map
+     * @param null|class-string<TEntity>           $className           The class name of the initial element
+     * @param null|class-string<TEntityCollection> $collectionClassName The class name of a collection used to assign
+     *                                                                  the initial elements
      *
-     * @return null|mixed|T1|T2
+     * @phpstan-return ($collectionClassName is class-string
+     *                      ? TEntityCollection
+     *                      : ($className is class-string ? TEntity : null|mixed))
      *
-     * @throws InvalidArgumentException
+     * @return null|mixed|TEntityCollection|TEntity
+     *
      * @throws DomainException
+     * @throws InvalidArgumentException
      */
     public function map($json, string $className = null, string $collectionClassName = null)
     {
@@ -178,7 +186,23 @@ class JsonMapper
         $entity     = $this->makeInstance($className);
 
         // Process all children
+        /** @var string $propertyName */
         foreach ($json as $propertyName => $propertyValue) {
+            // Replaces the property name with another one
+            if ($this->isReplacePropertyAnnotation($className)) {
+                $annotations = $this->extractClassAnnotations($className);
+
+                foreach ($annotations as $annotation) {
+                    if (
+                        ($annotation instanceof ReplaceProperty)
+                        && ($propertyName === $annotation->replaces)
+                    ) {
+                        /** @var string $propertyName */
+                        $propertyName = $annotation->value;
+                    }
+                }
+            }
+
             if ($this->nameConverter) {
                 $propertyName = $this->nameConverter->convert($propertyName);
             }
@@ -209,40 +233,68 @@ class JsonMapper
      * Creates an instance of the given class name. If a dependency injection container is provided,
      * it returns the instance for this.
      *
-     * @template T of object
+     * @template T
      *
-     * @param Closure|string|class-string<T> $className               The class to instantiate
-     * @param mixed                          ...$constructorArguments The arguments of the constructor
+     * @param class-string<T> $className               The class to instantiate
+     * @param mixed           ...$constructorArguments The arguments of the constructor
      *
-     * @return ($className is class-string<T> ? T : object)
+     * @return T
      */
-    private function makeInstance($className, ...$constructorArguments)
+    private function makeInstance(string $className, ...$constructorArguments)
     {
-        return new $className(...$constructorArguments);
+        /** @var T $instance */
+        $instance = new $className(...$constructorArguments);
+
+        return $instance;
     }
 
     /**
      * Returns TRUE if the property contains an "ReplaceNullWithDefaultValue" annotation.
      *
-     * @param string $className    The class name of the initial element
-     * @param string $propertyName The name of the property
+     * @template T
+     *
+     * @param class-string<T> $className    The class name of the initial element
+     * @param string          $propertyName The name of the property
      *
      * @return bool
      */
     private function isReplaceNullWithDefaultValueAnnotation(string $className, string $propertyName): bool
     {
-        return $this->extractPropertyAnnotation($className, $propertyName) instanceof ReplaceNullWithDefaultValue;
+        return $this->hasPropertyAnnotation(
+            $className,
+            $propertyName,
+            ReplaceNullWithDefaultValue::class
+        );
+    }
+
+    /**
+     * Returns TRUE if the property contains an "ReplaceProperty" annotation.
+     *
+     * @template T of TEntity
+     *
+     * @param class-string<T> $className The class name of the initial element
+     *
+     * @return bool
+     */
+    private function isReplacePropertyAnnotation(string $className): bool
+    {
+        return $this->hasClassAnnotation(
+            $className,
+            ReplaceProperty::class
+        );
     }
 
     /**
      * Returns the specified reflection property.
      *
-     * @param string $className    The class name of the initial element
-     * @param string $propertyName The name of the property
+     * @template T
+     *
+     * @param class-string<T> $className    The class name of the initial element
+     * @param string          $propertyName The name of the property
      *
      * @return null|ReflectionProperty
      */
-    private function getProperty(string $className, string $propertyName): ?ReflectionProperty
+    private function getReflectionProperty(string $className, string $propertyName): ?ReflectionProperty
     {
         try {
             return new ReflectionProperty($className, $propertyName);
@@ -252,39 +304,130 @@ class JsonMapper
     }
 
     /**
+     * Returns the specified reflection class.
+     *
+     * @template T of object
+     *
+     * @param class-string<T>|T $className The class name of the initial element
+     *
+     * @return null|ReflectionClass
+     */
+    private function getReflectionClass($className): ?ReflectionClass
+    {
+        try {
+            return new ReflectionClass($className);
+        } catch (ReflectionException $exception) {
+            return null;
+        }
+    }
+
+    /**
      * Extracts possible property annotations.
      *
-     * @param string $className    The class name of the initial element
-     * @param string $propertyName The name of the property
+     * @template T
      *
-     * @return null|Annotation
+     * @param class-string<T> $className    The class name of the initial element
+     * @param string          $propertyName The name of the property
+     *
+     * @return Annotation[]
      */
-    private function extractPropertyAnnotation(string $className, string $propertyName): ?Annotation
+    private function extractPropertyAnnotations(string $className, string $propertyName): array
     {
-        $reflectionProperty = $this->getProperty($className, $propertyName);
+        $reflectionProperty = $this->getReflectionProperty($className, $propertyName);
+        $annotations        = [];
 
         if ($reflectionProperty) {
-            return (new AnnotationReader())
-                ->getPropertyAnnotation(
-                    $reflectionProperty,
-                    ReplaceNullWithDefaultValue::class
-                );
+            /** @var Annotation[] $annotations */
+            $annotations = (new AnnotationReader())
+                ->getPropertyAnnotations($reflectionProperty);
         }
 
-        return null;
+        return $annotations;
+    }
+
+    /**
+     * Extracts possible class annotations.
+     *
+     * @template T of object
+     *
+     * @param class-string<T> $className The class name of the initial element
+     *
+     * @return Annotation[]
+     */
+    private function extractClassAnnotations($className): array
+    {
+        $reflectionClass = $this->getReflectionClass($className);
+        $annotations     = [];
+
+        if ($reflectionClass !== null) {
+            /** @var Annotation[] $annotations */
+            $annotations = (new AnnotationReader())
+                ->getClassAnnotations($reflectionClass);
+        }
+
+        return $annotations;
+    }
+
+    /**
+     * Returns TRUE if the property has the given annotation
+     *
+     * @template T
+     *
+     * @param class-string<T> $className      The class name of the initial element
+     * @param string          $propertyName   The name of the property
+     * @param string          $annotationName The name of the property annotation
+     *
+     * @return bool
+     */
+    private function hasPropertyAnnotation(string $className, string $propertyName, string $annotationName): bool
+    {
+        $annotations = $this->extractPropertyAnnotations($className, $propertyName);
+
+        foreach ($annotations as $annotation) {
+            if ($annotation instanceof $annotationName) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Returns TRUE if the class has the given annotation.
+     *
+     * @template T of TEntity
+     *
+     * @param class-string<T> $className      The class name of the initial element
+     * @param string          $annotationName The name of the class annotation
+     *
+     * @return bool
+     */
+    private function hasClassAnnotation(string $className, string $annotationName): bool
+    {
+        $annotations = $this->extractClassAnnotations($className);
+
+        foreach ($annotations as $annotation) {
+            if ($annotation instanceof $annotationName) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
      * Extracts the default value of a property.
      *
-     * @param string $className    The class name of the initial element
-     * @param string $propertyName The name of the property
+     * @template T
+     *
+     * @param class-string<T> $className    The class name of the initial element
+     * @param string          $propertyName The name of the property
      *
      * @return null|mixed
      */
     private function getDefaultValue(string $className, string $propertyName)
     {
-        $reflectionProperty = $this->getProperty($className, $propertyName);
+        $reflectionProperty = $this->getReflectionProperty($className, $propertyName);
 
         if (!$reflectionProperty) {
             return null;
@@ -337,8 +480,9 @@ class JsonMapper
     /**
      * Assert that the given classes exists.
      *
-     * @param string      $className           The class name of the initial element
-     * @param null|string $collectionClassName The class name of a collection used to assign the initial elements
+     * @param class-string      $className           The class name of the initial element
+     * @param null|class-string $collectionClassName The class name of a collection used to
+     *                                               assign the initial elements
      *
      * @throws InvalidArgumentException
      */
@@ -356,11 +500,11 @@ class JsonMapper
     /**
      * Sets a property value.
      *
-     * @param object $entity
-     * @param string $name
-     * @param mixed  $value
+     * @param TEntity $entity
+     * @param string  $name
+     * @param mixed   $value
      */
-    private function setProperty(object $entity, string $name, $value): void
+    private function setProperty($entity, string $name, $value): void
     {
         // Handle variadic setters
         if (is_array($value)) {
@@ -424,7 +568,7 @@ class JsonMapper
             // Create a new instance of the collection class
             if ($type->getBuiltinType() === Type::BUILTIN_TYPE_OBJECT) {
                 return $this->makeInstance(
-                    $this->getClassName($type),
+                    $this->getClassName($json, $type),
                     $collection
                 );
             }
@@ -472,13 +616,29 @@ class JsonMapper
      *
      * @param Type $type
      *
-     * @return string|Closure
+     * @return null|string
      *
      * @throws DomainException
      */
-    private function getClassName(Type $type)
+    private function getClassNameFromType(Type $type): ?string
     {
-        $className = $type->getClassName();
+        return $type->getClassName();
+    }
+
+    /**
+     * Returns the class name.
+     *
+     * @param mixed $json
+     * @param Type  $type
+     *
+     * @return class-string
+     *
+     * @throws DomainException
+     */
+    private function getClassName($json, Type $type)
+    {
+        /** @var null|class-string $className */
+        $className = $this->getClassNameFromType($type);
 
         // @codeCoverageIgnoreStart
         if ($className === null) {
@@ -488,7 +648,13 @@ class JsonMapper
         // @codeCoverageIgnoreEnd
 
         if (array_key_exists($className, $this->classMap)) {
-            return $this->classMap[$className];
+            $classNameOrClosure = $this->classMap[$className];
+
+            // Execute closure to get the mapped class name
+            if ($classNameOrClosure instanceof Closure) {
+                /** @var class-string $className */
+                $className = $classNameOrClosure($json);
+            }
         }
 
         return $className;
@@ -531,12 +697,8 @@ class JsonMapper
      */
     private function asObject($json, Type $type)
     {
-        $className = $this->getClassName($type);
-
-        // Execute closure to get the mapped class name
-        if ($className instanceof Closure) {
-            $className = $className($json);
-        }
+        /** @var class-string<TEntity> $className */
+        $className = $this->getClassName($json, $type);
 
         if ($this->isCustomType($className)) {
             return $this->callCustomClosure($json, $className);
@@ -548,26 +710,30 @@ class JsonMapper
     /**
      * Determine if the specified type is a custom type.
      *
-     * @param string $type
+     * @template T
+     *
+     * @param class-string<T> $typeClassName
      *
      * @return bool
      */
-    private function isCustomType(string $type): bool
+    private function isCustomType(string $typeClassName): bool
     {
-        return array_key_exists($type, $this->types);
+        return array_key_exists($typeClassName, $this->types);
     }
 
     /**
      * Call the custom closure for the specified type.
      *
-     * @param mixed  $json
-     * @param string $type
+     * @template T
+     *
+     * @param mixed           $json
+     * @param class-string<T> $typeClassName
      *
      * @return mixed
      */
-    private function callCustomClosure($json, string $type)
+    private function callCustomClosure($json, string $typeClassName)
     {
-        $callback = $this->types[$type];
+        $callback = $this->types[$typeClassName];
         return $callback($json);
     }
 }

@@ -24,6 +24,6 @@ use Doctrine\Common\Annotations\Annotation;
  * @Annotation
  * @Target({"PROPERTY"})
  */
-class ReplaceNullWithDefaultValue extends Annotation
+final class ReplaceNullWithDefaultValue extends Annotation
 {
 }

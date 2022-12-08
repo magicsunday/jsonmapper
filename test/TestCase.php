@@ -55,7 +55,7 @@ class TestCase extends \PHPUnit\Framework\TestCase
      *
      * @param string $jsonString
      *
-     * @return null|mixed
+     * @return null|mixed[]
      */
     protected function getJsonAsArray(string $jsonString)
     {
@@ -72,7 +72,7 @@ class TestCase extends \PHPUnit\Framework\TestCase
      *
      * @param string $jsonString
      *
-     * @return null|mixed
+     * @return null|object
      */
     protected function getJsonAsObject(string $jsonString)
     {
