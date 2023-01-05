@@ -4,9 +4,6 @@
 [![PHP_CodeSniffer](https://github.com/magicsunday/jsonmapper/actions/workflows/phpcs.yml/badge.svg)](https://github.com/magicsunday/jsonmapper/actions/workflows/phpcs.yml)
 [![PHPUnit](https://github.com/magicsunday/jsonmapper/actions/workflows/phpunit.yml/badge.svg)](https://github.com/magicsunday/jsonmapper/actions/workflows/phpunit.yml)
 
-[![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/?branch=master)
-[![Build Status](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/badges/build.png?b=master)](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/build-status/master)
-[![Code Coverage](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/badges/coverage.png?b=master)](https://scrutinizer-ci.com/g/magicsunday/jsonmapper/?branch=master)
 [![Code Climate](https://codeclimate.com/github/magicsunday/jsonmapper/badges/gpa.svg)](https://codeclimate.com/github/magicsunday/jsonmapper)
 
 # JsonMapper
