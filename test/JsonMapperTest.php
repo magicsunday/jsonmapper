@@ -11,8 +11,11 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test;
 
-use InvalidArgumentException;
 use MagicSunday\Test\Classes\Base;
+use MagicSunday\Test\Classes\ClassMap\CollectionSource;
+use MagicSunday\Test\Classes\ClassMap\CollectionTarget;
+use MagicSunday\Test\Classes\ClassMap\SourceItem;
+use MagicSunday\Test\Classes\ClassMap\TargetItem;
 use MagicSunday\Test\Classes\Collection;
 use MagicSunday\Test\Classes\CustomClass;
 use MagicSunday\Test\Classes\CustomConstructor;
@@ -698,5 +701,64 @@ JSON
             );
 
         self::assertEquals([1, 2, 3, 4, 5], $result->getValues());
+    }
+
+    /**
+     * Tests mapping an object to a custom class using a class map entry.
+     *
+     * @test
+     */
+    public function mappingBaseElementUsingClassMap(): void
+    {
+        $result = $this->getJsonMapper([
+            SourceItem::class => TargetItem::class,
+        ])
+            ->map(
+                $this->getJsonAsObject(
+                    <<<JSON
+{
+    "item": {}
+}
+JSON
+                ),
+                SourceItem::class
+            );
+
+        self::assertInstanceOf(TargetItem::class, $result);
+    }
+
+    /**
+     * Tests mapping a collection of objects to a custom class using a class map entry.
+     *
+     * @test
+     */
+    public function mappingCollectionElementsUsingClassMap(): void
+    {
+        $result = $this->getJsonMapper([
+            SourceItem::class       => TargetItem::class,
+            CollectionSource::class => CollectionTarget::class,
+        ])
+            ->map(
+                $this->getJsonAsObject(
+                    <<<JSON
+[
+    {
+        "item": {}
+    },
+    {
+        "item": {}
+    },
+    {
+        "item": {}
+    }
+]
+JSON
+                ),
+                SourceItem::class,
+                CollectionSource::class
+            );
+
+        self::assertInstanceOf(CollectionTarget::class, $result);
+        self::assertContainsOnlyInstancesOf(TargetItem::class, $result);
     }
 }
