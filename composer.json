@@ -14,15 +14,15 @@
         "issues": "https://github.com/magicsunday/jsonmapper/issues"
     },
     "require": {
-        "php": ">=7.4.0 <8.1.0",
+        "php": ">=8.1.0 <8.4.0",
         "ext-json": "*",
-        "symfony/property-info": "^5.0 || ^6.0 || ^7.0",
-        "symfony/property-access": "^5.0 || ^6.0 || ^7.0",
-        "doctrine/inflector": "^1.0 || ^2.0",
-        "doctrine/annotations": "^1.0"
+        "symfony/property-info": "^6.0 || ^7.0",
+        "symfony/property-access": "^6.0 || ^7.0",
+        "doctrine/inflector": "^2.0",
+        "doctrine/annotations": "^2.0"
     },
     "require-dev": {
-        "phpdocumentor/reflection-docblock": "^4.0 || ^5.0",
+        "phpdocumentor/reflection-docblock": "^5.0",
         "friendsofphp/php-cs-fixer": "^3.50",
         "overtrue/phplint": "^3.4 || ^9.0",
         "phpunit/phpunit": "^9.0 || ^10.0 || ^11.0",
