@@ -44,7 +44,8 @@ return static function (RectorConfig $rectorConfig): void {
         SetList::CODING_STYLE,
         SetList::CODE_QUALITY,
         SetList::DEAD_CODE,
-        LevelSetList::UP_TO_PHP_81,
+        SetLIst::PHP_73,
+        LevelSetList::UP_TO_PHP_73,
     ]);
 
     // Skip some rules

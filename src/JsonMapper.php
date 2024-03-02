@@ -248,7 +248,7 @@ class JsonMapper
      *
      * @return T
      */
-    private function makeInstance(string $className, ...$constructorArguments)
+    private function makeInstance(string $className, ?array ...$constructorArguments)
     {
         /** @var T $instance */
         $instance = new $className(...$constructorArguments);
@@ -332,15 +332,13 @@ class JsonMapper
     private function extractPropertyAnnotations(string $className, string $propertyName): array
     {
         $reflectionProperty = $this->getReflectionProperty($className, $propertyName);
-        $annotations        = [];
 
-        if ($reflectionProperty) {
-            /** @var Annotation[] $annotations */
-            $annotations = (new AnnotationReader())
+        if ($reflectionProperty instanceof ReflectionProperty) {
+            return (new AnnotationReader())
                 ->getPropertyAnnotations($reflectionProperty);
         }
 
-        return $annotations;
+        return [];
     }
 
     /**
@@ -350,18 +348,16 @@ class JsonMapper
      *
      * @return Annotation[]
      */
-    private function extractClassAnnotations($className): array
+    private function extractClassAnnotations(string $className): array
     {
         $reflectionClass = $this->getReflectionClass($className);
-        $annotations     = [];
 
-        if ($reflectionClass !== null) {
-            /** @var Annotation[] $annotations */
-            $annotations = (new AnnotationReader())
+        if ($reflectionClass instanceof ReflectionClass) {
+            return (new AnnotationReader())
                 ->getClassAnnotations($reflectionClass);
         }
 
-        return $annotations;
+        return [];
     }
 
     /**
@@ -419,7 +415,7 @@ class JsonMapper
     {
         $reflectionProperty = $this->getReflectionProperty($className, $propertyName);
 
-        if (!$reflectionProperty) {
+        if (!($reflectionProperty instanceof ReflectionProperty)) {
             return null;
         }
 
@@ -459,9 +455,15 @@ class JsonMapper
     private function isIterableWithArraysOrObjects($json): bool
     {
         foreach ($json as $propertyValue) {
-            if (!is_array($propertyValue) && !is_object($propertyValue)) {
-                return false;
+            if (is_array($propertyValue)) {
+                continue;
             }
+
+            if (is_object($propertyValue)) {
+                continue;
+            }
+
+            return false;
         }
 
         return true;
@@ -479,12 +481,18 @@ class JsonMapper
     private function assertClassesExists(string $className, string $collectionClassName = null): void
     {
         if (!class_exists($className)) {
-            throw new InvalidArgumentException("Class [$className] does not exist");
+            throw new InvalidArgumentException(sprintf('Class [%s] does not exist', $className));
         }
 
-        if ($collectionClassName && !class_exists($collectionClassName)) {
-            throw new InvalidArgumentException("Class [$collectionClassName] does not exist");
+        if (!$collectionClassName) {
+            return;
         }
+
+        if (class_exists($collectionClassName)) {
+            return;
+        }
+
+        throw new InvalidArgumentException(sprintf('Class [%s] does not exist', $collectionClassName));
     }
 
     /**
@@ -620,6 +628,7 @@ class JsonMapper
             // This should never happen
             throw new DomainException('Type has no valid class name');
         }
+
         // @codeCoverageIgnoreEnd
 
         return $className;
