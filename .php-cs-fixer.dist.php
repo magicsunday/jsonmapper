@@ -93,6 +93,13 @@ return (new PhpCsFixer\Config())
             'less_and_greater'     => false,
             'always_move_variable' => false,
         ],
+        'blank_line_before_statement'     => [
+            'statements' => [
+                'return',
+                'if',
+                'throw',
+            ],
+        ],
     ])
     ->setFinder(
         PhpCsFixer\Finder::create()

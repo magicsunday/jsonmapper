@@ -21,7 +21,7 @@ use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
 
 /**
- * Class JsonMapperTest
+ * Class JsonMapperTest.
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
@@ -38,8 +38,8 @@ class TestCase extends \PHPUnit\Framework\TestCase
      */
     protected function getJsonMapper(array $classMap = []): JsonMapper
     {
-        $listExtractors = [ new ReflectionExtractor() ];
-        $typeExtractors = [ new PhpDocExtractor() ];
+        $listExtractors = [new ReflectionExtractor()];
+        $typeExtractors = [new PhpDocExtractor()];
         $extractor      = new PropertyInfoExtractor($listExtractors, $typeExtractors);
 
         return new JsonMapper(
@@ -55,7 +55,7 @@ class TestCase extends \PHPUnit\Framework\TestCase
      *
      * @param string $jsonString
      *
-     * @return null|mixed[]
+     * @return mixed[]|null
      */
     protected function getJsonAsArray(string $jsonString)
     {
@@ -63,6 +63,7 @@ class TestCase extends \PHPUnit\Framework\TestCase
             return json_decode($jsonString, true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $exception) {
             $this->addWarning('JSON: ' . $exception->getMessage() . "\n\n" . $exception->getTraceAsString());
+
             return null;
         }
     }
@@ -72,7 +73,7 @@ class TestCase extends \PHPUnit\Framework\TestCase
      *
      * @param string $jsonString
      *
-     * @return null|object
+     * @return object|null
      */
     protected function getJsonAsObject(string $jsonString)
     {
@@ -80,6 +81,7 @@ class TestCase extends \PHPUnit\Framework\TestCase
             return json_decode($jsonString, false, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $exception) {
             $this->addWarning('JSON: ' . $exception->getMessage() . "\n\n" . $exception->getTraceAsString());
+
             return null;
         }
     }

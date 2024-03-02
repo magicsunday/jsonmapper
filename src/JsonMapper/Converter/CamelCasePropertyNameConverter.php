@@ -15,7 +15,7 @@ use Doctrine\Inflector\Inflector;
 use Doctrine\Inflector\InflectorFactory;
 
 /**
- * CamelCasePropertyNameConverter
+ * CamelCasePropertyNameConverter.
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT

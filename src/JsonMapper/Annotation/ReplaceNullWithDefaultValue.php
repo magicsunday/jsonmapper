@@ -22,6 +22,7 @@ use Doctrine\Common\Annotations\Annotation;
  * instead of an empty array that can be expected.
  *
  * @Annotation
+ *
  * @Target({"PROPERTY"})
  */
 final class ReplaceNullWithDefaultValue extends Annotation

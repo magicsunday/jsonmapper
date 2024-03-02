@@ -15,7 +15,7 @@ use MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Class CamelCasePropertyNameConverterTest
+ * Class CamelCasePropertyNameConverterTest.
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT

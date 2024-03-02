@@ -21,12 +21,12 @@ namespace MagicSunday\Test\Classes;
 class Simple
 {
     /**
-     * PHP7.4 typed property
+     * PHP7.4 typed property.
      */
     public int $id;
 
     /**
-     * PHP7.4 typed property
+     * PHP7.4 typed property.
      *
      * @var string
      */

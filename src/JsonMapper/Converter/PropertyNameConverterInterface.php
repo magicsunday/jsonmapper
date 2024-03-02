@@ -12,7 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\JsonMapper\Converter;
 
 /**
- * PropertyNameConverterInterface
+ * PropertyNameConverterInterface.
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT

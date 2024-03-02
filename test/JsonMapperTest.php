@@ -31,7 +31,7 @@ use MagicSunday\Test\Provider\DataProvider;
 use stdClass;
 
 /**
- * Class JsonMapperTest
+ * Class JsonMapperTest.
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
@@ -58,6 +58,7 @@ class JsonMapperTest extends TestCase
      * Tests mapping an array or collection of objects.
      *
      * @dataProvider mapArrayOrCollectionWithIntegerKeysJsonDataProvider
+     *
      * @test
      *
      * @param string $jsonString
@@ -357,9 +358,9 @@ JSON
     "simple": null
 }
 JSON
-            ),
+                ),
                 Base::class
-        );
+            );
 
         self::assertInstanceOf(Base::class, $result);
         self::assertNull($result->simple);

@@ -22,6 +22,7 @@ use Doctrine\Common\Annotations\Annotation;
  *    @ReplaceProperty("foo", replaces="bar")
  *
  * @Annotation
+ *
  * @Target({"CLASS"})
  */
 final class ReplaceProperty extends Annotation
