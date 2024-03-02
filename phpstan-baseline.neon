@@ -1,0 +1,6 @@
+parameters:
+	ignoreErrors:
+		-
+			message: "#^Method MagicSunday\\\\JsonMapper\\:\\:makeInstance\\(\\) has parameter \\$constructorArguments with no value type specified in iterable type array\\.$#"
+			count: 1
+			path: src/JsonMapper.php

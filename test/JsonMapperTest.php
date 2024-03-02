@@ -42,7 +42,7 @@ class JsonMapperTest extends TestCase
     /**
      * @return string[][]
      */
-    public function mapArrayOrCollectionWithIntegerKeysJsonDataProvider(): array
+    public static function mapArrayOrCollectionWithIntegerKeysJsonDataProvider(): array
     {
         return [
             'mapArray' => [
@@ -121,7 +121,7 @@ JSON
     /**
      * @return string[][]
      */
-    public function mapSimpleArrayJsonDataProvider(): array
+    public static function mapSimpleArrayJsonDataProvider(): array
     {
         return [
             'mapSimpleArray' => [
@@ -160,7 +160,7 @@ JSON
     /**
      * @return string[][]
      */
-    public function mapSimpleCollectionJsonDataProvider(): array
+    public static function mapSimpleCollectionJsonDataProvider(): array
     {
         return [
             'mapSimpleCollection' => [
@@ -199,7 +199,7 @@ JSON
     /**
      * @return string[][]
      */
-    public function mapCustomTypeJsonDataProvider(): array
+    public static function mapCustomTypeJsonDataProvider(): array
     {
         return [
             'mapCustomType' => [
@@ -247,7 +247,7 @@ JSON
     /**
      * @return string[][]
      */
-    public function mapSimpleTypesJsonDataProvider(): array
+    public static function mapSimpleTypesJsonDataProvider(): array
     {
         return [
             'mapCustomType' => [
@@ -292,7 +292,7 @@ JSON
     /**
      * @return string[][]
      */
-    public function mapObjectUsingCustomClassNameJsonDataProvider(): array
+    public static function mapObjectUsingCustomClassNameJsonDataProvider(): array
     {
         return [
             'mapCustomClassName' => [
@@ -553,7 +553,7 @@ JSON),
     /**
      * @return string[][]
      */
-    public function mapPlainArrayJsonDataProvider(): array
+    public static function mapPlainArrayJsonDataProvider(): array
     {
         return [
             'mapPlainArray' => [
@@ -591,7 +591,7 @@ JSON),
     /**
      * @return string[][]
      */
-    public function mapPlainArrayKeyValueJsonDataProvider(): array
+    public static function mapPlainArrayKeyValueJsonDataProvider(): array
     {
         return [
             'mapPlainArrayKeyValue' => [
@@ -628,9 +628,9 @@ JSON),
 
         self::assertIsObject($result);
         self::assertInstanceOf(stdClass::class, $result);
-        self::assertObjectHasAttribute('A', $result);
+        self::assertObjectHasProperty('A', $result);
         self::assertSame(1, $result->A);
-        self::assertObjectHasAttribute('Z', $result);
+        self::assertObjectHasProperty('Z', $result);
         self::assertSame(26, $result->Z);
 
         // Map plain array with key <=> value pair to a custom class
@@ -642,9 +642,9 @@ JSON),
 
         self::assertIsObject($result);
         self::assertInstanceOf(MapPlainArrayKeyValueClass::class, $result);
-        self::assertObjectHasAttribute('a', $result);
+        self::assertObjectHasProperty('a', $result);
         self::assertSame(1, $result->a);
-        self::assertObjectHasAttribute('z', $result);
+        self::assertObjectHasProperty('z', $result);
         self::assertSame(26, $result->z);
     }
 

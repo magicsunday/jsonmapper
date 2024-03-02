@@ -11,6 +11,8 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\Classes;
 
+use AllowDynamicProperties;
+
 /**
  * Class Person.
  *
@@ -20,7 +22,7 @@ namespace MagicSunday\Test\Classes;
  *
  * @property int $oscars Dynamic created property
  */
-#[\AllowDynamicProperties]
+#[AllowDynamicProperties]
 class Person
 {
     /**

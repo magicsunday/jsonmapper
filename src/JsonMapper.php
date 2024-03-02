@@ -316,11 +316,11 @@ class JsonMapper
      */
     private function getReflectionClass(string $className): ?ReflectionClass
     {
-        try {
-            return new ReflectionClass($className);
-        } catch (ReflectionException $exception) {
+        if (!class_exists($className)) {
             return null;
         }
+
+        return new ReflectionClass($className);
     }
 
     /**
@@ -421,12 +421,7 @@ class JsonMapper
             return null;
         }
 
-        if (method_exists($reflectionProperty, 'getDefaultValue')) {
-            // PHP 8+, use getDefaultValue() method
-            return $reflectionProperty->getDefaultValue();
-        }
-
-        return $reflectionProperty->getDeclaringClass()->getDefaultProperties()[$propertyName] ?? null;
+        return $reflectionProperty->getDefaultValue();
     }
 
     /**
@@ -515,7 +510,11 @@ class JsonMapper
                 $parameters = $method->getParameters();
 
                 if ((count($parameters) === 1) && $parameters[0]->isVariadic()) {
-                    $entity->$methodName(...$value);
+                    $callable = [$entity, $methodName];
+
+                    if (is_callable($callable)) {
+                        call_user_func_array($callable, $value);
+                    }
 
                     return;
                 }
@@ -602,12 +601,7 @@ class JsonMapper
      */
     public function getCollectionValueType(Type $type): Type
     {
-        // BC for symfony < 5.3
-        if (!method_exists($type, 'getCollectionValueTypes')) {
-            $collectionValueType = $type->getCollectionValueType();
-        } else {
-            $collectionValueType = $type->getCollectionValueTypes()[0] ?? null;
-        }
+        $collectionValueType = $type->getCollectionValueTypes()[0] ?? null;
 
         return $collectionValueType ?? $this->defaultType;
     }
