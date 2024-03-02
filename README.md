@@ -1,10 +1,5 @@
 [![License: GPL v3](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-
-[![PHPStan](https://github.com/magicsunday/jsonmapper/actions/workflows/phpstan.yml/badge.svg)](https://github.com/magicsunday/jsonmapper/actions/workflows/phpstan.yml)
-[![PHP_CodeSniffer](https://github.com/magicsunday/jsonmapper/actions/workflows/phpcs.yml/badge.svg)](https://github.com/magicsunday/jsonmapper/actions/workflows/phpcs.yml)
-[![PHPUnit](https://github.com/magicsunday/jsonmapper/actions/workflows/phpunit.yml/badge.svg)](https://github.com/magicsunday/jsonmapper/actions/workflows/phpunit.yml)
-
-[![Code Climate](https://codeclimate.com/github/magicsunday/jsonmapper/badges/gpa.svg)](https://codeclimate.com/github/magicsunday/jsonmapper)
+[![CI](https://github.com/magicsunday/jsonmapper/actions/workflows/ci.yml/badge.svg)](https://github.com/magicsunday/jsonmapper/actions/workflows/ci.yml)
 
 # JsonMapper
 This module provides a mapper to map JSON to PHP classes utilizing Symfony's property info and access packages.
@@ -205,7 +200,10 @@ protected function getJsonMapper(array $classMap = []): \MagicSunday\JsonMapper
 ### Testing
 ```bash
 composer update
-vendor/bin/phpcs ./src --standard=PSR12
-vendor/bin/phpstan analyse -c phpstan.neon
-vendor/bin/phpunit
+composer ci:cgl
+composer ci:test
+composer ci:test:php:phplint
+composer ci:test:php:phpstan
+composer ci:test:php:rector
+composer ci:test:php:unit
 ```
