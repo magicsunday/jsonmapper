@@ -1,4 +1,5 @@
-[![License: GPL v3](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Latest version](https://img.shields.io/github/v/release/magicsunday/jsonmapper?sort=semver)](https://github.com/magicsunday/jsonmapper/releases/latest)
+[![License](https://img.shields.io/github/license/magicsunday/jsonmapper)](https://github.com/magicsunday/jsonmapper/blob/main/LICENSE)
 [![CI](https://github.com/magicsunday/jsonmapper/actions/workflows/ci.yml/badge.svg)](https://github.com/magicsunday/jsonmapper/actions/workflows/ci.yml)
 
 # JsonMapper

@@ -12,7 +12,7 @@ parameters:
 
     excludePaths:
         - %currentWorkingDirectory%/test/
-        - %currentWorkingDirectory%/vendor/
+        - %currentWorkingDirectory%/.build/
 
     # Ignored validations
     checkGenericClassInNonGenericObjectType: false
