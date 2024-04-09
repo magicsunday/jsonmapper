@@ -7,8 +7,6 @@
  * LICENSE file that was distributed with this source code.
  */
 
-declare(strict_types=1);
-
 namespace MagicSunday\Test\Provider;
 
 /**
@@ -24,7 +22,7 @@ class DataProvider
     /**
      * @return string
      */
-    public static function mapArrayJson(): string
+    public static function mapArrayJson()
     {
         return (string) file_get_contents(__DIR__ . '/_files/MapArray.json');
     }
@@ -32,7 +30,7 @@ class DataProvider
     /**
      * @return string
      */
-    public static function mapCollectionJson(): string
+    public static function mapCollectionJson()
     {
         return (string) file_get_contents(__DIR__ . '/_files/MapCollection.json');
     }
@@ -40,7 +38,7 @@ class DataProvider
     /**
      * @return string
      */
-    public static function mapCustomTypeJson(): string
+    public static function mapCustomTypeJson()
     {
         return (string) file_get_contents(__DIR__ . '/_files/MapCustomType.json');
     }
@@ -48,7 +46,7 @@ class DataProvider
     /**
      * @return string
      */
-    public static function mapSimpleArrayJson(): string
+    public static function mapSimpleArrayJson()
     {
         return (string) file_get_contents(__DIR__ . '/_files/MapSimpleArray.json');
     }
@@ -56,7 +54,7 @@ class DataProvider
     /**
      * @return string
      */
-    public static function mapSimpleCollectionJson(): string
+    public static function mapSimpleCollectionJson()
     {
         return (string) file_get_contents(__DIR__ . '/_files/MapSimpleCollection.json');
     }
@@ -64,7 +62,7 @@ class DataProvider
     /**
      * @return string
      */
-    public static function mapSimpleTypesJson(): string
+    public static function mapSimpleTypesJson()
     {
         return (string) file_get_contents(__DIR__ . '/_files/MapSimpleTypes.json');
     }
@@ -72,7 +70,7 @@ class DataProvider
     /**
      * @return string
      */
-    public static function mapCustomClassNameJson(): string
+    public static function mapCustomClassNameJson()
     {
         return (string) file_get_contents(__DIR__ . '/_files/MapCustomClassName.json');
     }
@@ -80,7 +78,7 @@ class DataProvider
     /**
      * @return string
      */
-    public static function mapPlainArrayJson(): string
+    public static function mapPlainArrayJson()
     {
         return (string) file_get_contents(__DIR__ . '/_files/MapPlainArray.json');
     }
@@ -88,7 +86,7 @@ class DataProvider
     /**
      * @return string
      */
-    public static function mapPlainArrayKeyValueJson(): string
+    public static function mapPlainArrayKeyValueJson()
     {
         return (string) file_get_contents(__DIR__ . '/_files/MapPlainArrayKeyValue.json');
     }

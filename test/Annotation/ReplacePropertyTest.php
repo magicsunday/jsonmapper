@@ -7,8 +7,6 @@
  * LICENSE file that was distributed with this source code.
  */
 
-declare(strict_types=1);
-
 namespace MagicSunday\Test\Annotation;
 
 use MagicSunday\Test\Classes\ReplacePropertyTestClass;
@@ -30,7 +28,7 @@ class ReplacePropertyTest extends TestCase
      *
      * @test
      */
-    public function replaceProperty(): void
+    public function replaceProperty()
     {
         $result = $this->getJsonMapper()
             ->map(
@@ -46,7 +44,7 @@ JSON
                 ReplacePropertyTestClass::class
             );
 
-        //        self::assertInstanceOf(ReplacePropertyTestClass::class, $result);
+        self::assertInstanceOf(ReplacePropertyTestClass::class, $result);
         self::assertSame(123, $result->getType());
         self::assertSame('This is my name', $result->name);
         self::assertSame('Default value', $result->untouchedProperty);

@@ -7,8 +7,6 @@
  * LICENSE file that was distributed with this source code.
  */
 
-declare(strict_types=1);
-
 namespace MagicSunday\Test\Classes;
 
 use MagicSunday\JsonMapper\Annotation\ReplaceProperty;
@@ -21,8 +19,8 @@ use MagicSunday\JsonMapper\Annotation\ReplaceProperty;
  *
  * @link    https://github.com/magicsunday/jsonmapper/
  *
- * @ReplaceProperty("type", replaces="ftype")
- * @ReplaceProperty("name", replaces="super-cryptic-name")
+ * @replaceProperty("type", replaces="ftype")
+ * @replaceProperty("name", replaces="super-cryptic-name")
  */
 class ReplacePropertyTestClass
 {
@@ -44,15 +42,15 @@ class ReplacePropertyTestClass
     /**
      * @return int
      */
-    public function getType(): int
+    public function getType()
     {
         return $this->type;
     }
 
     /**
-     * @param int $type
+     * @param $type
      */
-    public function setType(int $type): void
+    public function setType($type)
     {
         $this->type = $type;
     }

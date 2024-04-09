@@ -43,7 +43,7 @@ return (new PhpCsFixer\Config())
         '@Symfony'                        => true,
 
         // Additional custom rules
-        'declare_strict_types'            => true,
+        'declare_strict_types'            => false,
         'concat_space'                    => [
             'spacing' => 'one',
         ],

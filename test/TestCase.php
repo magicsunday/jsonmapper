@@ -7,12 +7,9 @@
  * LICENSE file that was distributed with this source code.
  */
 
-declare(strict_types=1);
-
 namespace MagicSunday\Test;
 
 use Closure;
-use JsonException;
 use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter;
 use Symfony\Component\PropertyAccess\PropertyAccess;
@@ -37,7 +34,7 @@ class TestCase extends \PHPUnit\Framework\TestCase
      *
      * @return JsonMapper
      */
-    protected function getJsonMapper(array $classMap = []): JsonMapper
+    protected function getJsonMapper(array $classMap = [])
     {
         $listExtractors = [new ReflectionExtractor()];
         $typeExtractors = [new PhpDocExtractor()];
@@ -58,13 +55,9 @@ class TestCase extends \PHPUnit\Framework\TestCase
      *
      * @return mixed|null
      */
-    protected function getJsonAsArray(string $jsonString)
+    protected function getJsonAsArray($jsonString)
     {
-        try {
-            return json_decode($jsonString, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException $exception) {
-            $this->fail('JSON: ' . $exception->getMessage() . "\n\n" . $exception->getTraceAsString());
-        }
+        return json_decode($jsonString, true);
     }
 
     /**
@@ -74,12 +67,8 @@ class TestCase extends \PHPUnit\Framework\TestCase
      *
      * @return mixed|null
      */
-    protected function getJsonAsObject(string $jsonString)
+    protected function getJsonAsObject($jsonString)
     {
-        try {
-            return json_decode($jsonString, false, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException $exception) {
-            $this->fail('JSON: ' . $exception->getMessage() . "\n\n" . $exception->getTraceAsString());
-        }
+        return json_decode($jsonString, false);
     }
 }

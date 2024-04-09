@@ -7,8 +7,6 @@
  * LICENSE file that was distributed with this source code.
  */
 
-declare(strict_types=1);
-
 namespace MagicSunday;
 
 use function array_key_exists;
@@ -93,7 +91,7 @@ class JsonMapper
     public function __construct(
         PropertyInfoExtractorInterface $extractor,
         PropertyAccessorInterface $accessor,
-        ?PropertyNameConverterInterface $nameConverter = null,
+        PropertyNameConverterInterface $nameConverter = null,
         array $classMap = []
     ) {
         $this->extractor     = $extractor;
@@ -111,7 +109,7 @@ class JsonMapper
      *
      * @return JsonMapper
      */
-    public function addType(string $type, Closure $closure): JsonMapper
+    public function addType($type, Closure $closure)
     {
         $this->types[$type] = $closure;
 
@@ -128,7 +126,7 @@ class JsonMapper
      *
      * @return JsonMapper
      */
-    public function addCustomClassMapEntry(string $className, Closure $closure): JsonMapper
+    public function addCustomClassMapEntry($className, Closure $closure)
     {
         $this->classMap[$className] = $closure;
 
@@ -152,7 +150,7 @@ class JsonMapper
      * @throws DomainException
      * @throws InvalidArgumentException
      */
-    public function map($json, ?string $className = null, ?string $collectionClassName = null)
+    public function map($json, $className = null, $collectionClassName = null)
     {
         // Return plain JSON if no mapping classes are provided
         if ($className === null) {
@@ -251,12 +249,12 @@ class JsonMapper
      *
      * @template T
      *
-     * @param class-string<T> $className               The class to instantiate
-     * @param array|null      ...$constructorArguments The arguments of the constructor
+     * @param class-string<T> $className            The class to instantiate
+     * @param mixed           $constructorArguments The arguments of the constructor
      *
      * @return T
      */
-    private function makeInstance(string $className, ?array ...$constructorArguments)
+    private function makeInstance($className, array ...$constructorArguments)
     {
         /** @var T $instance */
         $instance = new $className(...$constructorArguments);
@@ -272,7 +270,7 @@ class JsonMapper
      *
      * @return bool
      */
-    private function isReplaceNullWithDefaultValueAnnotation(string $className, string $propertyName): bool
+    private function isReplaceNullWithDefaultValueAnnotation($className, $propertyName)
     {
         return $this->hasPropertyAnnotation(
             $className,
@@ -288,7 +286,7 @@ class JsonMapper
      *
      * @return bool
      */
-    private function isReplacePropertyAnnotation(string $className): bool
+    private function isReplacePropertyAnnotation($className)
     {
         return $this->hasClassAnnotation(
             $className,
@@ -304,7 +302,7 @@ class JsonMapper
      *
      * @return ReflectionProperty|null
      */
-    private function getReflectionProperty(string $className, string $propertyName): ?ReflectionProperty
+    private function getReflectionProperty($className, $propertyName)
     {
         try {
             return new ReflectionProperty($className, $propertyName);
@@ -320,7 +318,7 @@ class JsonMapper
      *
      * @return ReflectionClass|null
      */
-    private function getReflectionClass(string $className): ?ReflectionClass
+    private function getReflectionClass($className)
     {
         if (!class_exists($className)) {
             return null;
@@ -337,7 +335,7 @@ class JsonMapper
      *
      * @return Annotation[]|object[]
      */
-    private function extractPropertyAnnotations(string $className, string $propertyName): array
+    private function extractPropertyAnnotations($className, $propertyName)
     {
         $reflectionProperty = $this->getReflectionProperty($className, $propertyName);
 
@@ -356,7 +354,7 @@ class JsonMapper
      *
      * @return Annotation[]|object[]
      */
-    private function extractClassAnnotations(string $className): array
+    private function extractClassAnnotations($className)
     {
         $reflectionClass = $this->getReflectionClass($className);
 
@@ -377,7 +375,7 @@ class JsonMapper
      *
      * @return bool
      */
-    private function hasPropertyAnnotation(string $className, string $propertyName, string $annotationName): bool
+    private function hasPropertyAnnotation($className, $propertyName, $annotationName)
     {
         $annotations = $this->extractPropertyAnnotations($className, $propertyName);
 
@@ -398,7 +396,7 @@ class JsonMapper
      *
      * @return bool
      */
-    private function hasClassAnnotation(string $className, string $annotationName): bool
+    private function hasClassAnnotation($className, $annotationName)
     {
         $annotations = $this->extractClassAnnotations($className);
 
@@ -427,7 +425,9 @@ class JsonMapper
             return null;
         }
 
-        return $reflectionProperty->getDeclaringClass()->getDefaultProperties()[$propertyName] ?? null;
+        $defaultProperties = $reflectionProperty->getDeclaringClass()->getDefaultProperties();
+
+        return isset($defaultProperties[$propertyName]) ? $defaultProperties[$propertyName] : null;
     }
 
     /**
@@ -437,7 +437,7 @@ class JsonMapper
      *
      * @return bool
      */
-    private function isNumericIndexArray($json): bool
+    private function isNumericIndexArray($json)
     {
         foreach ($json as $propertyName => $propertyValue) {
             if (is_int($propertyName)) {
@@ -455,7 +455,7 @@ class JsonMapper
      *
      * @return bool
      */
-    private function isIterableWithArraysOrObjects($json): bool
+    private function isIterableWithArraysOrObjects($json)
     {
         // Return false if JSON is not an array or object (is_iterable won't work here)
         if (!is_array($json) && !is_object($json)) {
@@ -486,7 +486,7 @@ class JsonMapper
      *
      * @throws InvalidArgumentException
      */
-    private function assertClassesExists(string $className, ?string $collectionClassName = null): void
+    private function assertClassesExists($className, $collectionClassName = null)
     {
         if (!class_exists($className)) {
             throw new InvalidArgumentException(sprintf('Class [%s] does not exist', $className));
@@ -510,7 +510,7 @@ class JsonMapper
      * @param string $name
      * @param mixed  $value
      */
-    private function setProperty(object $entity, string $name, $value): void
+    private function setProperty($entity, $name, $value)
     {
         // Handle variadic setters
         if (is_array($value)) {
@@ -542,9 +542,11 @@ class JsonMapper
      *
      * @return string[]
      */
-    private function getProperties(string $className): array
+    private function getProperties($className)
     {
-        return $this->extractor->getProperties($className) ?? [];
+        $properties = $this->extractor->getProperties($className);
+
+        return $properties !== null ? $properties : [];
     }
 
     /**
@@ -555,9 +557,11 @@ class JsonMapper
      *
      * @return Type
      */
-    private function getType(string $className, string $propertyName): Type
+    private function getType($className, $propertyName)
     {
-        return $this->extractor->getTypes($className, $propertyName)[0] ?? $this->defaultType;
+        $types = $this->extractor->getTypes($className, $propertyName);
+
+        return isset($types[0]) ? $types[0] : $this->defaultType;
     }
 
     /**
@@ -610,11 +614,11 @@ class JsonMapper
      *
      * @return Type
      */
-    public function getCollectionValueType(Type $type): Type
+    public function getCollectionValueType(Type $type)
     {
-        $collectionValueType = $type->getCollectionValueTypes()[0] ?? null;
+        $collectionValueType = $type->getCollectionValueType();
 
-        return $collectionValueType ?? $this->defaultType;
+        return $collectionValueType !== null ? $collectionValueType : $this->defaultType;
     }
 
     /**
@@ -626,7 +630,7 @@ class JsonMapper
      *
      * @throws DomainException
      */
-    private function getClassNameFromType(Type $type): string
+    private function getClassNameFromType(Type $type)
     {
         /** @var class-string|null $className */
         $className = $type->getClassName();
@@ -652,7 +656,7 @@ class JsonMapper
      *
      * @throws DomainException
      */
-    private function getMappedClassName(string $className, $json): string
+    private function getMappedClassName($className, $json)
     {
         if (array_key_exists($className, $this->classMap)) {
             $classNameOrClosure = $this->classMap[$className];
@@ -680,7 +684,7 @@ class JsonMapper
      *
      * @throws DomainException
      */
-    private function getClassName($json, Type $type): string
+    private function getClassName($json, Type $type)
     {
         return $this->getMappedClassName(
             $this->getClassNameFromType($type),
@@ -698,7 +702,7 @@ class JsonMapper
      *
      * @throws DomainException
      */
-    private function asCollection($json, Type $type): ?array
+    private function asCollection($json, $type)
     {
         if ($json === null) {
             return null;
@@ -744,7 +748,7 @@ class JsonMapper
      *
      * @return bool
      */
-    private function isCustomType(string $typeClassName): bool
+    private function isCustomType($typeClassName)
     {
         return array_key_exists($typeClassName, $this->types);
     }
@@ -759,7 +763,7 @@ class JsonMapper
      *
      * @return mixed
      */
-    private function callCustomClosure($json, string $typeClassName)
+    private function callCustomClosure($json, $typeClassName)
     {
         $callback = $this->types[$typeClassName];
 

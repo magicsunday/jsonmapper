@@ -7,8 +7,6 @@
  * LICENSE file that was distributed with this source code.
  */
 
-declare(strict_types=1);
-
 namespace MagicSunday\JsonMapper\Converter;
 
 /**
@@ -28,5 +26,5 @@ interface PropertyNameConverterInterface
      *
      * @return string
      */
-    public function convert(string $name): string;
+    public function convert($name);
 }

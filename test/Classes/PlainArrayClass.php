@@ -7,8 +7,6 @@
  * LICENSE file that was distributed with this source code.
  */
 
-declare(strict_types=1);
-
 namespace MagicSunday\Test\Classes;
 
 /**
@@ -22,14 +20,14 @@ namespace MagicSunday\Test\Classes;
 class PlainArrayClass
 {
     /**
-     * @var array<int>
+     * @var int[]
      */
     public $values;
 
     /**
-     * @return array<int>
+     * @return int[]
      */
-    public function getValues(): array
+    public function getValues()
     {
         return $this->values;
     }

@@ -7,8 +7,6 @@
  * LICENSE file that was distributed with this source code.
  */
 
-declare(strict_types=1);
-
 namespace MagicSunday\Test\Classes;
 
 /**
@@ -22,15 +20,11 @@ namespace MagicSunday\Test\Classes;
 class Simple
 {
     /**
-     * PHP7.4 typed property.
-     *
      * @var int
      */
     public $id;
 
     /**
-     * PHP7.4 typed property.
-     *
      * @var string
      */
     public $name;

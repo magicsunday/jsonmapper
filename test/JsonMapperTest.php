@@ -7,8 +7,6 @@
  * LICENSE file that was distributed with this source code.
  */
 
-declare(strict_types=1);
-
 namespace MagicSunday\Test;
 
 use MagicSunday\Test\Classes\Base;
@@ -43,7 +41,7 @@ class JsonMapperTest extends TestCase
     /**
      * @return string[][]
      */
-    public static function mapArrayOrCollectionWithIntegerKeysJsonDataProvider(): array
+    public static function mapArrayOrCollectionWithIntegerKeysJsonDataProvider()
     {
         return [
             'mapArray' => [
@@ -64,7 +62,7 @@ class JsonMapperTest extends TestCase
      *
      * @param string $jsonString
      */
-    public function mapArrayOrCollection(string $jsonString): void
+    public function mapArrayOrCollection($jsonString)
     {
         $result = $this->getJsonMapper()
             ->map(
@@ -84,7 +82,7 @@ class JsonMapperTest extends TestCase
      *
      * @test
      */
-    public function mapArrayOrCollectionWithStringKeys(): void
+    public function mapArrayOrCollectionWithStringKeys()
     {
         $result = $this->getJsonMapper()
             ->map(
@@ -122,7 +120,7 @@ JSON
     /**
      * @return string[][]
      */
-    public static function mapSimpleArrayJsonDataProvider(): array
+    public static function mapSimpleArrayJsonDataProvider()
     {
         return [
             'mapSimpleArray' => [
@@ -140,7 +138,7 @@ JSON
      *
      * @param string $jsonString
      */
-    public function mapSimpleArray(string $jsonString): void
+    public function mapSimpleArray($jsonString)
     {
         $result = $this->getJsonMapper()
             ->map(
@@ -149,7 +147,7 @@ JSON
             );
 
         self::assertInstanceOf(Base::class, $result);
-        self::assertIsArray($result->simpleArray);
+        self::assertInternalType('array', $result->simpleArray);
         self::assertCount(2, $result->simpleArray);
         self::assertContainsOnlyInstancesOf(Simple::class, $result->simpleArray);
         self::assertSame(1, $result->simpleArray[0]->id);
@@ -161,7 +159,7 @@ JSON
     /**
      * @return string[][]
      */
-    public static function mapSimpleCollectionJsonDataProvider(): array
+    public static function mapSimpleCollectionJsonDataProvider()
     {
         return [
             'mapSimpleCollection' => [
@@ -179,7 +177,7 @@ JSON
      *
      * @param string $jsonString
      */
-    public function mapSimpleCollection(string $jsonString): void
+    public function mapSimpleCollection($jsonString)
     {
         $result = $this->getJsonMapper()
             ->map(
@@ -200,7 +198,7 @@ JSON
     /**
      * @return string[][]
      */
-    public static function mapCustomTypeJsonDataProvider(): array
+    public static function mapCustomTypeJsonDataProvider()
     {
         return [
             'mapCustomType' => [
@@ -218,12 +216,12 @@ JSON
      *
      * @param string $jsonString
      */
-    public function mapCustomType(string $jsonString): void
+    public function mapCustomType($jsonString)
     {
         $result = $this->getJsonMapper()
             ->addType(
                 CustomConstructor::class,
-                static function ($value): ?CustomConstructor {
+                static function ($value) {
                     if (is_array($value) && $value['name']) {
                         return new CustomConstructor($value['name']);
                     }
@@ -248,7 +246,7 @@ JSON
     /**
      * @return string[][]
      */
-    public static function mapSimpleTypesJsonDataProvider(): array
+    public static function mapSimpleTypesJsonDataProvider()
     {
         return [
             'mapCustomType' => [
@@ -266,7 +264,7 @@ JSON
      *
      * @param string $jsonString
      */
-    public function mapSimpleTypesJson(string $jsonString): void
+    public function mapSimpleTypesJson($jsonString)
     {
         $result = $this->getJsonMapper()
             ->map(
@@ -293,7 +291,7 @@ JSON
     /**
      * @return string[][]
      */
-    public static function mapObjectUsingCustomClassNameJsonDataProvider(): array
+    public static function mapObjectUsingCustomClassNameJsonDataProvider()
     {
         return [
             'mapCustomClassName' => [
@@ -311,13 +309,13 @@ JSON
      *
      * @param string $jsonString
      */
-    public function mapObjectUsingCustomClassName(string $jsonString): void
+    public function mapObjectUsingCustomClassName($jsonString)
     {
         $result = $this->getJsonMapper()
             ->addCustomClassMapEntry(
                 Person::class,
                 // Map each entry of the collection to a separate class
-                static function ($value): string {
+                static function ($value) {
                     if ((is_array($value) && $value['is_vip']) || (($value instanceof stdClass) && $value->is_vip)) {
                         return VipPerson::class;
                     }
@@ -332,7 +330,7 @@ JSON
 
         self::assertInstanceOf(Base::class, $result);
         self::assertInstanceOf(CustomClass::class, $result->customClass);
-        self::assertIsArray($result->customClass->persons);
+        self::assertInternalType('array', $result->customClass->persons);
         self::assertCount(2, $result->customClass->persons);
 
         self::assertInstanceOf(Person::class, $result->customClass->persons[0]);
@@ -350,7 +348,7 @@ JSON
      *
      * @test
      */
-    public function mapEmptyObject(): void
+    public function mapEmptyObject()
     {
         $result = $this->getJsonMapper()
             ->map(
@@ -372,7 +370,7 @@ JSON
      *
      * @test
      */
-    public function mapToPrivateProperty(): void
+    public function mapToPrivateProperty()
     {
         $result = $this->getJsonMapper()
             ->map(
@@ -394,7 +392,7 @@ JSON
      *
      * @test
      */
-    public function checkCamelCasePropertyConverter(): void
+    public function checkCamelCasePropertyConverter()
     {
         $result = $this->getJsonMapper()
             ->map(
@@ -416,7 +414,7 @@ JSON
      *
      * @test
      */
-    public function mapArrayOfObjects(): void
+    public function mapArrayOfObjects()
     {
         $result = $this->getJsonMapper()
             ->map(
@@ -434,7 +432,7 @@ JSON
                 Base::class
             );
 
-        self::assertIsArray($result);
+        self::assertInternalType('array', $result);
         self::assertContainsOnlyInstancesOf(Base::class, $result);
         self::assertSame('foo', $result[0]->name);
         self::assertSame('bar', $result[1]->name);
@@ -446,7 +444,7 @@ JSON
      *
      * @test
      */
-    public function mapSingleObjectWithGivenCollection(): void
+    public function mapSingleObjectWithGivenCollection()
     {
         $result = $this->getJsonMapper()
             ->map(
@@ -469,7 +467,7 @@ JSON
      *
      * @test
      */
-    public function mapArrayOfArray(): void
+    public function mapArrayOfArray()
     {
         $result = $this->getJsonMapper()
             ->map(
@@ -500,7 +498,7 @@ JSON
             );
 
         self::assertInstanceOf(MultidimensionalArray::class, $result);
-        self::assertIsArray($result->persons);
+        self::assertInternalType('array', $result->persons);
         self::assertContainsOnly('array', $result->persons);
         self::assertContainsOnlyInstancesOf(Person::class, $result->persons[0]);
         self::assertContainsOnlyInstancesOf(Person::class, $result->persons[1]);
@@ -511,7 +509,7 @@ JSON
      *
      * @test
      */
-    public function mapInitialized(): void
+    public function mapInitialized()
     {
         $result = $this->getJsonMapper()
             ->map(
@@ -531,17 +529,18 @@ JSON
      *
      * @test
      */
-    public function mapNullToDefaultValueUsingAnnotation(): void
+    public function mapNullToDefaultValueUsingAnnotation()
     {
         $result = $this->getJsonMapper()
             ->map(
-                $this->getJsonAsArray(<<<JSON
+                $this->getJsonAsArray(
+                    '
 {
     "integer": null,
     "bool": null,
     "array": null
 }
-JSON),
+'),
                 Initialized::class
             );
 
@@ -554,7 +553,7 @@ JSON),
     /**
      * @return string[][]
      */
-    public static function mapPlainArrayJsonDataProvider(): array
+    public static function mapPlainArrayJsonDataProvider()
     {
         return [
             'mapPlainArray' => [
@@ -570,14 +569,14 @@ JSON),
      *
      * @test
      */
-    public function mapPlainArray(string $jsonString): void
+    public function mapPlainArray($jsonString)
     {
         $result = $this->getJsonMapper()
             ->map(
                 $this->getJsonAsArray($jsonString)
             );
 
-        self::assertIsArray($result);
+        self::assertInternalType('array', $result);
         self::assertCount(26, $result);
 
         $result = $this->getJsonMapper()
@@ -585,14 +584,14 @@ JSON),
                 $this->getJsonAsObject($jsonString)
             );
 
-        self::assertIsArray($result);
+        self::assertInternalType('array', $result);
         self::assertCount(26, $result);
     }
 
     /**
      * @return string[][]
      */
-    public static function mapPlainArrayKeyValueJsonDataProvider(): array
+    public static function mapPlainArrayKeyValueJsonDataProvider()
     {
         return [
             'mapPlainArrayKeyValue' => [
@@ -608,14 +607,14 @@ JSON),
      *
      * @test
      */
-    public function mapPlainArrayKeyValue(string $jsonString): void
+    public function mapPlainArrayKeyValue($jsonString)
     {
         $result = $this->getJsonMapper()
             ->map(
                 $this->getJsonAsArray($jsonString)
             );
 
-        self::assertIsArray($result);
+        self::assertInternalType('array', $result);
         self::assertCount(26, $result);
         self::assertArrayHasKey('A', $result);
         self::assertSame(1, $result['A']);
@@ -627,11 +626,11 @@ JSON),
                 $this->getJsonAsObject($jsonString)
             );
 
-        self::assertIsObject($result);
+        self::assertInternalType('object', $result);
         self::assertInstanceOf(stdClass::class, $result);
-        self::assertObjectHasProperty('A', $result);
+        self::assertObjectHasAttribute('A', $result);
         self::assertSame(1, $result->A);
-        self::assertObjectHasProperty('Z', $result);
+        self::assertObjectHasAttribute('Z', $result);
         self::assertSame(26, $result->Z);
 
         // Map plain array with key <=> value pair to a custom class
@@ -641,11 +640,11 @@ JSON),
                 MapPlainArrayKeyValueClass::class
             );
 
-        self::assertIsObject($result);
+        self::assertInternalType('object', $result);
         self::assertInstanceOf(MapPlainArrayKeyValueClass::class, $result);
-        self::assertObjectHasProperty('a', $result);
+        self::assertObjectHasAttribute('a', $result);
         self::assertSame(1, $result->a);
-        self::assertObjectHasProperty('z', $result);
+        self::assertObjectHasAttribute('z', $result);
         self::assertSame(26, $result->z);
     }
 
@@ -654,7 +653,7 @@ JSON),
      *
      * @test
      */
-    public function variadicSetter(): void
+    public function variadicSetter()
     {
         $result = $this->getJsonMapper()
             ->map(
@@ -682,7 +681,7 @@ JSON
      *
      * @test
      */
-    public function plainArrayClass(): void
+    public function plainArrayClass()
     {
         $result = $this->getJsonMapper()
             ->map(
@@ -710,7 +709,7 @@ JSON
      *
      * @test
      */
-    public function mappingBaseElementUsingClassMap(): void
+    public function mappingBaseElementUsingClassMap()
     {
         $result = $this->getJsonMapper([
             SourceItem::class => TargetItem::class,
@@ -734,7 +733,7 @@ JSON
      *
      * @test
      */
-    public function mappingCollectionElementsUsingClassMap(): void
+    public function mappingCollectionElementsUsingClassMap()
     {
         $result = $this->getJsonMapper([
             SourceItem::class       => TargetItem::class,

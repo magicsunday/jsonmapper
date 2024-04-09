@@ -21,4 +21,3 @@ composer.lock
 .phpunit.cache
 
 # Custom
-/test/

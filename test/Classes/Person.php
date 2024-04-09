@@ -7,11 +7,7 @@
  * LICENSE file that was distributed with this source code.
  */
 
-declare(strict_types=1);
-
 namespace MagicSunday\Test\Classes;
-
-use AllowDynamicProperties;
 
 /**
  * Class Person.
@@ -23,7 +19,6 @@ use AllowDynamicProperties;
  *
  * @property int $oscars Dynamic created property
  */
-#[AllowDynamicProperties]
 class Person
 {
     /**

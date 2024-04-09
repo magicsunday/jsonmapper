@@ -7,8 +7,6 @@
  * LICENSE file that was distributed with this source code.
  */
 
-declare(strict_types=1);
-
 namespace MagicSunday\JsonMapper\Annotation;
 
 use Doctrine\Common\Annotations\Annotation;

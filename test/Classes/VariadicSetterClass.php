@@ -7,8 +7,6 @@
  * LICENSE file that was distributed with this source code.
  */
 
-declare(strict_types=1);
-
 namespace MagicSunday\Test\Classes;
 
 /**
@@ -29,7 +27,7 @@ class VariadicSetterClass
     /**
      * @return int[]
      */
-    public function getValues(): array
+    public function getValues()
     {
         return $this->values;
     }
@@ -39,7 +37,7 @@ class VariadicSetterClass
      *
      * @return void
      */
-    public function setValues(int ...$values): void
+    public function setValues(...$values)
     {
         $this->values = $values;
     }

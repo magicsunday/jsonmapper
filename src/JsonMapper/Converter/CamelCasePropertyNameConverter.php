@@ -7,12 +7,9 @@
  * LICENSE file that was distributed with this source code.
  */
 
-declare(strict_types=1);
-
 namespace MagicSunday\JsonMapper\Converter;
 
-use Doctrine\Inflector\Inflector;
-use Doctrine\Inflector\InflectorFactory;
+use Doctrine\Common\Inflector\Inflector;
 
 /**
  * CamelCasePropertyNameConverter.
@@ -25,27 +22,14 @@ use Doctrine\Inflector\InflectorFactory;
 class CamelCasePropertyNameConverter implements PropertyNameConverterInterface
 {
     /**
-     * @var Inflector
-     */
-    private $inflector;
-
-    /**
-     * CamelCasePropertyNameConverter constructor.
-     */
-    public function __construct()
-    {
-        $this->inflector = InflectorFactory::create()->build();
-    }
-
-    /**
      * Convert the specified JSON property name to its PHP property name.
      *
      * @param string $name
      *
      * @return string
      */
-    public function convert(string $name): string
+    public function convert($name)
     {
-        return $this->inflector->camelize($name);
+        return Inflector::camelize($name);
     }
 }

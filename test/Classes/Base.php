@@ -7,8 +7,6 @@
  * LICENSE file that was distributed with this source code.
  */
 
-declare(strict_types=1);
-
 namespace MagicSunday\Test\Classes;
 
 /**
@@ -67,7 +65,7 @@ class Base
     /**
      * @return string
      */
-    public function getPrivateProperty(): string
+    public function getPrivateProperty()
     {
         return $this->privateProperty;
     }
@@ -75,7 +73,7 @@ class Base
     /**
      * @param string $privateProperty
      */
-    public function setPrivateProperty(string $privateProperty): void
+    public function setPrivateProperty($privateProperty)
     {
         $this->privateProperty = $privateProperty;
     }

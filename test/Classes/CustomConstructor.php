@@ -7,8 +7,6 @@
  * LICENSE file that was distributed with this source code.
  */
 
-declare(strict_types=1);
-
 namespace MagicSunday\Test\Classes;
 
 /**
@@ -31,7 +29,7 @@ class CustomConstructor
      *
      * @param string $name
      */
-    public function __construct(string $name)
+    public function __construct($name)
     {
         $this->name = $name;
     }

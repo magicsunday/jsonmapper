@@ -7,8 +7,6 @@
  * LICENSE file that was distributed with this source code.
  */
 
-declare(strict_types=1);
-
 namespace MagicSunday\Test\Converter;
 
 use MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter;
@@ -30,7 +28,7 @@ class CamelCasePropertyNameConverterTest extends TestCase
      *
      * @test
      */
-    public function checkCamelCasePropertyNameConverter(): void
+    public function checkCamelCasePropertyNameConverter()
     {
         $converter = new CamelCasePropertyNameConverter();
 
