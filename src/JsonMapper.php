@@ -30,6 +30,7 @@ use Symfony\Component\PropertyInfo\Type;
 use function array_key_exists;
 use function in_array;
 use function is_array;
+use function is_object;
 
 /**
  * JsonMapper.
@@ -202,7 +203,7 @@ class JsonMapper
 
         // Process all children
 
-        /** @var string $propertyName */
+        /** @var string|int $propertyName */
         foreach ($json as $propertyName => $propertyValue) {
             // Replaces the property name with another one
             if ($this->isReplacePropertyAnnotation($className)) {
@@ -219,7 +220,9 @@ class JsonMapper
                 }
             }
 
-            if ($this->nameConverter instanceof PropertyNameConverterInterface) {
+            if (is_string($propertyName)
+                && ($this->nameConverter instanceof PropertyNameConverterInterface)
+            ) {
                 $propertyName = $this->nameConverter->convert($propertyName);
             }
 
