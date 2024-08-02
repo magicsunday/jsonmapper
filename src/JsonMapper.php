@@ -166,7 +166,7 @@ class JsonMapper
             $collectionClassName = $this->getMappedClassName($collectionClassName, $json);
         }
 
-        // Assert that classes exists
+        // Assert that the given classes exist
         $this->assertClassesExists($className, $collectionClassName);
 
         // Handle collections
@@ -195,7 +195,13 @@ class JsonMapper
         $properties = $this->getProperties($className);
         $entity     = $this->makeInstance($className);
 
+        // Return entity if JSON is not an array or object (is_iterable won't work here)
+        if (!is_array($json) && !is_object($json)) {
+            return $entity;
+        }
+
         // Process all children
+
         /** @var string $propertyName */
         foreach ($json as $propertyName => $propertyValue) {
             // Replaces the property name with another one
@@ -413,7 +419,7 @@ class JsonMapper
      *
      * @return mixed|null
      */
-    private function getDefaultValue(string $className, string $propertyName)
+    private function getDefaultValue(string $className, string $propertyName): mixed
     {
         $reflectionProperty = $this->getReflectionProperty($className, $propertyName);
 
@@ -431,7 +437,7 @@ class JsonMapper
      *
      * @return bool
      */
-    private function isNumericIndexArray($json): bool
+    private function isNumericIndexArray(mixed $json): bool
     {
         foreach ($json as $propertyName => $propertyValue) {
             if (is_int($propertyName)) {
@@ -449,8 +455,13 @@ class JsonMapper
      *
      * @return bool
      */
-    private function isIterableWithArraysOrObjects($json): bool
+    private function isIterableWithArraysOrObjects(mixed $json): bool
     {
+        // Return false if JSON is not an array or object (is_iterable won't work here)
+        if (!is_array($json) && !is_object($json)) {
+            return false;
+        }
+
         foreach ($json as $propertyValue) {
             if (is_array($propertyValue)) {
                 continue;
@@ -467,7 +478,7 @@ class JsonMapper
     }
 
     /**
-     * Assert that the given classes exists.
+     * Assert that the given classes exist.
      *
      * @param class-string      $className           The class name of the initial element
      * @param class-string|null $collectionClassName The class name of a collection used to
@@ -499,7 +510,7 @@ class JsonMapper
      * @param string $name
      * @param mixed  $value
      */
-    private function setProperty(object $entity, string $name, $value): void
+    private function setProperty(object $entity, string $name, mixed $value): void
     {
         // Handle variadic setters
         if (is_array($value)) {
@@ -559,7 +570,7 @@ class JsonMapper
      *
      * @throws DomainException
      */
-    private function getValue($json, Type $type)
+    private function getValue(mixed $json, Type $type): mixed
     {
         if ((is_array($json) || is_object($json)) && $type->isCollection()) {
             $collectionType = $this->getCollectionValueType($type);
@@ -641,7 +652,7 @@ class JsonMapper
      *
      * @throws DomainException
      */
-    private function getMappedClassName(string $className, $json): string
+    private function getMappedClassName(string $className, mixed $json): string
     {
         if (array_key_exists($className, $this->classMap)) {
             $classNameOrClosure = $this->classMap[$className];
@@ -669,7 +680,7 @@ class JsonMapper
      *
      * @throws DomainException
      */
-    private function getClassName($json, Type $type): string
+    private function getClassName(mixed $json, Type $type): string
     {
         return $this->getMappedClassName(
             $this->getClassNameFromType($type),
@@ -678,7 +689,7 @@ class JsonMapper
     }
 
     /**
-     * Cast node to collection.
+     * Cast node to a collection.
      *
      * @param mixed $json
      * @param Type  $type
@@ -687,7 +698,7 @@ class JsonMapper
      *
      * @throws DomainException
      */
-    private function asCollection($json, Type $type): ?array
+    private function asCollection(mixed $json, Type $type): ?array
     {
         if ($json === null) {
             return null;
@@ -712,7 +723,7 @@ class JsonMapper
      *
      * @throws DomainException
      */
-    private function asObject($json, Type $type)
+    private function asObject(mixed $json, Type $type): mixed
     {
         /** @var class-string<TEntity> $className */
         $className = $this->getClassName($json, $type);
@@ -748,7 +759,7 @@ class JsonMapper
      *
      * @return mixed
      */
-    private function callCustomClosure($json, string $typeClassName)
+    private function callCustomClosure(mixed $json, string $typeClassName): mixed
     {
         $callback = $this->types[$typeClassName];
 
