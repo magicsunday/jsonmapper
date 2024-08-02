@@ -55,16 +55,14 @@ class TestCase extends \PHPUnit\Framework\TestCase
      *
      * @param string $jsonString
      *
-     * @return mixed[]|null
+     * @return mixed|null
      */
-    protected function getJsonAsArray(string $jsonString)
+    protected function getJsonAsArray(string $jsonString): mixed
     {
         try {
             return json_decode($jsonString, true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $exception) {
-            $this->addWarning('JSON: ' . $exception->getMessage() . "\n\n" . $exception->getTraceAsString());
-
-            return null;
+            $this->fail('JSON: ' . $exception->getMessage() . "\n\n" . $exception->getTraceAsString());
         }
     }
 
@@ -73,16 +71,14 @@ class TestCase extends \PHPUnit\Framework\TestCase
      *
      * @param string $jsonString
      *
-     * @return object|null
+     * @return mixed|null
      */
-    protected function getJsonAsObject(string $jsonString)
+    protected function getJsonAsObject(string $jsonString): mixed
     {
         try {
             return json_decode($jsonString, false, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $exception) {
-            $this->addWarning('JSON: ' . $exception->getMessage() . "\n\n" . $exception->getTraceAsString());
-
-            return null;
+            $this->fail('JSON: ' . $exception->getMessage() . "\n\n" . $exception->getTraceAsString());
         }
     }
 }

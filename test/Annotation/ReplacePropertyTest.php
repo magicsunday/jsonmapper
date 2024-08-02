@@ -13,6 +13,7 @@ namespace MagicSunday\Test\Annotation;
 
 use MagicSunday\Test\Classes\ReplacePropertyTestClass;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\Test;
 
 /**
  * Class ReplacePropertyTest.
@@ -25,9 +26,8 @@ class ReplacePropertyTest extends TestCase
 {
     /**
      * Tests replacing a property.
-     *
-     * @test
      */
+    #[Test]
     public function replaceProperty(): void
     {
         $result = $this->getJsonMapper()

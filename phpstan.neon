@@ -14,5 +14,6 @@ parameters:
         - %currentWorkingDirectory%/test/
         - %currentWorkingDirectory%/.build/
 
-    # Ignored validations
-    checkGenericClassInNonGenericObjectType: false
+    ignoreErrors:
+        -
+            identifier: missingType.generics

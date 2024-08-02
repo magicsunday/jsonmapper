@@ -27,7 +27,8 @@ use MagicSunday\Test\Classes\PlainArrayClass;
 use MagicSunday\Test\Classes\Simple;
 use MagicSunday\Test\Classes\VariadicSetterClass;
 use MagicSunday\Test\Classes\VipPerson;
-use MagicSunday\Test\Provider\DataProvider;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Test;
 use stdClass;
 
 /**
@@ -46,10 +47,10 @@ class JsonMapperTest extends TestCase
     {
         return [
             'mapArray' => [
-                DataProvider::mapArrayJson(),
+                Provider\DataProvider::mapArrayJson(),
             ],
             'mapCollection' => [
-                DataProvider::mapCollectionJson(),
+                Provider\DataProvider::mapCollectionJson(),
             ],
         ];
     }
@@ -57,12 +58,10 @@ class JsonMapperTest extends TestCase
     /**
      * Tests mapping an array or collection of objects.
      *
-     * @dataProvider mapArrayOrCollectionWithIntegerKeysJsonDataProvider
-     *
-     * @test
-     *
      * @param string $jsonString
      */
+    #[Test]
+    #[DataProvider('mapArrayOrCollectionWithIntegerKeysJsonDataProvider')]
     public function mapArrayOrCollection(string $jsonString): void
     {
         $result = $this->getJsonMapper()
@@ -80,9 +79,8 @@ class JsonMapperTest extends TestCase
 
     /**
      * Tests mapping an array or collection of objects.
-     *
-     * @test
      */
+    #[Test]
     public function mapArrayOrCollectionWithStringKeys(): void
     {
         $result = $this->getJsonMapper()
@@ -125,7 +123,7 @@ JSON
     {
         return [
             'mapSimpleArray' => [
-                DataProvider::mapSimpleArrayJson(),
+                Provider\DataProvider::mapSimpleArrayJson(),
             ],
         ];
     }
@@ -133,12 +131,10 @@ JSON
     /**
      * Tests mapping an array of objects to a property.
      *
-     * @dataProvider mapSimpleArrayJsonDataProvider
-     *
-     * @test
-     *
      * @param string $jsonString
      */
+    #[Test]
+    #[DataProvider('mapSimpleArrayJsonDataProvider')]
     public function mapSimpleArray(string $jsonString): void
     {
         $result = $this->getJsonMapper()
@@ -164,7 +160,7 @@ JSON
     {
         return [
             'mapSimpleCollection' => [
-                DataProvider::mapSimpleCollectionJson(),
+                Provider\DataProvider::mapSimpleCollectionJson(),
             ],
         ];
     }
@@ -172,12 +168,10 @@ JSON
     /**
      * Tests mapping a collection of objects to a property.
      *
-     * @dataProvider mapSimpleCollectionJsonDataProvider
-     *
-     * @test
-     *
      * @param string $jsonString
      */
+    #[Test]
+    #[DataProvider('mapSimpleCollectionJsonDataProvider')]
     public function mapSimpleCollection(string $jsonString): void
     {
         $result = $this->getJsonMapper()
@@ -203,7 +197,7 @@ JSON
     {
         return [
             'mapCustomType' => [
-                DataProvider::mapCustomTypeJson(),
+                Provider\DataProvider::mapCustomTypeJson(),
             ],
         ];
     }
@@ -211,12 +205,10 @@ JSON
     /**
      * Tests mapping a value using a custom type mapper closure.
      *
-     * @dataProvider mapCustomTypeJsonDataProvider
-     *
-     * @test
-     *
      * @param string $jsonString
      */
+    #[Test]
+    #[DataProvider('mapCustomTypeJsonDataProvider')]
     public function mapCustomType(string $jsonString): void
     {
         $result = $this->getJsonMapper()
@@ -251,7 +243,7 @@ JSON
     {
         return [
             'mapCustomType' => [
-                DataProvider::mapSimpleTypesJson(),
+                Provider\DataProvider::mapSimpleTypesJson(),
             ],
         ];
     }
@@ -259,12 +251,10 @@ JSON
     /**
      * Tests mapping simple types.
      *
-     * @dataProvider mapSimpleTypesJsonDataProvider
-     *
-     * @test
-     *
      * @param string $jsonString
      */
+    #[Test]
+    #[DataProvider('mapSimpleTypesJsonDataProvider')]
     public function mapSimpleTypesJson(string $jsonString): void
     {
         $result = $this->getJsonMapper()
@@ -296,7 +286,7 @@ JSON
     {
         return [
             'mapCustomClassName' => [
-                DataProvider::mapCustomClassNameJson(),
+                Provider\DataProvider::mapCustomClassNameJson(),
             ],
         ];
     }
@@ -304,12 +294,10 @@ JSON
     /**
      * Tests mapping an object using a custom class name provider closure.
      *
-     * @dataProvider mapObjectUsingCustomClassNameJsonDataProvider
-     *
-     * @test
-     *
      * @param string $jsonString
      */
+    #[Test]
+    #[DataProvider('mapObjectUsingCustomClassNameJsonDataProvider')]
     public function mapObjectUsingCustomClassName(string $jsonString): void
     {
         $result = $this->getJsonMapper()
@@ -346,9 +334,8 @@ JSON
 
     /**
      * Tests mapping null to an object not failing.
-     *
-     * @test
      */
+    #[Test]
     public function mapEmptyObject(): void
     {
         $result = $this->getJsonMapper()
@@ -368,9 +355,8 @@ JSON
 
     /**
      * Tests mapping a value to a private property using a setter method.
-     *
-     * @test
      */
+    #[Test]
     public function mapToPrivateProperty(): void
     {
         $result = $this->getJsonMapper()
@@ -390,9 +376,8 @@ JSON
 
     /**
      * Tests mapping json properties to camel case.
-     *
-     * @test
      */
+    #[Test]
     public function checkCamelCasePropertyConverter(): void
     {
         $result = $this->getJsonMapper()
@@ -412,9 +397,8 @@ JSON
 
     /**
      * Tests mapping a JSON array with objects into a plain PHP array with objects of given class.
-     *
-     * @test
      */
+    #[Test]
     public function mapArrayOfObjects(): void
     {
         $result = $this->getJsonMapper()
@@ -442,9 +426,8 @@ JSON
     /**
      * Tests mapping a JSON object into an PHP object ignoring a given collection class as the
      * JSON does not contain a collection.
-     *
-     * @test
      */
+    #[Test]
     public function mapSingleObjectWithGivenCollection(): void
     {
         $result = $this->getJsonMapper()
@@ -465,9 +448,8 @@ JSON
 
     /**
      * Tests mapping of a multidimensional array.
-     *
-     * @test
      */
+    #[Test]
     public function mapArrayOfArray(): void
     {
         $result = $this->getJsonMapper()
@@ -507,9 +489,8 @@ JSON
 
     /**
      * Tests mapping of values with an initial value.
-     *
-     * @test
      */
+    #[Test]
     public function mapInitialized(): void
     {
         $result = $this->getJsonMapper()
@@ -527,9 +508,8 @@ JSON
     /**
      * Tests mapping of default values using @MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue
      * annotation in case JSON contains NULL.
-     *
-     * @test
      */
+    #[Test]
     public function mapNullToDefaultValueUsingAnnotation(): void
     {
         $result = $this->getJsonMapper()
@@ -557,18 +537,16 @@ JSON),
     {
         return [
             'mapPlainArray' => [
-                DataProvider::mapPlainArrayJson(),
+                Provider\DataProvider::mapPlainArrayJson(),
             ],
         ];
     }
 
     /**
-     * @dataProvider mapPlainArrayJsonDataProvider
-     *
      * @param string $jsonString
-     *
-     * @test
      */
+    #[Test]
+    #[DataProvider('mapPlainArrayJsonDataProvider')]
     public function mapPlainArray(string $jsonString): void
     {
         $result = $this->getJsonMapper()
@@ -595,18 +573,16 @@ JSON),
     {
         return [
             'mapPlainArrayKeyValue' => [
-                DataProvider::mapPlainArrayKeyValueJson(),
+                Provider\DataProvider::mapPlainArrayKeyValueJson(),
             ],
         ];
     }
 
     /**
-     * @dataProvider mapPlainArrayKeyValueJsonDataProvider
-     *
      * @param string $jsonString
-     *
-     * @test
      */
+    #[Test]
+    #[DataProvider('mapPlainArrayKeyValueJsonDataProvider')]
     public function mapPlainArrayKeyValue(string $jsonString): void
     {
         $result = $this->getJsonMapper()
@@ -650,9 +626,8 @@ JSON),
 
     /**
      * Tests settings a class property using a variadic setter method.
-     *
-     * @test
      */
+    #[Test]
     public function variadicSetter(): void
     {
         $result = $this->getJsonMapper()
@@ -678,9 +653,8 @@ JSON
 
     /**
      * Tests settings a plain array.
-     *
-     * @test
      */
+    #[Test]
     public function plainArrayClass(): void
     {
         $result = $this->getJsonMapper()
@@ -706,9 +680,8 @@ JSON
 
     /**
      * Tests mapping an object to a custom class using a class map entry.
-     *
-     * @test
      */
+    #[Test]
     public function mappingBaseElementUsingClassMap(): void
     {
         $result = $this->getJsonMapper([
@@ -730,9 +703,8 @@ JSON
 
     /**
      * Tests mapping a collection of objects to a custom class using a class map entry.
-     *
-     * @test
      */
+    #[Test]
     public function mappingCollectionElementsUsingClassMap(): void
     {
         $result = $this->getJsonMapper([

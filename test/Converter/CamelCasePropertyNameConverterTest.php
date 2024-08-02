@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\Test\Converter;
 
 use MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -25,9 +26,8 @@ class CamelCasePropertyNameConverterTest extends TestCase
 {
     /**
      * Tests mapping json properties to camel case.
-     *
-     * @test
      */
+    #[Test]
     public function checkCamelCasePropertyNameConverter(): void
     {
         $converter = new CamelCasePropertyNameConverter();

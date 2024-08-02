@@ -302,7 +302,7 @@ class JsonMapper
     {
         try {
             return new ReflectionProperty($className, $propertyName);
-        } catch (ReflectionException $exception) {
+        } catch (ReflectionException) {
             return null;
         }
     }
