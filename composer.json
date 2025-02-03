@@ -14,7 +14,7 @@
         "issues": "https://github.com/magicsunday/jsonmapper/issues"
     },
     "require": {
-        "php": ">=8.1.0 <8.4.0",
+        "php": ">=8.1.0 <8.5.0",
         "ext-json": "*",
         "symfony/property-info": "^6.0 || ^7.0",
         "symfony/property-access": "^6.0 || ^7.0",
@@ -23,14 +23,14 @@
     },
     "require-dev": {
         "phpdocumentor/reflection-docblock": "^5.0",
-        "friendsofphp/php-cs-fixer": "^3.50",
-        "overtrue/phplint": "^3.4 || ^9.0",
-        "phpunit/phpunit": "^10.0 || ^11.0",
-        "phpstan/phpstan": "^1.10",
-        "phpstan/phpstan-phpunit": "^1.3",
-        "phpstan/phpstan-strict-rules": "^1.5",
-        "phpstan/phpstan-deprecation-rules": "^1.1",
-        "rector/rector": "^1.0"
+        "friendsofphp/php-cs-fixer": "^3.65",
+        "overtrue/phplint": "^9.0",
+        "phpunit/phpunit": "^11.0",
+        "phpstan/phpstan": "^2.0",
+        "phpstan/phpstan-phpunit": "^2.0",
+        "phpstan/phpstan-strict-rules": "^2.0",
+        "phpstan/phpstan-deprecation-rules": "^2.0",
+        "rector/rector": "^2.0"
     },
     "suggest": {
         "phpdocumentor/reflection-docblock": "In order to use the PhpDocExtractor this library is required too."
