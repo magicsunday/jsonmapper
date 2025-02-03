@@ -95,7 +95,7 @@ class JsonMapper
         PropertyInfoExtractorInterface $extractor,
         PropertyAccessorInterface $accessor,
         ?PropertyNameConverterInterface $nameConverter = null,
-        array $classMap = []
+        array $classMap = [],
     ) {
         $this->extractor     = $extractor;
         $this->accessor      = $accessor;
