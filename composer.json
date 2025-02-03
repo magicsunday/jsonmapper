@@ -14,7 +14,7 @@
         "issues": "https://github.com/magicsunday/jsonmapper/issues"
     },
     "require": {
-        "php": ">=8.1.0 <8.5.0",
+        "php": ">=8.2.0 <8.5.0",
         "ext-json": "*",
         "symfony/property-info": "^6.0 || ^7.0",
         "symfony/property-access": "^6.0 || ^7.0",
