@@ -30,6 +30,7 @@ use Symfony\Component\PropertyInfo\Type;
 use function array_key_exists;
 use function in_array;
 use function is_array;
+use function is_int;
 use function is_object;
 
 /**
@@ -95,7 +96,7 @@ class JsonMapper
         PropertyInfoExtractorInterface $extractor,
         PropertyAccessorInterface $accessor,
         ?PropertyNameConverterInterface $nameConverter = null,
-        array $classMap = [],
+        array $classMap = []
     ) {
         $this->extractor     = $extractor;
         $this->accessor      = $accessor;
@@ -153,7 +154,7 @@ class JsonMapper
      * @throws DomainException
      * @throws InvalidArgumentException
      */
-    public function map($json, ?string $className = null, ?string $collectionClassName = null)
+    public function map(mixed $json, ?string $className = null, ?string $collectionClassName = null)
     {
         // Return plain JSON if no mapping classes are provided
         if ($className === null) {
@@ -172,6 +173,7 @@ class JsonMapper
 
         // Handle collections
         if ($this->isIterableWithArraysOrObjects($json)) {
+            /** @var array<mixed>|object $json */
             if ($collectionClassName !== null) {
                 // Map arrays into collection class if given
                 return $this->makeInstance(
@@ -252,10 +254,10 @@ class JsonMapper
      * Creates an instance of the given class name. If a dependency injection container is provided,
      * it returns the instance for this.
      *
-     * @template T
+     * @template T of object
      *
-     * @param class-string<T> $className               The class to instantiate
-     * @param array|null      ...$constructorArguments The arguments of the constructor
+     * @param class-string<T>   $className               The class to instantiate
+     * @param array<mixed>|null ...$constructorArguments The arguments of the constructor
      *
      * @return T
      */
@@ -434,13 +436,13 @@ class JsonMapper
     }
 
     /**
-     * Returns TRUE if the given json contains integer property keys.
+     * Returns TRUE if the given JSON contains integer property keys.
      *
-     * @param mixed $json
+     * @param array<mixed>|object $json
      *
      * @return bool
      */
-    private function isNumericIndexArray(mixed $json): bool
+    private function isNumericIndexArray(array|object $json): bool
     {
         foreach ($json as $propertyName => $propertyValue) {
             if (is_int($propertyName)) {
@@ -452,7 +454,7 @@ class JsonMapper
     }
 
     /**
-     * Returns TRUE if the given json is a plain array or object.
+     * Returns TRUE if the given JSON is a plain array or object.
      *
      * @param mixed $json
      *
@@ -694,14 +696,14 @@ class JsonMapper
     /**
      * Cast node to a collection.
      *
-     * @param mixed $json
-     * @param Type  $type
+     * @param null|array<mixed>|object $json
+     * @param Type                     $type
      *
      * @return mixed[]|null
      *
      * @throws DomainException
      */
-    private function asCollection(mixed $json, Type $type): ?array
+    private function asCollection(array|object|null $json, Type $type): ?array
     {
         if ($json === null) {
             return null;

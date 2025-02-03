@@ -30,5 +30,5 @@ final class ReplaceProperty extends Annotation
     /**
      * @var string
      */
-    public $replaces;
+    public string $replaces;
 }
