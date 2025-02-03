@@ -54,6 +54,15 @@
         "platform-check": false
     },
     "scripts": {
+        "ci:cgl": [
+            "PHP_CS_FIXER_IGNORE_ENV=1 php-cs-fixer fix --diff --verbose --cache-file .build/.php-cs-fixer.cache"
+        ],
+        "ci:rector": [
+            "rector process --config rector.php"
+        ],
+        "ci:test:php:cgl": [
+            "@ci:cgl --dry-run"
+        ],
         "ci:test:php:lint": [
             "phplint"
         ],
@@ -61,22 +70,20 @@
             "phpunit"
         ],
         "ci:test:php:phpstan": [
-            "phpstan analyze"
+            "phpstan analyze --memory-limit=-1"
         ],
         "ci:test:php:phpstan:baseline": [
-            "phpstan analyze --generate-baseline phpstan-baseline.neon --allow-empty-baseline"
+            "phpstan analyze --memory-limit=-1 --generate-baseline phpstan-baseline.neon --allow-empty-baseline"
         ],
         "ci:test:php:rector": [
-            "rector process --config rector.php --dry-run"
+            "@ci:rector --dry-run"
         ],
         "ci:test": [
             "@ci:test:php:lint",
             "@ci:test:php:phpstan",
             "@ci:test:php:rector",
-            "@ci:test:php:unit"
-        ],
-        "ci:cgl": [
-            "php-cs-fixer fix --diff --verbose"
+            "@ci:test:php:unit",
+            "@ci:test:php:cgl"
         ]
     }
 }

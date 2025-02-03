@@ -96,7 +96,7 @@ class JsonMapper
         PropertyInfoExtractorInterface $extractor,
         PropertyAccessorInterface $accessor,
         ?PropertyNameConverterInterface $nameConverter = null,
-        array $classMap = []
+        array $classMap = [],
     ) {
         $this->extractor     = $extractor;
         $this->accessor      = $accessor;
@@ -696,7 +696,7 @@ class JsonMapper
     /**
      * Cast node to a collection.
      *
-     * @param null|array<mixed>|object $json
+     * @param array<mixed>|object|null $json
      * @param Type                     $type
      *
      * @return mixed[]|null
