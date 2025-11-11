@@ -37,4 +37,66 @@ class CamelCasePropertyNameConverterTest extends TestCase
         self::assertSame('camelCaseProperty', $converter->convert('camel-case-property'));
         self::assertSame('camelCaseProperty', $converter->convert('camel case property'));
     }
+
+    /**
+     * Tests conversion of single word properties.
+     */
+    #[Test]
+    public function convertsSingleWord(): void
+    {
+        $converter = new CamelCasePropertyNameConverter();
+
+        self::assertSame('name', $converter->convert('name'));
+        self::assertSame('id', $converter->convert('id'));
+        self::assertSame('value', $converter->convert('value'));
+    }
+
+    /**
+     * Tests conversion of uppercase properties.
+     */
+    #[Test]
+    public function convertsUppercaseProperties(): void
+    {
+        $converter = new CamelCasePropertyNameConverter();
+
+        self::assertSame('name', $converter->convert('NAME'));
+        self::assertSame('userId', $converter->convert('USER_ID'));
+        self::assertSame('firstName', $converter->convert('FIRST_NAME'));
+    }
+
+    /**
+     * Tests conversion with numbers in property names.
+     */
+    #[Test]
+    public function convertsPropertiesWithNumbers(): void
+    {
+        $converter = new CamelCasePropertyNameConverter();
+
+        self::assertSame('property1', $converter->convert('property_1'));
+        self::assertSame('item2Name', $converter->convert('item_2_name'));
+        self::assertSame('value123Test', $converter->convert('value_123_test'));
+    }
+
+    /**
+     * Tests conversion of empty string.
+     */
+    #[Test]
+    public function convertsEmptyString(): void
+    {
+        $converter = new CamelCasePropertyNameConverter();
+
+        self::assertSame('', $converter->convert(''));
+    }
+
+    /**
+     * Tests conversion with mixed delimiters.
+     */
+    #[Test]
+    public function convertsMixedDelimiters(): void
+    {
+        $converter = new CamelCasePropertyNameConverter();
+
+        self::assertSame('mixedDelimiterProperty', $converter->convert('mixed_delimiter-property'));
+        self::assertSame('complexProperty Name', $converter->convert('complex-property_name'));
+    }
 }
