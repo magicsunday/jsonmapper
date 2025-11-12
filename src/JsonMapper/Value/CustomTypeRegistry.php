@@ -14,10 +14,8 @@ namespace MagicSunday\JsonMapper\Value;
 use Closure;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use ReflectionFunction;
-use ReflectionMethod;
 
 use function array_key_exists;
-use function is_array;
 
 /**
  * Stores custom conversion handlers keyed by class name.
@@ -25,12 +23,14 @@ use function is_array;
 final class CustomTypeRegistry
 {
     /**
-     * @var array<class-string, callable(mixed, MappingContext):mixed>
+     * @var array<string, Closure(mixed, MappingContext):mixed>
      */
     private array $converters = [];
 
     /**
      * Registers the converter for the provided class name.
+     *
+     * @param callable(mixed):mixed|callable(mixed, MappingContext):mixed $converter
      */
     public function register(string $className, callable $converter): void
     {
@@ -55,25 +55,16 @@ final class CustomTypeRegistry
 
     /**
      * @param callable(mixed):mixed|callable(mixed, MappingContext):mixed $converter
-     *
-     * @return callable(mixed, MappingContext):mixed
      */
-    private function normalizeConverter(callable $converter): callable
+    private function normalizeConverter(callable $converter): Closure
     {
-        if ($converter instanceof Closure) {
-            $reflection = new ReflectionFunction($converter);
-        } elseif (is_array($converter)) {
-            $reflection = new ReflectionMethod($converter[0], $converter[1]);
-        } else {
-            $reflection = new ReflectionFunction(Closure::fromCallable($converter));
-        }
+        $closure    = $converter instanceof Closure ? $converter : Closure::fromCallable($converter);
+        $reflection = new ReflectionFunction($closure);
 
         if ($reflection->getNumberOfParameters() >= 2) {
-            return $converter;
+            return $closure;
         }
 
-        return static function (mixed $value, MappingContext $context) use ($converter): mixed {
-            return $converter($value);
-        };
+        return static fn (mixed $value, MappingContext $context): mixed => $closure($value);
     }
 }

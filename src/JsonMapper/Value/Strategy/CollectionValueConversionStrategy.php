@@ -16,16 +16,17 @@ use MagicSunday\JsonMapper\Context\MappingContext;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\CollectionType;
 
+use function assert;
 use function is_array;
 use function is_object;
 
 /**
  * Converts collection values using the configured factory.
  */
-final class CollectionValueConversionStrategy implements ValueConversionStrategyInterface
+final readonly class CollectionValueConversionStrategy implements ValueConversionStrategyInterface
 {
     public function __construct(
-        private readonly CollectionFactory $collectionFactory,
+        private CollectionFactory $collectionFactory,
     ) {
     }
 
@@ -36,7 +37,7 @@ final class CollectionValueConversionStrategy implements ValueConversionStrategy
 
     public function convert(mixed $value, Type $type, MappingContext $context): mixed
     {
-        \assert($type instanceof CollectionType);
+        assert($type instanceof CollectionType);
 
         return $this->collectionFactory->fromCollectionType($type, $value, $context);
     }

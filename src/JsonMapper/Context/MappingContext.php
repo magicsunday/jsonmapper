@@ -19,7 +19,7 @@ final class MappingContext
     /**
      * @var list<string>
      */
-    private array $pathSegments;
+    private array $pathSegments = [];
 
     /**
      * @var list<string>
@@ -30,11 +30,8 @@ final class MappingContext
      * @param mixed                $rootInput The original JSON payload
      * @param array<string, mixed> $options   Context options
      */
-    public function __construct(
-        private readonly mixed $rootInput,
-        private readonly array $options = [],
-    ) {
-        $this->pathSegments = [];
+    public function __construct(private readonly mixed $rootInput, private readonly array $options = [])
+    {
     }
 
     /**

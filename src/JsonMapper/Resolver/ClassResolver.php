@@ -17,8 +17,11 @@ use MagicSunday\JsonMapper\Context\MappingContext;
 use ReflectionFunction;
 
 use function array_key_exists;
+use function class_exists;
 use function get_debug_type;
+use function interface_exists;
 use function is_string;
+use function sprintf;
 
 /**
  * Resolves class names using the configured class map.
@@ -26,7 +29,9 @@ use function is_string;
 final class ClassResolver
 {
     /**
-     * @param array<class-string, class-string|Closure> $classMap
+     * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
+     *
+     * @phpstan-param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
      */
     public function __construct(
         private array $classMap = [],
@@ -35,6 +40,12 @@ final class ClassResolver
 
     /**
      * Adds a custom resolution rule.
+     *
+     * @param class-string                                                            $className
+     * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $resolver
+     *
+     * @phpstan-param class-string $className
+     * @phpstan-param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $resolver
      */
     public function add(string $className, Closure $resolver): void
     {
@@ -45,19 +56,22 @@ final class ClassResolver
      * Resolves the class name for the provided JSON payload.
      *
      * @param class-string $className
+     * @param mixed        $json
      *
      * @return class-string
+     *
+     * @throws DomainException
      */
     public function resolve(string $className, mixed $json, MappingContext $context): string
     {
         if (!array_key_exists($className, $this->classMap)) {
-            return $className;
+            return $this->assertClassString($className);
         }
 
         $mapped = $this->classMap[$className];
 
         if (!($mapped instanceof Closure)) {
-            return $mapped;
+            return $this->assertClassString($mapped);
         }
 
         $resolved = $this->invokeResolver($mapped, $json, $context);
@@ -72,9 +86,12 @@ final class ClassResolver
             );
         }
 
-        return $resolved;
+        return $this->assertClassString($resolved);
     }
 
+    /**
+     * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $resolver
+     */
     private function invokeResolver(Closure $resolver, mixed $json, MappingContext $context): mixed
     {
         $reflection = new ReflectionFunction($resolver);
@@ -84,5 +101,24 @@ final class ClassResolver
         }
 
         return $resolver($json);
+    }
+
+    /**
+     * @return class-string
+     *
+     * @throws DomainException
+     */
+    private function assertClassString(string $className): string
+    {
+        if ($className === '') {
+            throw new DomainException('Resolved class name must not be empty.');
+        }
+
+        if (!class_exists($className) && !interface_exists($className)) {
+            throw new DomainException(sprintf('Resolved class %s does not exist.', $className));
+        }
+
+        /** @var class-string $className */
+        return $className;
     }
 }
