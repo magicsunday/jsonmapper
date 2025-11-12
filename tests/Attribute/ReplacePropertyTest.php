@@ -9,7 +9,7 @@
 
 declare(strict_types=1);
 
-namespace MagicSunday\Test\Annotation;
+namespace MagicSunday\Test\Attribute;
 
 use MagicSunday\Test\Classes\ReplacePropertyTestClass;
 use MagicSunday\Test\TestCase;

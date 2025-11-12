@@ -11,7 +11,7 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\Classes;
 
-use MagicSunday\JsonMapper\Annotation\ReplaceProperty;
+use MagicSunday\JsonMapper\Attribute\ReplaceProperty;
 
 /**
  * Class ReplacePropertyTestClass.
@@ -19,10 +19,9 @@ use MagicSunday\JsonMapper\Annotation\ReplaceProperty;
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
- *
- * @ReplaceProperty("type", replaces="ftype")
- * @ReplaceProperty("name", replaces="super-cryptic-name")
  */
+#[ReplaceProperty('type', replaces: 'ftype')]
+#[ReplaceProperty('name', replaces: 'super-cryptic-name')]
 class ReplacePropertyTestClass
 {
     /**
