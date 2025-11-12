@@ -30,6 +30,7 @@ use MagicSunday\JsonMapper\Value\Strategy\NullValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\Strategy\ObjectValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\Strategy\PassthroughValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\ValueConverter;
+use Psr\Cache\CacheItemPoolInterface;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionMethod;
@@ -77,6 +78,7 @@ class JsonMapper
 
     /**
      * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
+     * @param CacheItemPoolInterface|null                                                                               $typeCache
      *
      * @phpstan-param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
      */
@@ -85,8 +87,9 @@ class JsonMapper
         private readonly PropertyAccessorInterface $accessor,
         private readonly ?PropertyNameConverterInterface $nameConverter = null,
         array $classMap = [],
+        ?CacheItemPoolInterface $typeCache = null,
     ) {
-        $this->typeResolver       = new TypeResolver($extractor);
+        $this->typeResolver       = new TypeResolver($extractor, $typeCache);
         $this->classResolver      = new ClassResolver($classMap);
         $this->customTypeRegistry = new CustomTypeRegistry();
         $this->valueConverter     = new ValueConverter();
