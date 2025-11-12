@@ -11,27 +11,38 @@ declare(strict_types=1);
 
 namespace MagicSunday\JsonMapper\Context;
 
+use MagicSunday\JsonMapper\Exception\MappingException;
+
 /**
  * Represents the state shared while mapping JSON structures.
  */
 final class MappingContext
 {
+    public const OPTION_STRICT_MODE    = 'strict_mode';
+    public const OPTION_COLLECT_ERRORS = 'collect_errors';
+
     /**
      * @var list<string>
      */
     private array $pathSegments = [];
 
     /**
-     * @var list<string>
+     * @var list<MappingError>
      */
-    private array $errors = [];
+    private array $errorRecords = [];
+
+    /**
+     * @var array<string, mixed>
+     */
+    private array $options;
 
     /**
      * @param mixed                $rootInput The original JSON payload
      * @param array<string, mixed> $options   Context options
      */
-    public function __construct(private readonly mixed $rootInput, private readonly array $options = [])
+    public function __construct(private readonly mixed $rootInput, array $options = [])
     {
+        $this->options = $options;
     }
 
     /**
@@ -73,9 +84,21 @@ final class MappingContext
     /**
      * Stores the error message for later consumption.
      */
-    public function addError(string $message): void
+    public function addError(string $message, ?MappingException $exception = null): void
     {
-        $this->errors[] = $message;
+        if (!$this->shouldCollectErrors()) {
+            return;
+        }
+
+        $this->errorRecords[] = new MappingError($this->getPath(), $message, $exception);
+    }
+
+    /**
+     * Stores the exception and message for later consumption.
+     */
+    public function recordException(MappingException $exception): void
+    {
+        $this->addError($exception->getMessage(), $exception);
     }
 
     /**
@@ -85,7 +108,20 @@ final class MappingContext
      */
     public function getErrors(): array
     {
-        return $this->errors;
+        return array_map(
+            static fn (MappingError $error): string => $error->getMessage(),
+            $this->errorRecords,
+        );
+    }
+
+    public function shouldCollectErrors(): bool
+    {
+        return (bool) ($this->options[self::OPTION_COLLECT_ERRORS] ?? true);
+    }
+
+    public function isStrictMode(): bool
+    {
+        return (bool) ($this->options[self::OPTION_STRICT_MODE] ?? false);
     }
 
     /**
@@ -104,5 +140,25 @@ final class MappingContext
     public function getOption(string $name, mixed $default = null): mixed
     {
         return $this->options[$name] ?? $default;
+    }
+
+    /**
+     * Replaces the stored options.
+     *
+     * @param array<string, mixed> $options
+     */
+    public function replaceOptions(array $options): void
+    {
+        $this->options = $options;
+    }
+
+    /**
+     * Returns collected mapping errors with contextual details.
+     *
+     * @return list<MappingError>
+     */
+    public function getErrorRecords(): array
+    {
+        return $this->errorRecords;
     }
 }

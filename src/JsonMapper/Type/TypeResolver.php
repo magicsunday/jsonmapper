@@ -13,6 +13,10 @@ namespace MagicSunday\JsonMapper\Type;
 
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Cache\InvalidArgumentException as CacheInvalidArgumentException;
+use ReflectionException;
+use ReflectionNamedType;
+use ReflectionProperty;
+use ReflectionUnionType;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractorInterface;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\BuiltinType;
@@ -55,6 +59,10 @@ final class TypeResolver
 
         if ($type instanceof UnionType) {
             $type = $type->getTypes()[0];
+        }
+
+        if ($type === null) {
+            $type = $this->resolveFromReflection($className, $propertyName);
         }
 
         $resolved = $type ?? $this->defaultType;
@@ -126,5 +134,73 @@ final class TypeResolver
     private function buildCacheKey(string $className, string $propertyName): string
     {
         return self::CACHE_KEY_PREFIX . strtr($className, '\\', '_') . '.' . $propertyName;
+    }
+
+    /**
+     * @param class-string $className
+     */
+    private function resolveFromReflection(string $className, string $propertyName): ?Type
+    {
+        try {
+            $property = new ReflectionProperty($className, $propertyName);
+        } catch (ReflectionException) {
+            return null;
+        }
+
+        $reflectionType = $property->getType();
+
+        if ($reflectionType instanceof ReflectionNamedType) {
+            return $this->createTypeFromNamedReflection($reflectionType);
+        }
+
+        if ($reflectionType instanceof ReflectionUnionType) {
+            $allowsNull = false;
+            $primary    = null;
+
+            foreach ($reflectionType->getTypes() as $innerType) {
+                if (!$innerType instanceof ReflectionNamedType) {
+                    continue;
+                }
+
+                if ($innerType->getName() === 'null') {
+                    $allowsNull = true;
+
+                    continue;
+                }
+
+                $primary ??= $innerType;
+            }
+
+            if ($primary instanceof ReflectionNamedType) {
+                return $this->createTypeFromNamedReflection($primary, $allowsNull || $primary->allowsNull());
+            }
+        }
+
+        return null;
+    }
+
+    private function createTypeFromNamedReflection(ReflectionNamedType $type, ?bool $nullable = null): ?Type
+    {
+        $name = $type->getName();
+
+        if ($type->isBuiltin()) {
+            $identifier = TypeIdentifier::tryFrom($name);
+
+            if ($identifier === null) {
+                return null;
+            }
+
+            $resolved = Type::builtin($identifier);
+        } else {
+            $resolved = Type::object($name);
+        }
+
+        $allowsNull = $nullable ?? $type->allowsNull();
+
+        if ($allowsNull) {
+            return Type::nullable($resolved);
+        }
+
+        return $resolved;
     }
 }

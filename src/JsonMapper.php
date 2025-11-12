@@ -18,8 +18,14 @@ use InvalidArgumentException;
 use MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue;
 use MagicSunday\JsonMapper\Annotation\ReplaceProperty;
 use MagicSunday\JsonMapper\Collection\CollectionFactory;
+use MagicSunday\JsonMapper\Configuration\MappingConfiguration;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Converter\PropertyNameConverterInterface;
+use MagicSunday\JsonMapper\Exception\MappingException;
+use MagicSunday\JsonMapper\Exception\MissingPropertyException;
+use MagicSunday\JsonMapper\Exception\UnknownPropertyException;
+use MagicSunday\JsonMapper\Report\MappingReport;
+use MagicSunday\JsonMapper\Report\MappingResult;
 use MagicSunday\JsonMapper\Resolver\ClassResolver;
 use MagicSunday\JsonMapper\Type\TypeResolver;
 use MagicSunday\JsonMapper\Value\CustomTypeRegistry;
@@ -34,7 +40,9 @@ use Psr\Cache\CacheItemPoolInterface;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionMethod;
+use ReflectionNamedType;
 use ReflectionProperty;
+use ReflectionUnionType;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractorInterface;
 use Symfony\Component\TypeInfo\Type;
@@ -42,7 +50,11 @@ use Symfony\Component\TypeInfo\Type\CollectionType;
 use Symfony\Component\TypeInfo\Type\ObjectType;
 use Traversable;
 
+use function array_diff;
+use function array_filter;
 use function array_key_exists;
+use function array_unique;
+use function array_values;
 use function call_user_func_array;
 use function count;
 use function get_object_vars;
@@ -111,7 +123,11 @@ class JsonMapper
         $this->valueConverter->addStrategy(
             new ObjectValueConversionStrategy(
                 $this->classResolver,
-                fn (mixed $value, string $resolvedClass, MappingContext $context): mixed => $this->map($value, $resolvedClass, null, $context),
+                function (mixed $value, string $resolvedClass, MappingContext $context): mixed {
+                    $configuration = MappingConfiguration::fromContext($context);
+
+                    return $this->map($value, $resolvedClass, null, $context, $configuration);
+                },
             ),
         );
         $this->valueConverter->addStrategy(new BuiltinValueConversionStrategy());
@@ -158,8 +174,18 @@ class JsonMapper
         ?string $className = null,
         ?string $collectionClassName = null,
         ?MappingContext $context = null,
+        ?MappingConfiguration $configuration = null,
     ): mixed {
-        $context ??= new MappingContext($json);
+        if ($context === null) {
+            $configuration ??= MappingConfiguration::lenient();
+            $context = new MappingContext($json, $configuration->toOptions());
+        } else {
+            if ($configuration === null) {
+                $configuration = MappingConfiguration::fromContext($context);
+            } else {
+                $context->replaceOptions($configuration->toOptions());
+            }
+        }
 
         if ($className === null) {
             return $json;
@@ -200,24 +226,37 @@ class JsonMapper
 
         $properties         = $this->getProperties($resolvedClassName);
         $replacePropertyMap = $this->buildReplacePropertyMap($resolvedClassName);
+        $mappedProperties   = [];
 
         foreach ($source as $propertyName => $propertyValue) {
             $normalizedProperty = $this->normalizePropertyName($propertyName, $replacePropertyMap);
+            $pathSegment        = is_string($normalizedProperty) ? $normalizedProperty : (string) $propertyName;
 
-            if (!is_string($normalizedProperty)) {
-                continue;
-            }
-
-            if (!in_array($normalizedProperty, $properties, true)) {
-                continue;
-            }
-
-            $context->withPathSegment($normalizedProperty, function (MappingContext $propertyContext) use (
+            $context->withPathSegment($pathSegment, function (MappingContext $propertyContext) use (
                 $resolvedClassName,
                 $normalizedProperty,
                 $propertyValue,
                 $entity,
+                &$mappedProperties,
+                $properties,
+                $configuration,
             ): void {
+                if (!is_string($normalizedProperty)) {
+                    return;
+                }
+
+                if (!in_array($normalizedProperty, $properties, true)) {
+                    $this->handleMappingException(
+                        new UnknownPropertyException($propertyContext->getPath(), $normalizedProperty, $resolvedClassName),
+                        $propertyContext,
+                        $configuration,
+                    );
+
+                    return;
+                }
+
+                $mappedProperties[] = $normalizedProperty;
+
                 $type  = $this->typeResolver->resolve($resolvedClassName, $normalizedProperty);
                 $value = $this->convertValue($propertyValue, $type, $propertyContext);
 
@@ -232,7 +271,103 @@ class JsonMapper
             });
         }
 
+        if ($configuration->isStrictMode()) {
+            foreach ($this->determineMissingProperties($resolvedClassName, $properties, $mappedProperties) as $missingProperty) {
+                $context->withPathSegment($missingProperty, function (MappingContext $propertyContext) use (
+                    $resolvedClassName,
+                    $missingProperty,
+                    $configuration,
+                ): void {
+                    $this->handleMappingException(
+                        new MissingPropertyException($propertyContext->getPath(), $missingProperty, $resolvedClassName),
+                        $propertyContext,
+                        $configuration,
+                    );
+                });
+            }
+        }
+
         return $entity;
+    }
+
+    /**
+     * Maps the JSON structure and returns a detailed mapping report.
+     *
+     * @param mixed             $json
+     * @param class-string|null $className
+     * @param class-string|null $collectionClassName
+     */
+    public function mapWithReport(
+        mixed $json,
+        ?string $className = null,
+        ?string $collectionClassName = null,
+        ?MappingConfiguration $configuration = null,
+    ): MappingResult {
+        $configuration = ($configuration ?? MappingConfiguration::lenient())->withErrorCollection(true);
+        $context       = new MappingContext($json, $configuration->toOptions());
+        $value         = $this->map($json, $className, $collectionClassName, $context, $configuration);
+
+        return new MappingResult($value, new MappingReport($context->getErrorRecords()));
+    }
+
+    /**
+     * @param class-string              $className
+     * @param array<int|string, string> $declaredProperties
+     * @param list<string>              $mappedProperties
+     *
+     * @return list<string>
+     */
+    private function determineMissingProperties(string $className, array $declaredProperties, array $mappedProperties): array
+    {
+        $used = array_values(array_unique($mappedProperties));
+
+        return array_values(array_filter(
+            array_diff($declaredProperties, $used),
+            fn (string $property): bool => $this->isRequiredProperty($className, $property),
+        ));
+    }
+
+    /**
+     * @param class-string $className
+     */
+    private function isRequiredProperty(string $className, string $propertyName): bool
+    {
+        $reflectionProperty = $this->getReflectionProperty($className, $propertyName);
+
+        if (!($reflectionProperty instanceof ReflectionProperty)) {
+            return false;
+        }
+
+        if ($reflectionProperty->hasDefaultValue()) {
+            return false;
+        }
+
+        $type = $reflectionProperty->getType();
+
+        if ($type instanceof ReflectionNamedType) {
+            return !$type->allowsNull();
+        }
+
+        if ($type instanceof ReflectionUnionType) {
+            foreach ($type->getTypes() as $innerType) {
+                if ($innerType instanceof ReflectionNamedType && $innerType->allowsNull()) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private function handleMappingException(MappingException $exception, MappingContext $context, MappingConfiguration $configuration): void
+    {
+        $context->recordException($exception);
+
+        if ($configuration->isStrictMode()) {
+            throw $exception;
+        }
     }
 
     /**
