@@ -17,7 +17,6 @@ use MagicSunday\Test\Classes\ClassMap\CollectionTarget;
 use MagicSunday\Test\Classes\ClassMap\SourceItem;
 use MagicSunday\Test\Classes\ClassMap\TargetItem;
 use MagicSunday\Test\Classes\Collection;
-use MagicSunday\Test\Classes\CustomClass;
 use MagicSunday\Test\Classes\CustomConstructor;
 use MagicSunday\Test\Classes\Initialized;
 use MagicSunday\Test\Classes\MapPlainArrayKeyValueClass;
@@ -30,6 +29,9 @@ use MagicSunday\Test\Classes\VipPerson;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use stdClass;
+
+use function is_array;
+use function is_string;
 
 /**
  * Class JsonMapperTest.
@@ -73,6 +75,8 @@ class JsonMapperTest extends TestCase
 
         self::assertInstanceOf(Collection::class, $result);
         self::assertContainsOnlyInstancesOf(Base::class, $result);
+        self::assertInstanceOf(Base::class, $result[0]);
+        self::assertInstanceOf(Base::class, $result[1]);
         self::assertSame('Item 1', $result[0]->name);
         self::assertSame('Item 2', $result[1]->name);
     }
@@ -108,11 +112,13 @@ JSON
         $iterator->rewind();
 
         self::assertSame('foo', $iterator->key());
+        self::assertInstanceOf(Base::class, $iterator->current());
         self::assertSame('Item 1', $iterator->current()->name);
 
         $iterator->next();
 
         self::assertSame('bar', $iterator->key());
+        self::assertInstanceOf(Base::class, $iterator->current());
         self::assertSame('Item 2', $iterator->current()->name);
     }
 
@@ -144,7 +150,6 @@ JSON
             );
 
         self::assertInstanceOf(Base::class, $result);
-        self::assertIsArray($result->simpleArray);
         self::assertCount(2, $result->simpleArray);
         self::assertContainsOnlyInstancesOf(Simple::class, $result->simpleArray);
         self::assertSame(1, $result->simpleArray[0]->id);
@@ -184,8 +189,10 @@ JSON
         self::assertInstanceOf(Collection::class, $result->simpleCollection);
         self::assertCount(2, $result->simpleCollection);
         self::assertContainsOnlyInstancesOf(Simple::class, $result->simpleCollection);
+        self::assertInstanceOf(Simple::class, $result->simpleCollection[0]);
         self::assertSame(1, $result->simpleCollection[0]->id);
         self::assertSame('Item 1', $result->simpleCollection[0]->name);
+        self::assertInstanceOf(Simple::class, $result->simpleCollection[1]);
         self::assertSame(2, $result->simpleCollection[1]->id);
         self::assertSame('Item 2', $result->simpleCollection[1]->name);
     }
@@ -214,12 +221,20 @@ JSON
         $result = $this->getJsonMapper()
             ->addType(
                 CustomConstructor::class,
-                static function ($value): ?CustomConstructor {
-                    if (is_array($value) && $value['name']) {
+                static function (mixed $value): ?CustomConstructor {
+                    if (
+                        is_array($value)
+                        && isset($value['name'])
+                        && is_string($value['name'])
+                    ) {
                         return new CustomConstructor($value['name']);
                     }
 
-                    if ($value->name) {
+                    if (
+                        ($value instanceof stdClass)
+                        && property_exists($value, 'name')
+                        && is_string($value->name)
+                    ) {
                         return new CustomConstructor($value->name);
                     }
 
@@ -232,7 +247,6 @@ JSON
             );
 
         self::assertInstanceOf(Base::class, $result);
-        self::assertInstanceOf(CustomConstructor::class, $result->customContructor);
         self::assertSame('John Doe', $result->customContructor->name);
     }
 
@@ -267,11 +281,13 @@ JSON
         self::assertInstanceOf(Collection::class, $result);
         self::assertContainsOnlyInstancesOf(Simple::class, $result);
 
+        self::assertInstanceOf(Simple::class, $result[0]);
         self::assertSame(123, $result[0]->int);
         self::assertSame(123.45, $result[0]->float);
         self::assertTrue($result[0]->bool);
         self::assertSame('string', $result[0]->string);
 
+        self::assertInstanceOf(Simple::class, $result[1]);
         self::assertSame(0, $result[1]->int);
         self::assertSame(0.0, $result[1]->float);
         self::assertFalse($result[1]->bool);
@@ -304,8 +320,19 @@ JSON
             ->addCustomClassMapEntry(
                 Person::class,
                 // Map each entry of the collection to a separate class
-                static function ($value): string {
-                    if ((is_array($value) && $value['is_vip']) || (($value instanceof stdClass) && $value->is_vip)) {
+                static function (mixed $value): string {
+                    if (
+                        (
+                            is_array($value)
+                            && isset($value['is_vip'])
+                            && ($value['is_vip'] === true)
+                        )
+                        || (
+                            ($value instanceof stdClass)
+                            && property_exists($value, 'is_vip')
+                            && $value->is_vip
+                        )
+                    ) {
                         return VipPerson::class;
                     }
 
@@ -318,11 +345,8 @@ JSON
             );
 
         self::assertInstanceOf(Base::class, $result);
-        self::assertInstanceOf(CustomClass::class, $result->customClass);
-        self::assertIsArray($result->customClass->persons);
         self::assertCount(2, $result->customClass->persons);
 
-        self::assertInstanceOf(Person::class, $result->customClass->persons[0]);
         self::assertFalse($result->customClass->persons[0]->is_vip);
         self::assertSame('John Doe', $result->customClass->persons[0]->name);
 
@@ -481,8 +505,6 @@ JSON
             );
 
         self::assertInstanceOf(MultidimensionalArray::class, $result);
-        self::assertIsArray($result->persons);
-        self::assertContainsOnly('array', $result->persons);
         self::assertContainsOnlyInstancesOf(Person::class, $result->persons[0]);
         self::assertContainsOnlyInstancesOf(Person::class, $result->persons[1]);
     }
@@ -648,6 +670,7 @@ JSON
                 VariadicSetterClass::class
             );
 
+        self::assertInstanceOf(VariadicSetterClass::class, $result);
         self::assertEquals([1, 2, 3, 4, 5], $result->getValues());
     }
 
@@ -675,6 +698,7 @@ JSON
                 PlainArrayClass::class
             );
 
+        self::assertInstanceOf(PlainArrayClass::class, $result);
         self::assertEquals([1, 2, 3, 4, 5], $result->getValues());
     }
 

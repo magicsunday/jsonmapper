@@ -44,7 +44,7 @@ JSON
                 ReplacePropertyTestClass::class
             );
 
-        //        self::assertInstanceOf(ReplacePropertyTestClass::class, $result);
+        self::assertInstanceOf(ReplacePropertyTestClass::class, $result);
         self::assertSame(123, $result->getType());
         self::assertSame('This is my name', $result->name);
         self::assertSame('Default value', $result->untouchedProperty);

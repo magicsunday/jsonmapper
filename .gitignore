@@ -18,6 +18,3 @@ composer.lock
 .phplint.cache
 .phpunit.result.cache
 .phpunit.cache
-
-# Custom
-/test/

@@ -14,22 +14,23 @@
         "issues": "https://github.com/magicsunday/jsonmapper/issues"
     },
     "require": {
-        "php": ">=8.2.0 <8.5.0",
+        "php": ">=8.3.0 <8.5.0",
         "ext-json": "*",
-        "symfony/property-info": "^6.0 || ^7.0",
-        "symfony/property-access": "^6.0 || ^7.0",
+        "symfony/property-info": "^7.3",
+        "symfony/property-access": "^7.3",
+        "symfony/type-info": "^7.3",
         "doctrine/inflector": "^2.0",
         "doctrine/annotations": "^2.0"
     },
     "require-dev": {
-        "phpdocumentor/reflection-docblock": "^5.0",
         "friendsofphp/php-cs-fixer": "^3.65",
         "overtrue/phplint": "^9.0",
-        "phpunit/phpunit": "^11.0",
+        "phpdocumentor/reflection-docblock": "^5.0",
         "phpstan/phpstan": "^2.0",
+        "phpstan/phpstan-deprecation-rules": "^2.0",
         "phpstan/phpstan-phpunit": "^2.0",
         "phpstan/phpstan-strict-rules": "^2.0",
-        "phpstan/phpstan-deprecation-rules": "^2.0",
+        "phpunit/phpunit": "^11.0 || ^12.0",
         "rector/rector": "^2.0"
     },
     "suggest": {
@@ -42,7 +43,7 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "MagicSunday\\Test\\": "test/"
+            "MagicSunday\\Test\\": "tests/"
         }
     },
     "config": {
@@ -55,7 +56,7 @@
     },
     "scripts": {
         "ci:cgl": [
-            "PHP_CS_FIXER_IGNORE_ENV=1 php-cs-fixer fix --diff --verbose --cache-file .build/.php-cs-fixer.cache"
+            "php-cs-fixer fix --config .php-cs-fixer.dist.php --diff --verbose"
         ],
         "ci:rector": [
             "rector process --config rector.php"
@@ -64,26 +65,35 @@
             "@ci:cgl --dry-run"
         ],
         "ci:test:php:lint": [
-            "phplint"
-        ],
-        "ci:test:php:unit": [
-            "phpunit"
+            "phplint --configuration .phplint.yml"
         ],
         "ci:test:php:phpstan": [
-            "phpstan analyze --memory-limit=-1"
+            "phpstan analyze --configuration phpstan.neon --memory-limit=-1"
         ],
         "ci:test:php:phpstan:baseline": [
-            "phpstan analyze --memory-limit=-1 --generate-baseline phpstan-baseline.neon --allow-empty-baseline"
+            "phpstan analyze --configuration phpstan.neon --memory-limit=-1 --generate-baseline phpstan-baseline.neon --allow-empty-baseline"
         ],
         "ci:test:php:rector": [
             "@ci:rector --dry-run"
+        ],
+        "ci:test:php:cpd": [
+            "npx -y jscpd@latest --config .jscpd.json"
+        ],
+        "ci:test:php:unit": [
+            "phpunit --configuration phpunit.xml"
+        ],
+        "ci:test:php:unit:coverage": [
+            "XDEBUG_MODE=coverage phpunit --configuration phpunit.xml --coverage-html .build/coverage/"
+        ],
+        "ci:compliance": [
+            "php scripts/analyze-exif-compliance.php 50"
         ],
         "ci:test": [
             "@ci:test:php:lint",
             "@ci:test:php:phpstan",
             "@ci:test:php:rector",
-            "@ci:test:php:unit",
-            "@ci:test:php:cgl"
+            "@ci:test:php:cgl",
+            "@ci:test:php:unit"
         ]
     }
 }

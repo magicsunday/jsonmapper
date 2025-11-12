@@ -25,7 +25,13 @@ use ReflectionMethod;
 use ReflectionProperty;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractorInterface;
-use Symfony\Component\PropertyInfo\Type;
+use Symfony\Component\TypeInfo\Type;
+use Symfony\Component\TypeInfo\Type\BuiltinType;
+use Symfony\Component\TypeInfo\Type\CollectionType;
+use Symfony\Component\TypeInfo\Type\ObjectType;
+use Symfony\Component\TypeInfo\Type\UnionType;
+use Symfony\Component\TypeInfo\Type\WrappingTypeInterface;
+use Symfony\Component\TypeInfo\TypeIdentifier;
 
 use function array_key_exists;
 use function in_array;
@@ -73,9 +79,9 @@ class JsonMapper
     /**
      * The default value type instance.
      *
-     * @var Type
+     * @var BuiltinType
      */
-    private Type $defaultType;
+    private BuiltinType $defaultType;
 
     /**
      * The custom types.
@@ -101,7 +107,7 @@ class JsonMapper
         $this->extractor     = $extractor;
         $this->accessor      = $accessor;
         $this->nameConverter = $nameConverter;
-        $this->defaultType   = new Type(Type::BUILTIN_TYPE_STRING);
+        $this->defaultType   = new BuiltinType(TypeIdentifier::STRING);
         $this->classMap      = $classMap;
     }
 
@@ -145,11 +151,11 @@ class JsonMapper
      * @param class-string<TEntityCollection>|null $collectionClassName The class name of a collection used to assign
      *                                                                  the initial elements
      *
+     * @return mixed|TEntityCollection|TEntity|null
+     *
      * @phpstan-return ($collectionClassName is class-string
      *                      ? TEntityCollection
      *                      : ($className is class-string ? TEntity : null|mixed))
-     *
-     * @return mixed|TEntityCollection|TEntity|null
      *
      * @throws DomainException
      * @throws InvalidArgumentException
@@ -180,7 +186,7 @@ class JsonMapper
                     $collectionClassName,
                     $this->asCollection(
                         $json,
-                        new Type(Type::BUILTIN_TYPE_OBJECT, false, $className)
+                        new ObjectType($className)
                     )
                 );
             }
@@ -190,7 +196,7 @@ class JsonMapper
                 // Map all elements of the JSON array to an array
                 return $this->asCollection(
                     $json,
-                    new Type(Type::BUILTIN_TYPE_OBJECT, false, $className)
+                    new ObjectType($className)
                 );
             }
         }
@@ -562,7 +568,13 @@ class JsonMapper
      */
     private function getType(string $className, string $propertyName): Type
     {
-        return $this->extractor->getTypes($className, $propertyName)[0] ?? $this->defaultType;
+        $extractedType = $this->extractor->getType($className, $propertyName) ?? $this->defaultType;
+
+        if ($extractedType instanceof UnionType) {
+            return $extractedType->getTypes()[0];
+        }
+
+        return $extractedType;
     }
 
     /**
@@ -577,14 +589,21 @@ class JsonMapper
      */
     private function getValue(mixed $json, Type $type): mixed
     {
-        if ((is_array($json) || is_object($json)) && $type->isCollection()) {
-            $collectionType = $this->getCollectionValueType($type);
+        if (
+            (is_array($json) || is_object($json))
+            && ($type instanceof CollectionType)
+        ) {
+            $collectionType = $type->getCollectionValueType();
             $collection     = $this->asCollection($json, $collectionType);
+            $wrappedType    = $type->getWrappedType();
 
             // Create a new instance of the collection class
-            if ($type->getBuiltinType() === Type::BUILTIN_TYPE_OBJECT) {
+            if (
+                ($wrappedType instanceof WrappingTypeInterface)
+                && ($wrappedType->getWrappedType() instanceof ObjectType)
+            ) {
                 return $this->makeInstance(
-                    $this->getClassName($json, $type),
+                    $this->getClassName($json, $wrappedType->getWrappedType()),
                     $collection
                 );
             }
@@ -597,61 +616,22 @@ class JsonMapper
             return null;
         }
 
-        $builtinType = $type->getBuiltinType();
-
-        if ($builtinType === Type::BUILTIN_TYPE_OBJECT) {
+        if ($type instanceof ObjectType) {
             return $this->asObject($json, $type);
         }
 
-        settype($json, $builtinType);
+        if ($type instanceof BuiltinType) {
+            settype($json, $type->getTypeIdentifier()->value);
+        }
 
         return $json;
     }
 
     /**
-     * Gets collection value type.
-     *
-     * @param Type $type
-     *
-     * @return Type
-     */
-    public function getCollectionValueType(Type $type): Type
-    {
-        $collectionValueType = $type->getCollectionValueTypes()[0] ?? null;
-
-        return $collectionValueType ?? $this->defaultType;
-    }
-
-    /**
-     * Returns the class name of the given object type.
-     *
-     * @param Type $type
-     *
-     * @return class-string
-     *
-     * @throws DomainException
-     */
-    private function getClassNameFromType(Type $type): string
-    {
-        /** @var class-string|null $className */
-        $className = $type->getClassName();
-
-        // @codeCoverageIgnoreStart
-        if ($className === null) {
-            // This should never happen
-            throw new DomainException('Type has no valid class name');
-        }
-
-        // @codeCoverageIgnoreEnd
-
-        return $className;
-    }
-
-    /**
      * Returns the mapped class name.
      *
-     * @param class-string $className The class name to be mapped using the class map
-     * @param mixed        $json      The JSON data
+     * @param class-string|string $className The class name to be mapped using the class map
+     * @param mixed               $json      The JSON data
      *
      * @return class-string
      *
@@ -678,17 +658,17 @@ class JsonMapper
     /**
      * Returns the class name.
      *
-     * @param mixed $json
-     * @param Type  $type
+     * @param mixed      $json
+     * @param ObjectType $type
      *
      * @return class-string
      *
      * @throws DomainException
      */
-    private function getClassName(mixed $json, Type $type): string
+    private function getClassName(mixed $json, ObjectType $type): string
     {
         return $this->getMappedClassName(
-            $this->getClassNameFromType($type),
+            $type->getClassName(),
             $json
         );
     }
@@ -721,14 +701,14 @@ class JsonMapper
     /**
      * Cast node to object.
      *
-     * @param mixed $json
-     * @param Type  $type
+     * @param mixed      $json
+     * @param ObjectType $type
      *
      * @return mixed|null
      *
      * @throws DomainException
      */
-    private function asObject(mixed $json, Type $type): mixed
+    private function asObject(mixed $json, ObjectType $type): mixed
     {
         /** @var class-string<TEntity> $className */
         $className = $this->getClassName($json, $type);

@@ -19,7 +19,9 @@ use Doctrine\Common\Annotations\Annotation;
  *
  * To replace the property "bar" with a property "foo", add the following to the class doc block.
  *
- *    @ReplaceProperty("foo", replaces="bar")
+ * @example
+ *
+ *    \@ReplaceProperty("foo", replaces="bar")
  *
  * @Annotation
  *
