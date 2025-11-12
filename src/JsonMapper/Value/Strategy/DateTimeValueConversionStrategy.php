@@ -13,11 +13,11 @@ namespace MagicSunday\JsonMapper\Value\Strategy;
 
 use DateInterval;
 use DateTimeImmutable;
+use DateTimeInterface;
 use Exception;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use Symfony\Component\TypeInfo\Type;
-use Symfony\Component\TypeInfo\Type\ObjectType;
 
 use function get_debug_type;
 use function is_a;
@@ -29,59 +29,60 @@ use function is_string;
  */
 final class DateTimeValueConversionStrategy implements ValueConversionStrategyInterface
 {
+    use ObjectTypeConversionGuardTrait;
+
     public function supports(mixed $value, Type $type, MappingContext $context): bool
     {
-        if (!($type instanceof ObjectType)) {
+        $objectType = $this->extractObjectType($type);
+
+        if ($objectType === null) {
             return false;
         }
 
-        $className = $type->getClassName();
-
-        if ($className === '') {
-            return false;
-        }
+        $className = $objectType->getClassName();
 
         return is_a($className, DateTimeImmutable::class, true) || is_a($className, DateInterval::class, true);
     }
 
     public function convert(mixed $value, Type $type, MappingContext $context): mixed
     {
-        if (!($type instanceof ObjectType)) {
-            return $value;
-        }
+        return $this->convertObjectValue(
+            $type,
+            $context,
+            $value,
+            static function (string $className, mixed $value) use ($context) {
+                if (!is_string($value) && !is_int($value)) {
+                    throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
+                }
 
-        $className = $type->getClassName();
+                if (is_a($className, DateInterval::class, true)) {
+                    if (!is_string($value)) {
+                        throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
+                    }
 
-        if ($value === null) {
-            if ($type->isNullable()) {
-                return null;
+                    try {
+                        return new $className($value);
+                    } catch (Exception) {
+                        throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
+                    }
+                }
+
+                if (is_string($value)) {
+                    $parsed = $className::createFromFormat($context->getDefaultDateFormat(), $value);
+
+                    if ($parsed instanceof DateTimeInterface) {
+                        return $parsed;
+                    }
+                }
+
+                $formatted = is_int($value) ? '@' . $value : $value;
+
+                try {
+                    return new $className($formatted);
+                } catch (Exception) {
+                    throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
+                }
             }
-
-            throw new TypeMismatchException($context->getPath(), $className, 'null');
-        }
-
-        if (!is_string($value) && !is_int($value)) {
-            throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
-        }
-
-        if (is_a($className, DateInterval::class, true)) {
-            if (!is_string($value)) {
-                throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
-            }
-
-            try {
-                return new $className($value);
-            } catch (Exception) {
-                throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
-            }
-        }
-
-        $formatted = is_int($value) ? '@' . $value : $value;
-
-        try {
-            return new $className($formatted);
-        } catch (Exception) {
-            throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
-        }
+        );
     }
 }

@@ -18,6 +18,7 @@ use MagicSunday\JsonMapper\Attribute\ReplaceProperty;
 use MagicSunday\JsonMapper\Collection\CollectionDocBlockTypeResolver;
 use MagicSunday\JsonMapper\Collection\CollectionFactory;
 use MagicSunday\JsonMapper\Collection\CollectionFactoryInterface;
+use MagicSunday\JsonMapper\Configuration\JsonMapperConfig;
 use MagicSunday\JsonMapper\Configuration\MappingConfiguration;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Converter\PropertyNameConverterInterface;
@@ -104,6 +105,8 @@ class JsonMapper
 
     private CustomTypeRegistry $customTypeRegistry;
 
+    private JsonMapperConfig $config;
+
     /**
      * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
      * @param CacheItemPoolInterface|null                                                                               $typeCache
@@ -116,7 +119,9 @@ class JsonMapper
         private readonly ?PropertyNameConverterInterface $nameConverter = null,
         array $classMap = [],
         ?CacheItemPoolInterface $typeCache = null,
+        ?JsonMapperConfig $config = null,
     ) {
+        $this->config                         = $config ?? new JsonMapperConfig();
         $this->typeResolver                   = new TypeResolver($extractor, $typeCache);
         $this->classResolver                  = new ClassResolver($classMap);
         $this->customTypeRegistry             = new CustomTypeRegistry();
@@ -208,8 +213,8 @@ class JsonMapper
         ?MappingConfiguration $configuration = null,
     ): mixed {
         if ($context === null) {
-            $configuration ??= MappingConfiguration::lenient();
-            $context = new MappingContext($json, $configuration->toOptions());
+            $configuration = $configuration ?? $this->createDefaultConfiguration();
+            $context       = new MappingContext($json, $configuration->toOptions());
         } else {
             if ($configuration === null) {
                 $configuration = MappingConfiguration::fromContext($context);
@@ -317,6 +322,10 @@ class JsonMapper
                 }
 
                 if (!in_array($normalizedProperty, $properties, true)) {
+                    if ($configuration->shouldIgnoreUnknownProperties()) {
+                        return;
+                    }
+
                     $this->handleMappingException(
                         new UnknownPropertyException($propertyContext->getPath(), $normalizedProperty, $resolvedClassName),
                         $propertyContext,
@@ -385,11 +394,34 @@ class JsonMapper
         ?string $collectionClassName = null,
         ?MappingConfiguration $configuration = null,
     ): MappingResult {
-        $configuration = ($configuration ?? MappingConfiguration::lenient())->withErrorCollection(true);
+        $configuration = ($configuration ?? $this->createDefaultConfiguration())->withErrorCollection(true);
         $context       = new MappingContext($json, $configuration->toOptions());
         $value         = $this->map($json, $className, $collectionClassName, $context, $configuration);
 
         return new MappingResult($value, new MappingReport($context->getErrorRecords()));
+    }
+
+    private function createDefaultConfiguration(): MappingConfiguration
+    {
+        $configuration = $this->config->isStrictMode()
+            ? MappingConfiguration::strict()
+            : MappingConfiguration::lenient();
+
+        if ($this->config->shouldIgnoreUnknownProperties()) {
+            $configuration = $configuration->withIgnoreUnknownProperties(true);
+        }
+
+        if ($this->config->shouldTreatNullAsEmptyCollection()) {
+            $configuration = $configuration->withTreatNullAsEmptyCollection(true);
+        }
+
+        $configuration = $configuration->withDefaultDateFormat($this->config->getDefaultDateFormat());
+
+        if ($this->config->shouldAllowScalarToObjectCasting()) {
+            $configuration = $configuration->withScalarToObjectCasting(true);
+        }
+
+        return $configuration;
     }
 
     /**
