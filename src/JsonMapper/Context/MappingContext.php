@@ -11,19 +11,26 @@ declare(strict_types=1);
 
 namespace MagicSunday\JsonMapper\Context;
 
+use DateTimeInterface;
 use MagicSunday\JsonMapper\Exception\MappingException;
 
 use function array_slice;
 use function count;
+use function implode;
+use function is_string;
 
 /**
  * Represents the state shared while mapping JSON structures.
  */
 final class MappingContext
 {
-    public const OPTION_STRICT_MODE                = 'strict_mode';
-    public const OPTION_COLLECT_ERRORS             = 'collect_errors';
-    public const OPTION_TREAT_EMPTY_STRING_AS_NULL = 'empty_string_is_null';
+    public const OPTION_STRICT_MODE                    = 'strict_mode';
+    public const OPTION_COLLECT_ERRORS                 = 'collect_errors';
+    public const OPTION_TREAT_EMPTY_STRING_AS_NULL     = 'empty_string_is_null';
+    public const OPTION_IGNORE_UNKNOWN_PROPERTIES      = 'ignore_unknown_properties';
+    public const OPTION_TREAT_NULL_AS_EMPTY_COLLECTION = 'treat_null_as_empty_collection';
+    public const OPTION_DEFAULT_DATE_FORMAT            = 'default_date_format';
+    public const OPTION_ALLOW_SCALAR_TO_OBJECT_CASTING = 'allow_scalar_to_object_casting';
 
     /**
      * @var list<string>
@@ -126,6 +133,32 @@ final class MappingContext
     public function isStrictMode(): bool
     {
         return (bool) ($this->options[self::OPTION_STRICT_MODE] ?? false);
+    }
+
+    public function shouldIgnoreUnknownProperties(): bool
+    {
+        return (bool) ($this->options[self::OPTION_IGNORE_UNKNOWN_PROPERTIES] ?? false);
+    }
+
+    public function shouldTreatNullAsEmptyCollection(): bool
+    {
+        return (bool) ($this->options[self::OPTION_TREAT_NULL_AS_EMPTY_COLLECTION] ?? false);
+    }
+
+    public function getDefaultDateFormat(): string
+    {
+        $format = $this->options[self::OPTION_DEFAULT_DATE_FORMAT] ?? DateTimeInterface::ATOM;
+
+        if (!is_string($format) || $format === '') {
+            return DateTimeInterface::ATOM;
+        }
+
+        return $format;
+    }
+
+    public function shouldAllowScalarToObjectCasting(): bool
+    {
+        return (bool) ($this->options[self::OPTION_ALLOW_SCALAR_TO_OBJECT_CASTING] ?? false);
     }
 
     /**

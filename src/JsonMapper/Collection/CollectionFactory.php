@@ -52,6 +52,10 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
     public function mapIterable(mixed $json, Type $valueType, MappingContext $context): ?array
     {
         if ($json === null) {
+            if ($context->shouldTreatNullAsEmptyCollection()) {
+                return [];
+            }
+
             return null;
         }
 

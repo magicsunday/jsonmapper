@@ -14,6 +14,7 @@ namespace MagicSunday\Test;
 use Closure;
 use JsonException;
 use MagicSunday\JsonMapper;
+use MagicSunday\JsonMapper\Configuration\JsonMapperConfig;
 use MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
@@ -33,8 +34,9 @@ class TestCase extends \PHPUnit\Framework\TestCase
      * Returns an instance of the JsonMapper for testing.
      *
      * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, JsonMapper\Context\MappingContext):class-string> $classMap
+     * @param JsonMapperConfig|null                                                                                                        $config
      */
-    protected function getJsonMapper(array $classMap = []): JsonMapper
+    protected function getJsonMapper(array $classMap = [], ?JsonMapperConfig $config = null): JsonMapper
     {
         $listExtractors = [new ReflectionExtractor()];
         $typeExtractors = [new PhpDocExtractor()];
@@ -45,6 +47,8 @@ class TestCase extends \PHPUnit\Framework\TestCase
             PropertyAccess::createPropertyAccessor(),
             new CamelCasePropertyNameConverter(),
             $classMap,
+            null,
+            $config,
         );
     }
 
