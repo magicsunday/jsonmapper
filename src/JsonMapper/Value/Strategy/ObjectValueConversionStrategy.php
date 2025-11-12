@@ -14,9 +14,14 @@ namespace MagicSunday\JsonMapper\Value\Strategy;
 use Closure;
 use LogicException;
 use MagicSunday\JsonMapper\Context\MappingContext;
+use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\JsonMapper\Resolver\ClassResolver;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\ObjectType;
+
+use function get_debug_type;
+use function is_array;
+use function is_object;
 
 /**
  * Converts object values by delegating to the mapper callback.
@@ -45,6 +50,15 @@ final readonly class ObjectValueConversionStrategy implements ValueConversionStr
 
         $className     = $this->resolveClassName($type);
         $resolvedClass = $this->classResolver->resolve($className, $value, $context);
+
+        if (($value !== null) && !is_array($value) && !is_object($value)) {
+            $exception = new TypeMismatchException($context->getPath(), $resolvedClass, get_debug_type($value));
+            $context->recordException($exception);
+
+            if ($context->isStrictMode()) {
+                throw $exception;
+            }
+        }
 
         $mapper = $this->mapper;
 
