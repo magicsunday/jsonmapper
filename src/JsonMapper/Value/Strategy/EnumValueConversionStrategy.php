@@ -15,7 +15,6 @@ use BackedEnum;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use Symfony\Component\TypeInfo\Type;
-use Symfony\Component\TypeInfo\Type\ObjectType;
 use ValueError;
 
 use function enum_exists;
@@ -29,17 +28,17 @@ use function is_string;
  */
 final class EnumValueConversionStrategy implements ValueConversionStrategyInterface
 {
+    use ObjectTypeConversionGuardTrait;
+
     public function supports(mixed $value, Type $type, MappingContext $context): bool
     {
-        if (!($type instanceof ObjectType)) {
+        $objectType = $this->extractObjectType($type);
+
+        if ($objectType === null) {
             return false;
         }
 
-        $className = $type->getClassName();
-
-        if ($className === '') {
-            return false;
-        }
+        $className = $objectType->getClassName();
 
         if (!enum_exists($className)) {
             return false;
@@ -50,31 +49,24 @@ final class EnumValueConversionStrategy implements ValueConversionStrategyInterf
 
     public function convert(mixed $value, Type $type, MappingContext $context): mixed
     {
-        if (!($type instanceof ObjectType)) {
-            return $value;
-        }
+        return $this->convertObjectValue(
+            $type,
+            $context,
+            $value,
+            static function (string $className, mixed $value) use ($context) {
+                if (!is_int($value) && !is_string($value)) {
+                    throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
+                }
 
-        $className = $type->getClassName();
+                try {
+                    /** @var BackedEnum $enum */
+                    $enum = $className::from($value);
+                } catch (ValueError) {
+                    throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
+                }
 
-        if ($value === null) {
-            if ($type->isNullable()) {
-                return null;
+                return $enum;
             }
-
-            throw new TypeMismatchException($context->getPath(), $className, 'null');
-        }
-
-        if (!is_int($value) && !is_string($value)) {
-            throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
-        }
-
-        try {
-            /** @var BackedEnum $enum */
-            $enum = $className::from($value);
-        } catch (ValueError) {
-            throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
-        }
-
-        return $enum;
+        );
     }
 }

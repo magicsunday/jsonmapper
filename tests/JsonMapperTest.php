@@ -12,7 +12,9 @@ declare(strict_types=1);
 namespace MagicSunday\Test;
 
 use DateInterval;
+use MagicSunday\JsonMapper\Configuration\JsonMapperConfig;
 use MagicSunday\JsonMapper\Configuration\MappingConfiguration;
+use MagicSunday\JsonMapper\Exception\UnknownPropertyException;
 use MagicSunday\JsonMapper\Value\ClosureTypeHandler;
 use MagicSunday\Test\Classes\Base;
 use MagicSunday\Test\Classes\BaseCollection;
@@ -894,5 +896,91 @@ JSON
 
         self::assertInstanceOf(NullableStringHolder::class, $result);
         self::assertNull($result->value);
+    }
+
+    #[Test]
+    public function itAppliesConfiguredStrictModeByDefault(): void
+    {
+        $config = (new JsonMapperConfig())->withStrictMode(true);
+
+        $this->expectException(UnknownPropertyException::class);
+
+        $this->getJsonMapper([], $config)->map(
+            [
+                'name'    => 'John Doe',
+                'unknown' => 'value',
+            ],
+            Person::class,
+        );
+    }
+
+    #[Test]
+    public function itIgnoresUnknownPropertiesWhenConfigured(): void
+    {
+        $config = (new JsonMapperConfig())->withIgnoreUnknownProperties(true);
+
+        $result = $this->getJsonMapper([], $config)
+            ->mapWithReport(
+                [
+                    'name'    => 'John Doe',
+                    'unknown' => 'value',
+                ],
+                Person::class,
+            );
+
+        self::assertInstanceOf(Person::class, $result->getValue());
+        self::assertFalse($result->getReport()->hasErrors());
+    }
+
+    #[Test]
+    public function itTreatsNullCollectionsAsEmptyWhenConfigured(): void
+    {
+        $config = (new JsonMapperConfig())->withTreatNullAsEmptyCollection(true);
+
+        $result = $this->getJsonMapper([], $config)
+            ->map(
+                [
+                    'simpleArray' => null,
+                ],
+                Base::class,
+            );
+
+        self::assertInstanceOf(Base::class, $result);
+        self::assertSame([], $result->simpleArray);
+    }
+
+    #[Test]
+    public function itUsesDefaultDateFormatFromConfiguration(): void
+    {
+        $config = (new JsonMapperConfig())->withDefaultDateFormat('d.m.Y H:i:s');
+
+        $result = $this->getJsonMapper([], $config)
+            ->map(
+                [
+                    'createdAt' => '24.01.2024 18:45:00',
+                ],
+                DateTimeHolder::class,
+            );
+
+        self::assertInstanceOf(DateTimeHolder::class, $result);
+        self::assertSame('24.01.2024 18:45:00', $result->createdAt->format('d.m.Y H:i:s'));
+    }
+
+    #[Test]
+    public function itAllowsScalarToObjectCastingWhenConfigured(): void
+    {
+        $config = (new JsonMapperConfig())->withScalarToObjectCasting(true);
+
+        $result = $this->getJsonMapper([], $config)
+            ->mapWithReport(
+                [
+                    'simple' => 'identifier',
+                ],
+                Base::class,
+            );
+
+        self::assertFalse($result->getReport()->hasErrors());
+        $mapped = $result->getValue();
+        self::assertInstanceOf(Base::class, $mapped);
     }
 }

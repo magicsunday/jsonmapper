@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace MagicSunday\JsonMapper\Configuration;
 
+use DateTimeInterface;
 use MagicSunday\JsonMapper\Context\MappingContext;
 
 /**
@@ -22,12 +23,16 @@ final class MappingConfiguration
         private bool $strictMode = false,
         private bool $collectErrors = true,
         private bool $emptyStringIsNull = false,
+        private bool $ignoreUnknownProperties = false,
+        private bool $treatNullAsEmptyCollection = false,
+        private string $defaultDateFormat = DateTimeInterface::ATOM,
+        private bool $allowScalarToObjectCasting = false,
     ) {
     }
 
     public static function lenient(): self
     {
-        return new self(false, true);
+        return new self();
     }
 
     public static function strict(): self
@@ -41,6 +46,10 @@ final class MappingConfiguration
             $context->isStrictMode(),
             $context->shouldCollectErrors(),
             (bool) $context->getOption(MappingContext::OPTION_TREAT_EMPTY_STRING_AS_NULL, false),
+            $context->shouldIgnoreUnknownProperties(),
+            $context->shouldTreatNullAsEmptyCollection(),
+            $context->getDefaultDateFormat(),
+            $context->shouldAllowScalarToObjectCasting(),
         );
     }
 
@@ -60,6 +69,38 @@ final class MappingConfiguration
         return $clone;
     }
 
+    public function withIgnoreUnknownProperties(bool $enabled): self
+    {
+        $clone                          = clone $this;
+        $clone->ignoreUnknownProperties = $enabled;
+
+        return $clone;
+    }
+
+    public function withTreatNullAsEmptyCollection(bool $enabled): self
+    {
+        $clone                             = clone $this;
+        $clone->treatNullAsEmptyCollection = $enabled;
+
+        return $clone;
+    }
+
+    public function withDefaultDateFormat(string $format): self
+    {
+        $clone                    = clone $this;
+        $clone->defaultDateFormat = $format;
+
+        return $clone;
+    }
+
+    public function withScalarToObjectCasting(bool $enabled): self
+    {
+        $clone                             = clone $this;
+        $clone->allowScalarToObjectCasting = $enabled;
+
+        return $clone;
+    }
+
     public function isStrictMode(): bool
     {
         return $this->strictMode;
@@ -75,15 +116,39 @@ final class MappingConfiguration
         return $this->emptyStringIsNull;
     }
 
+    public function shouldIgnoreUnknownProperties(): bool
+    {
+        return $this->ignoreUnknownProperties;
+    }
+
+    public function shouldTreatNullAsEmptyCollection(): bool
+    {
+        return $this->treatNullAsEmptyCollection;
+    }
+
+    public function getDefaultDateFormat(): string
+    {
+        return $this->defaultDateFormat;
+    }
+
+    public function shouldAllowScalarToObjectCasting(): bool
+    {
+        return $this->allowScalarToObjectCasting;
+    }
+
     /**
-     * @return array<string, bool>
+     * @return array<string, bool|string>
      */
     public function toOptions(): array
     {
         return [
-            MappingContext::OPTION_STRICT_MODE                => $this->strictMode,
-            MappingContext::OPTION_COLLECT_ERRORS             => $this->collectErrors,
-            MappingContext::OPTION_TREAT_EMPTY_STRING_AS_NULL => $this->emptyStringIsNull,
+            MappingContext::OPTION_STRICT_MODE                    => $this->strictMode,
+            MappingContext::OPTION_COLLECT_ERRORS                 => $this->collectErrors,
+            MappingContext::OPTION_TREAT_EMPTY_STRING_AS_NULL     => $this->emptyStringIsNull,
+            MappingContext::OPTION_IGNORE_UNKNOWN_PROPERTIES      => $this->ignoreUnknownProperties,
+            MappingContext::OPTION_TREAT_NULL_AS_EMPTY_COLLECTION => $this->treatNullAsEmptyCollection,
+            MappingContext::OPTION_DEFAULT_DATE_FORMAT            => $this->defaultDateFormat,
+            MappingContext::OPTION_ALLOW_SCALAR_TO_OBJECT_CASTING => $this->allowScalarToObjectCasting,
         ];
     }
 }

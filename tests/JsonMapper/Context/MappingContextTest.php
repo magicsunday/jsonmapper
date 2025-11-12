@@ -59,4 +59,20 @@ final class MappingContextTest extends TestCase
         self::assertTrue($context->getOption('flag'));
         self::assertSame('fallback', $context->getOption('missing', 'fallback'));
     }
+
+    #[Test]
+    public function itProvidesTypedOptionAccessors(): void
+    {
+        $context = new MappingContext(['root'], [
+            MappingContext::OPTION_IGNORE_UNKNOWN_PROPERTIES      => true,
+            MappingContext::OPTION_TREAT_NULL_AS_EMPTY_COLLECTION => true,
+            MappingContext::OPTION_DEFAULT_DATE_FORMAT            => 'd.m.Y',
+            MappingContext::OPTION_ALLOW_SCALAR_TO_OBJECT_CASTING => true,
+        ]);
+
+        self::assertTrue($context->shouldIgnoreUnknownProperties());
+        self::assertTrue($context->shouldTreatNullAsEmptyCollection());
+        self::assertSame('d.m.Y', $context->getDefaultDateFormat());
+        self::assertTrue($context->shouldAllowScalarToObjectCasting());
+    }
 }
