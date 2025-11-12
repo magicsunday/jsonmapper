@@ -38,13 +38,13 @@ For example:
 ```
 
 
-#### Custom annotations
+#### Custom attributes
 Sometimes its may be required to circumvent the limitations of a poorly designed API. Together with custom
-annotations it becomes possible to fix some API design issues (e.g. mismatch between documentation and webservice
+attributes it becomes possible to fix some API design issues (e.g. mismatch between documentation and webservice
 response), to create a clean SDK.
 
-##### @MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue
-This annotation is used to inform the JsonMapper that an existing default value should be used when
+##### #[MagicSunday\JsonMapper\Attribute\ReplaceNullWithDefaultValue]
+This attribute is used to inform the JsonMapper that an existing default value should be used when
 setting a property, if the value derived from the JSON is a NULL value instead of the expected property type.
 
 This can be necessary, for example, in the case of a bad API design, if the API documentation defines a
@@ -54,23 +54,20 @@ instead of an empty array that can be expected.
 ```php
 /**
  * @var array<string>
- *
- * @MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue
  */
+#[MagicSunday\JsonMapper\Attribute\ReplaceNullWithDefaultValue]
 public array $array = [];
 ```
 
 If the mapping tries to assign NULL to the property, the default value will be used, as annotated.
 
-##### @MagicSunday\JsonMapper\Annotation\ReplaceProperty
-This annotation is used to inform the JsonMapper to replace one or more properties with another one. It's
+##### #[MagicSunday\JsonMapper\Attribute\ReplaceProperty]
+This attribute is used to inform the JsonMapper to replace one or more properties with another one. It's
 used in class context.
 
 For instance if you want to replace a cryptic named property to a more human-readable name.
 ```php
-/**
- * @MagicSunday\JsonMapper\Annotation\ReplaceProperty("type", replaces="crypticTypeNameProperty")
- */
+#[MagicSunday\JsonMapper\Attribute\ReplaceProperty('type', replaces: 'crypticTypeNameProperty')]
 class FooClass
 {
     /**

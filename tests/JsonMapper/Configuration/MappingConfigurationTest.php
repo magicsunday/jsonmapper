@@ -28,6 +28,7 @@ final class MappingConfigurationTest extends TestCase
 
         self::assertFalse($configuration->isStrictMode());
         self::assertTrue($configuration->shouldCollectErrors());
+        self::assertFalse($configuration->shouldTreatEmptyStringAsNull());
     }
 
     #[Test]
@@ -49,21 +50,33 @@ final class MappingConfigurationTest extends TestCase
     }
 
     #[Test]
+    public function itSupportsEmptyStringConfiguration(): void
+    {
+        $configuration = MappingConfiguration::lenient()->withEmptyStringAsNull(true);
+
+        self::assertTrue($configuration->shouldTreatEmptyStringAsNull());
+        self::assertTrue($configuration->withEmptyStringAsNull(true)->shouldTreatEmptyStringAsNull());
+    }
+
+    #[Test]
     public function itDerivesFromContext(): void
     {
         $context = new MappingContext([], [
             MappingContext::OPTION_STRICT_MODE    => true,
             MappingContext::OPTION_COLLECT_ERRORS => true,
+            MappingContext::OPTION_TREAT_EMPTY_STRING_AS_NULL => false,
         ]);
 
         $configuration = MappingConfiguration::fromContext($context);
 
         self::assertTrue($configuration->isStrictMode());
         self::assertTrue($configuration->shouldCollectErrors());
+        self::assertFalse($configuration->shouldTreatEmptyStringAsNull());
         self::assertSame(
             [
                 MappingContext::OPTION_STRICT_MODE    => true,
                 MappingContext::OPTION_COLLECT_ERRORS => true,
+                MappingContext::OPTION_TREAT_EMPTY_STRING_AS_NULL => false,
             ],
             $configuration->toOptions(),
         );

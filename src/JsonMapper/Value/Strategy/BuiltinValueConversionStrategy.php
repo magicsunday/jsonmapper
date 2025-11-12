@@ -19,6 +19,7 @@ use Symfony\Component\TypeInfo\TypeIdentifier;
 use Traversable;
 
 use function assert;
+use function filter_var;
 use function get_debug_type;
 use function is_array;
 use function is_bool;
@@ -28,6 +29,12 @@ use function is_int;
 use function is_object;
 use function is_string;
 use function settype;
+use function strtolower;
+use function trim;
+
+use const FILTER_NULL_ON_FAILURE;
+use const FILTER_VALIDATE_FLOAT;
+use const FILTER_VALIDATE_INT;
 
 /**
  * Converts scalar values to the requested builtin type.
@@ -43,12 +50,77 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
     {
         assert($type instanceof BuiltinType);
 
-        $this->guardCompatibility($value, $type, $context);
+        $normalized = $this->normalizeValue($value, $type);
 
-        $converted = $value;
+        $this->guardCompatibility($normalized, $type, $context);
+
+        if ($normalized === null) {
+            return null;
+        }
+
+        $converted = $normalized;
         settype($converted, $type->getTypeIdentifier()->value);
 
         return $converted;
+    }
+
+    private function normalizeValue(mixed $value, BuiltinType $type): mixed
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $identifier = $type->getTypeIdentifier()->value;
+
+        if ($identifier === 'bool') {
+            if (is_string($value)) {
+                $normalized = strtolower(trim($value));
+
+                if ($normalized === '1' || $normalized === 'true') {
+                    return true;
+                }
+
+                if ($normalized === '0' || $normalized === 'false') {
+                    return false;
+                }
+            }
+
+            if (is_int($value)) {
+                if ($value === 0) {
+                    return false;
+                }
+
+                if ($value === 1) {
+                    return true;
+                }
+            }
+        }
+
+        if ($identifier === 'int' && is_string($value)) {
+            $filtered = filter_var(trim($value), FILTER_VALIDATE_INT, FILTER_NULL_ON_FAILURE);
+
+            if ($filtered !== null) {
+                return $filtered;
+            }
+        }
+
+        if ($identifier === 'float' && is_string($value)) {
+            $filtered = filter_var(trim($value), FILTER_VALIDATE_FLOAT, FILTER_NULL_ON_FAILURE);
+
+            if ($filtered !== null) {
+                return $filtered;
+            }
+        }
+
+        if ($identifier === 'int' && is_float($value)) {
+            return (int) $value;
+        }
+
+        if ($identifier === 'float' && is_int($value)) {
+            return (float) $value;
+        }
+
+        return $value;
     }
 
     private function guardCompatibility(mixed $value, BuiltinType $type, MappingContext $context): void

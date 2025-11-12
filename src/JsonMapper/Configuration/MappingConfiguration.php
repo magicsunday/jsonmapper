@@ -21,6 +21,7 @@ final class MappingConfiguration
     public function __construct(
         private bool $strictMode = false,
         private bool $collectErrors = true,
+        private bool $emptyStringIsNull = false,
     ) {
     }
 
@@ -39,6 +40,7 @@ final class MappingConfiguration
         return new self(
             $context->isStrictMode(),
             $context->shouldCollectErrors(),
+            (bool) $context->getOption(MappingContext::OPTION_TREAT_EMPTY_STRING_AS_NULL, false),
         );
     }
 
@@ -46,6 +48,14 @@ final class MappingConfiguration
     {
         $clone                = clone $this;
         $clone->collectErrors = $collect;
+
+        return $clone;
+    }
+
+    public function withEmptyStringAsNull(bool $enabled): self
+    {
+        $clone                    = clone $this;
+        $clone->emptyStringIsNull = $enabled;
 
         return $clone;
     }
@@ -60,14 +70,20 @@ final class MappingConfiguration
         return $this->collectErrors;
     }
 
+    public function shouldTreatEmptyStringAsNull(): bool
+    {
+        return $this->emptyStringIsNull;
+    }
+
     /**
      * @return array<string, bool>
      */
     public function toOptions(): array
     {
         return [
-            MappingContext::OPTION_STRICT_MODE    => $this->strictMode,
-            MappingContext::OPTION_COLLECT_ERRORS => $this->collectErrors,
+            MappingContext::OPTION_STRICT_MODE                => $this->strictMode,
+            MappingContext::OPTION_COLLECT_ERRORS             => $this->collectErrors,
+            MappingContext::OPTION_TREAT_EMPTY_STRING_AS_NULL => $this->emptyStringIsNull,
         ];
     }
 }

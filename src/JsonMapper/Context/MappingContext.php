@@ -13,13 +13,17 @@ namespace MagicSunday\JsonMapper\Context;
 
 use MagicSunday\JsonMapper\Exception\MappingException;
 
+use function array_slice;
+use function count;
+
 /**
  * Represents the state shared while mapping JSON structures.
  */
 final class MappingContext
 {
-    public const OPTION_STRICT_MODE    = 'strict_mode';
-    public const OPTION_COLLECT_ERRORS = 'collect_errors';
+    public const OPTION_STRICT_MODE                = 'strict_mode';
+    public const OPTION_COLLECT_ERRORS             = 'collect_errors';
+    public const OPTION_TREAT_EMPTY_STRING_AS_NULL = 'empty_string_is_null';
 
     /**
      * @var list<string>
@@ -160,5 +164,15 @@ final class MappingContext
     public function getErrorRecords(): array
     {
         return $this->errorRecords;
+    }
+
+    public function getErrorCount(): int
+    {
+        return count($this->errorRecords);
+    }
+
+    public function trimErrors(int $count): void
+    {
+        $this->errorRecords = array_slice($this->errorRecords, 0, $count);
     }
 }
