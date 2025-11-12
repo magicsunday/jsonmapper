@@ -15,7 +15,9 @@ use Closure;
 use InvalidArgumentException;
 use MagicSunday\JsonMapper\Attribute\ReplaceNullWithDefaultValue;
 use MagicSunday\JsonMapper\Attribute\ReplaceProperty;
+use MagicSunday\JsonMapper\Collection\CollectionDocBlockTypeResolver;
 use MagicSunday\JsonMapper\Collection\CollectionFactory;
+use MagicSunday\JsonMapper\Collection\CollectionFactoryInterface;
 use MagicSunday\JsonMapper\Configuration\MappingConfiguration;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Converter\PropertyNameConverterInterface;
@@ -52,6 +54,7 @@ use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\BuiltinType;
 use Symfony\Component\TypeInfo\Type\CollectionType;
 use Symfony\Component\TypeInfo\Type\ObjectType;
+use Symfony\Component\TypeInfo\Type\TemplateType;
 use Symfony\Component\TypeInfo\Type\UnionType;
 use Symfony\Component\TypeInfo\TypeIdentifier;
 use Traversable;
@@ -93,7 +96,9 @@ class JsonMapper
 
     private ValueConverter $valueConverter;
 
-    private CollectionFactory $collectionFactory;
+    private CollectionFactoryInterface $collectionFactory;
+
+    private CollectionDocBlockTypeResolver $collectionDocBlockTypeResolver;
 
     private CustomTypeRegistry $customTypeRegistry;
 
@@ -110,11 +115,12 @@ class JsonMapper
         array $classMap = [],
         ?CacheItemPoolInterface $typeCache = null,
     ) {
-        $this->typeResolver       = new TypeResolver($extractor, $typeCache);
-        $this->classResolver      = new ClassResolver($classMap);
-        $this->customTypeRegistry = new CustomTypeRegistry();
-        $this->valueConverter     = new ValueConverter();
-        $this->collectionFactory  = new CollectionFactory(
+        $this->typeResolver                   = new TypeResolver($extractor, $typeCache);
+        $this->classResolver                  = new ClassResolver($classMap);
+        $this->customTypeRegistry             = new CustomTypeRegistry();
+        $this->collectionDocBlockTypeResolver = new CollectionDocBlockTypeResolver();
+        $this->valueConverter                 = new ValueConverter();
+        $this->collectionFactory              = new CollectionFactory(
             $this->valueConverter,
             $this->classResolver,
             function (string $className, ?array $arguments): object {
@@ -198,19 +204,59 @@ class JsonMapper
             }
         }
 
-        if ($className === null) {
-            return $json;
-        }
+        $resolvedClassName = $className === null
+            ? null
+            : $this->classResolver->resolve($className, $json, $context);
 
-        /** @var class-string $resolvedClassName */
-        $resolvedClassName = $this->classResolver->resolve($className, $json, $context);
-
-        /** @var class-string|null $resolvedCollectionClassName */
         $resolvedCollectionClassName = $collectionClassName === null
             ? null
             : $this->classResolver->resolve($collectionClassName, $json, $context);
 
         $this->assertClassesExists($resolvedClassName, $resolvedCollectionClassName);
+
+        /** @var Type|null $collectionValueType */
+        $collectionValueType = null;
+
+        if ($resolvedCollectionClassName !== null) {
+            if ($resolvedClassName !== null) {
+                $collectionValueType = new ObjectType($resolvedClassName);
+            } else {
+                $docBlockCollectionType = $this->collectionDocBlockTypeResolver->resolve($resolvedCollectionClassName);
+
+                if (!$docBlockCollectionType instanceof CollectionType) {
+                    throw new InvalidArgumentException(sprintf(
+                        'Unable to resolve the element type for collection [%s]. Define an "@extends" annotation such as "@extends %s<YourClass>".',
+                        $resolvedCollectionClassName,
+                        $resolvedCollectionClassName,
+                    ));
+                }
+
+                $collectionValueType = $docBlockCollectionType->getCollectionValueType();
+
+                if ($collectionValueType instanceof TemplateType) {
+                    throw new InvalidArgumentException(sprintf(
+                        'Unable to resolve the element type for collection [%s]. Please provide a concrete class in the "@extends" annotation.',
+                        $resolvedCollectionClassName,
+                    ));
+                }
+            }
+        }
+
+        $isGenericCollectionMapping = $resolvedClassName === null && $collectionValueType !== null;
+
+        if ($isGenericCollectionMapping) {
+            if ($resolvedCollectionClassName === null) {
+                throw new InvalidArgumentException('A collection class name must be provided when mapping without an element class.');
+            }
+
+            $collection = $this->collectionFactory->mapIterable($json, $collectionValueType, $context);
+
+            return $this->makeInstance($resolvedCollectionClassName, $collection);
+        }
+
+        if ($resolvedClassName === null) {
+            return $json;
+        }
 
         if (!is_array($json) && !is_object($json)) {
             return $this->makeInstance($resolvedClassName);
@@ -220,7 +266,7 @@ class JsonMapper
             ($resolvedCollectionClassName !== null)
             && $this->isIterableWithArraysOrObjects($json)
         ) {
-            $collection = $this->collectionFactory->mapIterable($json, new ObjectType($resolvedClassName), $context);
+            $collection = $this->collectionFactory->mapIterable($json, $collectionValueType ?? new ObjectType($resolvedClassName), $context);
 
             return $this->makeInstance($resolvedCollectionClassName, $collection);
         }
@@ -731,9 +777,9 @@ class JsonMapper
     /**
      * Assert that the given classes exist.
      */
-    private function assertClassesExists(string $className, ?string $collectionClassName = null): void
+    private function assertClassesExists(?string $className, ?string $collectionClassName = null): void
     {
-        if (!class_exists($className)) {
+        if ($className !== null && !class_exists($className)) {
             throw new InvalidArgumentException(sprintf('Class [%s] does not exist', $className));
         }
 
