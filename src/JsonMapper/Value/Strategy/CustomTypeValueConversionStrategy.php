@@ -14,9 +14,6 @@ namespace MagicSunday\JsonMapper\Value\Strategy;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Value\CustomTypeRegistry;
 use Symfony\Component\TypeInfo\Type;
-use Symfony\Component\TypeInfo\Type\ObjectType;
-
-use function assert;
 
 /**
  * Handles conversion of registered custom types.
@@ -30,13 +27,11 @@ final readonly class CustomTypeValueConversionStrategy implements ValueConversio
 
     public function supports(mixed $value, Type $type, MappingContext $context): bool
     {
-        return ($type instanceof ObjectType) && $this->registry->has($type->getClassName());
+        return $this->registry->supports($type, $value);
     }
 
     public function convert(mixed $value, Type $type, MappingContext $context): mixed
     {
-        assert($type instanceof ObjectType);
-
-        return $this->registry->convert($type->getClassName(), $value, $context);
+        return $this->registry->convert($type, $value, $context);
     }
 }

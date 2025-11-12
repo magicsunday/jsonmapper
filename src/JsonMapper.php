@@ -30,6 +30,7 @@ use MagicSunday\JsonMapper\Report\MappingReport;
 use MagicSunday\JsonMapper\Report\MappingResult;
 use MagicSunday\JsonMapper\Resolver\ClassResolver;
 use MagicSunday\JsonMapper\Type\TypeResolver;
+use MagicSunday\JsonMapper\Value\ClosureTypeHandler;
 use MagicSunday\JsonMapper\Value\CustomTypeRegistry;
 use MagicSunday\JsonMapper\Value\Strategy\BuiltinValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\Strategy\CollectionValueConversionStrategy;
@@ -39,6 +40,7 @@ use MagicSunday\JsonMapper\Value\Strategy\EnumValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\Strategy\NullValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\Strategy\ObjectValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\Strategy\PassthroughValueConversionStrategy;
+use MagicSunday\JsonMapper\Value\TypeHandlerInterface;
 use MagicSunday\JsonMapper\Value\ValueConverter;
 use Psr\Cache\CacheItemPoolInterface;
 use ReflectionAttribute;
@@ -152,11 +154,23 @@ class JsonMapper
     }
 
     /**
-     * Add a custom type.
+     * Registers a custom type handler.
+     */
+    public function addTypeHandler(TypeHandlerInterface $handler): JsonMapper
+    {
+        $this->customTypeRegistry->registerHandler($handler);
+
+        return $this;
+    }
+
+    /**
+     * Registers a custom type using a closure-based handler.
+     *
+     * @deprecated Use addTypeHandler() with a TypeHandlerInterface implementation instead.
      */
     public function addType(string $type, Closure $closure): JsonMapper
     {
-        $this->customTypeRegistry->register($type, $closure);
+        $this->customTypeRegistry->registerHandler(new ClosureTypeHandler($type, $closure));
 
         return $this;
     }

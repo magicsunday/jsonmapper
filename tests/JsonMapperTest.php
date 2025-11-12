@@ -13,6 +13,7 @@ namespace MagicSunday\Test;
 
 use DateInterval;
 use MagicSunday\JsonMapper\Configuration\MappingConfiguration;
+use MagicSunday\JsonMapper\Value\ClosureTypeHandler;
 use MagicSunday\Test\Classes\Base;
 use MagicSunday\Test\Classes\BaseCollection;
 use MagicSunday\Test\Classes\ClassMap\CollectionSource;
@@ -250,27 +251,29 @@ JSON
     public function mapCustomType(string $jsonString): void
     {
         $result = $this->getJsonMapper()
-            ->addType(
-                CustomConstructor::class,
-                static function (mixed $value): ?CustomConstructor {
-                    if (
-                        is_array($value)
-                        && isset($value['name'])
-                        && is_string($value['name'])
-                    ) {
-                        return new CustomConstructor($value['name']);
-                    }
+            ->addTypeHandler(
+                new ClosureTypeHandler(
+                    CustomConstructor::class,
+                    static function (mixed $value): ?CustomConstructor {
+                        if (
+                            is_array($value)
+                            && isset($value['name'])
+                            && is_string($value['name'])
+                        ) {
+                            return new CustomConstructor($value['name']);
+                        }
 
-                    if (
-                        ($value instanceof stdClass)
-                        && property_exists($value, 'name')
-                        && is_string($value->name)
-                    ) {
-                        return new CustomConstructor($value->name);
-                    }
+                        if (
+                            ($value instanceof stdClass)
+                            && property_exists($value, 'name')
+                            && is_string($value->name)
+                        ) {
+                            return new CustomConstructor($value->name);
+                        }
 
-                    return null;
-                }
+                        return null;
+                    },
+                ),
             )
             ->map(
                 $this->getJsonAsArray($jsonString),

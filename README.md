@@ -136,24 +136,31 @@ $mapper = new \MagicSunday\JsonMapper(
 
 To handle custom or special types of objects, add them to the mapper. For instance to perform
 special treatment if an object of type Bar should be mapped:
+
+You may alternatively implement `\MagicSunday\JsonMapper\Value\TypeHandlerInterface` to package reusable handlers.
+
 ```php
-$mapper->addType(
-    Bar::class,
-    /** @var mixed $value JSON data */
-    static function ($value): ?Bar {
-        return $value ? new Bar($value['name']) : null;
-    }
+$mapper->addTypeHandler(
+    new \MagicSunday\JsonMapper\Value\ClosureTypeHandler(
+        Bar::class,
+        /** @var mixed $value JSON data */
+        static function ($value): ?Bar {
+            return $value ? new Bar($value['name']) : null;
+        },
+    ),
 );
 ```
 
 or add a handler to map DateTime values:
 ```php
-$mapper->addType(
-    \DateTime::class,
-    /** @var mixed $value JSON data */
-    static function ($value): ?\DateTime {
-        return $value ? new \DateTime($value) : null;
-    }
+$mapper->addTypeHandler(
+    new \MagicSunday\JsonMapper\Value\ClosureTypeHandler(
+        \DateTime::class,
+        /** @var mixed $value JSON data */
+        static function ($value): ?\DateTime {
+            return $value ? new \DateTime($value) : null;
+        },
+    ),
 );
 ```
 

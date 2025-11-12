@@ -11,21 +11,21 @@ declare(strict_types=1);
 
 namespace MagicSunday\JsonMapper\Value;
 
-use Closure;
+use LogicException;
 use MagicSunday\JsonMapper\Context\MappingContext;
-use ReflectionFunction;
+use Symfony\Component\TypeInfo\Type;
 
-use function array_key_exists;
+use function sprintf;
 
 /**
- * Stores custom conversion handlers keyed by class name.
+ * Stores custom conversion handlers.
  */
 final class CustomTypeRegistry
 {
     /**
-     * @var array<string, Closure(mixed, MappingContext):mixed>
+     * @var list<TypeHandlerInterface>
      */
-    private array $converters = [];
+    private array $handlers = [];
 
     /**
      * Registers the converter for the provided class name.
@@ -34,37 +34,42 @@ final class CustomTypeRegistry
      */
     public function register(string $className, callable $converter): void
     {
-        $this->converters[$className] = $this->normalizeConverter($converter);
+        $this->registerHandler(new ClosureTypeHandler($className, $converter));
     }
 
     /**
-     * Returns TRUE if a converter for the class exists.
+     * Registers a custom type handler.
      */
-    public function has(string $className): bool
+    public function registerHandler(TypeHandlerInterface $handler): void
     {
-        return array_key_exists($className, $this->converters);
+        $this->handlers[] = $handler;
+    }
+
+    /**
+     * Returns TRUE if a handler for the type exists.
+     */
+    public function supports(Type $type, mixed $value): bool
+    {
+        foreach ($this->handlers as $handler) {
+            if ($handler->supports($type, $value)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
      * Executes the converter for the class.
      */
-    public function convert(string $className, mixed $value, MappingContext $context): mixed
+    public function convert(Type $type, mixed $value, MappingContext $context): mixed
     {
-        return $this->converters[$className]($value, $context);
-    }
-
-    /**
-     * @param callable(mixed):mixed|callable(mixed, MappingContext):mixed $converter
-     */
-    private function normalizeConverter(callable $converter): Closure
-    {
-        $closure    = $converter instanceof Closure ? $converter : Closure::fromCallable($converter);
-        $reflection = new ReflectionFunction($closure);
-
-        if ($reflection->getNumberOfParameters() >= 2) {
-            return $closure;
+        foreach ($this->handlers as $handler) {
+            if ($handler->supports($type, $value)) {
+                return $handler->convert($type, $value, $context);
+            }
         }
 
-        return static fn (mixed $value, MappingContext $context): mixed => $closure($value);
+        throw new LogicException(sprintf('No custom type handler registered for %s.', $type::class));
     }
 }
