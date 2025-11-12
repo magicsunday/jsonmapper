@@ -11,7 +11,7 @@ declare(strict_types=1);
 
 namespace MagicSunday\JsonMapper\Value\Strategy;
 
-use MagicSunday\JsonMapper\Collection\CollectionFactory;
+use MagicSunday\JsonMapper\Collection\CollectionFactoryInterface;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\CollectionType;
@@ -24,7 +24,7 @@ use function assert;
 final readonly class CollectionValueConversionStrategy implements ValueConversionStrategyInterface
 {
     public function __construct(
-        private CollectionFactory $collectionFactory,
+        private CollectionFactoryInterface $collectionFactory,
     ) {
     }
 

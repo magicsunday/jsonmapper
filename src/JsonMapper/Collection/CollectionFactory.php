@@ -32,7 +32,7 @@ use function iterator_to_array;
 /**
  * Creates collections and hydrates wrapping collection classes.
  */
-final readonly class CollectionFactory
+final readonly class CollectionFactory implements CollectionFactoryInterface
 {
     /**
      * @param Closure(class-string, array<array-key, mixed>|null):object $instantiator
