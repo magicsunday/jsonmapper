@@ -32,9 +32,7 @@ class TestCase extends \PHPUnit\Framework\TestCase
     /**
      * Returns an instance of the JsonMapper for testing.
      *
-     * @param string[]|Closure[] $classMap
-     *
-     * @return JsonMapper
+     * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, JsonMapper\Context\MappingContext):class-string> $classMap
      */
     protected function getJsonMapper(array $classMap = []): JsonMapper
     {
@@ -46,7 +44,7 @@ class TestCase extends \PHPUnit\Framework\TestCase
             $extractor,
             PropertyAccess::createPropertyAccessor(),
             new CamelCasePropertyNameConverter(),
-            $classMap
+            $classMap,
         );
     }
 

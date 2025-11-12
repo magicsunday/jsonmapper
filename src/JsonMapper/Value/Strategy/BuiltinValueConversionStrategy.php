@@ -15,6 +15,8 @@ use MagicSunday\JsonMapper\Context\MappingContext;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\BuiltinType;
 
+use function assert;
+
 /**
  * Converts scalar values to the requested builtin type.
  */
@@ -27,7 +29,7 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
 
     public function convert(mixed $value, Type $type, MappingContext $context): mixed
     {
-        \assert($type instanceof BuiltinType);
+        assert($type instanceof BuiltinType);
 
         $converted = $value;
         settype($converted, $type->getTypeIdentifier()->value);
