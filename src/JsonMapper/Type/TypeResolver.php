@@ -57,19 +57,28 @@ final class TypeResolver
 
         $type = $this->extractor->getType($className, $propertyName);
 
-        if ($type instanceof UnionType) {
-            $type = $type->getTypes()[0];
-        }
-
         if ($type === null) {
             $type = $this->resolveFromReflection($className, $propertyName);
         }
 
-        $resolved = $type ?? $this->defaultType;
+        if ($type instanceof Type) {
+            $resolved = $this->normalizeType($type);
+        } else {
+            $resolved = $this->defaultType;
+        }
 
         $this->storeCachedType($className, $propertyName, $resolved);
 
         return $resolved;
+    }
+
+    private function normalizeType(Type $type): Type
+    {
+        if ($type instanceof UnionType) {
+            return $this->normalizeUnionType($type);
+        }
+
+        return $type;
     }
 
     /**
@@ -154,8 +163,8 @@ final class TypeResolver
         }
 
         if ($reflectionType instanceof ReflectionUnionType) {
+            $types      = [];
             $allowsNull = false;
-            $primary    = null;
 
             foreach ($reflectionType->getTypes() as $innerType) {
                 if (!$innerType instanceof ReflectionNamedType) {
@@ -168,12 +177,24 @@ final class TypeResolver
                     continue;
                 }
 
-                $primary ??= $innerType;
+                $resolved = $this->createTypeFromNamedReflection($innerType);
+
+                if ($resolved instanceof Type) {
+                    $types[] = $resolved;
+                }
             }
 
-            if ($primary instanceof ReflectionNamedType) {
-                return $this->createTypeFromNamedReflection($primary, $allowsNull || $primary->allowsNull());
+            if ($types === []) {
+                return $allowsNull ? Type::nullable($this->defaultType) : null;
             }
+
+            $union = count($types) === 1 ? $types[0] : Type::union(...$types);
+
+            if ($allowsNull) {
+                return Type::nullable($union);
+            }
+
+            return $union;
         }
 
         return null;
@@ -202,5 +223,38 @@ final class TypeResolver
         }
 
         return $resolved;
+    }
+
+    private function normalizeUnionType(UnionType $type): Type
+    {
+        $types      = [];
+        $allowsNull = false;
+
+        foreach ($type->getTypes() as $inner) {
+            if ($this->isNullType($inner)) {
+                $allowsNull = true;
+
+                continue;
+            }
+
+            $types[] = $this->normalizeType($inner);
+        }
+
+        if ($types === []) {
+            return $allowsNull ? Type::nullable($this->defaultType) : $this->defaultType;
+        }
+
+        $union = count($types) === 1 ? $types[0] : Type::union(...$types);
+
+        if ($allowsNull) {
+            return Type::nullable($union);
+        }
+
+        return $union;
+    }
+
+    private function isNullType(Type $type): bool
+    {
+        return $type instanceof BuiltinType && $type->getTypeIdentifier() === TypeIdentifier::NULL;
     }
 }
