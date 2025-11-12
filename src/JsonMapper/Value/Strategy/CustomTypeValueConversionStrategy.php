@@ -16,13 +16,15 @@ use MagicSunday\JsonMapper\Value\CustomTypeRegistry;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\ObjectType;
 
+use function assert;
+
 /**
  * Handles conversion of registered custom types.
  */
-final class CustomTypeValueConversionStrategy implements ValueConversionStrategyInterface
+final readonly class CustomTypeValueConversionStrategy implements ValueConversionStrategyInterface
 {
     public function __construct(
-        private readonly CustomTypeRegistry $registry,
+        private CustomTypeRegistry $registry,
     ) {
     }
 
@@ -33,7 +35,7 @@ final class CustomTypeValueConversionStrategy implements ValueConversionStrategy
 
     public function convert(mixed $value, Type $type, MappingContext $context): mixed
     {
-        \assert($type instanceof ObjectType);
+        assert($type instanceof ObjectType);
 
         return $this->registry->convert($type->getClassName(), $value, $context);
     }

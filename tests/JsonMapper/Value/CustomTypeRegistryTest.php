@@ -25,7 +25,7 @@ final class CustomTypeRegistryTest extends TestCase
     public function itNormalizesSingleArgumentClosures(): void
     {
         $registry = new CustomTypeRegistry();
-        $registry->register('Foo', static fn (array $value): array => $value);
+        $registry->register('Foo', static fn (mixed $value): array => (array) $value);
 
         $context = new MappingContext([]);
 
@@ -37,10 +37,10 @@ final class CustomTypeRegistryTest extends TestCase
     public function itPassesContextToConverters(): void
     {
         $registry = new CustomTypeRegistry();
-        $registry->register('Foo', static function (array $value, MappingContext $context): array {
+        $registry->register('Foo', static function (mixed $value, MappingContext $context): array {
             $context->addError('called');
 
-            return $value;
+            return (array) $value;
         });
 
         $context = new MappingContext([]);

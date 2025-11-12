@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\JsonMapper\Value\Strategy;
 
 use Closure;
+use LogicException;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Resolver\ClassResolver;
 use Symfony\Component\TypeInfo\Type;
@@ -20,14 +21,14 @@ use Symfony\Component\TypeInfo\Type\ObjectType;
 /**
  * Converts object values by delegating to the mapper callback.
  */
-final class ObjectValueConversionStrategy implements ValueConversionStrategyInterface
+final readonly class ObjectValueConversionStrategy implements ValueConversionStrategyInterface
 {
     /**
-     * @param callable(mixed, class-string, MappingContext):mixed $mapper
+     * @param Closure(mixed, class-string, MappingContext):mixed $mapper
      */
     public function __construct(
-        private readonly ClassResolver $classResolver,
-        private readonly Closure $mapper,
+        private ClassResolver $classResolver,
+        private Closure $mapper,
     ) {
     }
 
@@ -38,12 +39,32 @@ final class ObjectValueConversionStrategy implements ValueConversionStrategyInte
 
     public function convert(mixed $value, Type $type, MappingContext $context): mixed
     {
-        \assert($type instanceof ObjectType);
+        if (!($type instanceof ObjectType)) {
+            throw new LogicException('ObjectValueConversionStrategy requires an object type.');
+        }
 
-        $className = $this->classResolver->resolve($type->getClassName(), $value, $context);
+        $className     = $this->resolveClassName($type);
+        $resolvedClass = $this->classResolver->resolve($className, $value, $context);
 
         $mapper = $this->mapper;
 
-        return $mapper($value, $className, $context);
+        return $mapper($value, $resolvedClass, $context);
+    }
+
+    /**
+     * Resolves the class name from the provided object type.
+     *
+     * @return class-string
+     */
+    private function resolveClassName(ObjectType $type): string
+    {
+        $className = $type->getClassName();
+
+        if ($className === '') {
+            throw new LogicException('Object type must define a class-string.');
+        }
+
+        /** @var class-string $className */
+        return $className;
     }
 }

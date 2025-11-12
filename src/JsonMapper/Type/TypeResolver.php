@@ -11,7 +11,6 @@ declare(strict_types=1);
 
 namespace MagicSunday\JsonMapper\Type;
 
-use MagicSunday\JsonMapper\Context\MappingContext;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractorInterface;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\BuiltinType;
@@ -34,7 +33,7 @@ final class TypeResolver
     /**
      * Resolves the declared type for the provided property.
      */
-    public function resolve(string $className, string $propertyName, MappingContext $context): Type
+    public function resolve(string $className, string $propertyName): Type
     {
         $type = $this->extractor->getType($className, $propertyName);
 

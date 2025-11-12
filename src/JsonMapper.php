@@ -39,16 +39,19 @@ use Symfony\Component\PropertyInfo\PropertyInfoExtractorInterface;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\CollectionType;
 use Symfony\Component\TypeInfo\Type\ObjectType;
+use Traversable;
 
 use function array_key_exists;
 use function call_user_func_array;
 use function count;
+use function get_object_vars;
 use function in_array;
 use function is_array;
 use function is_callable;
 use function is_int;
 use function is_object;
 use function is_string;
+use function iterator_to_array;
 use function method_exists;
 use function sprintf;
 use function ucfirst;
@@ -59,9 +62,6 @@ use function ucfirst;
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
- *
- * @template TEntity
- * @template TEntityCollection
  */
 class JsonMapper
 {
@@ -75,22 +75,27 @@ class JsonMapper
 
     private CustomTypeRegistry $customTypeRegistry;
 
+    /**
+     * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
+     *
+     * @phpstan-param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
+     */
     public function __construct(
         private readonly PropertyInfoExtractorInterface $extractor,
         private readonly PropertyAccessorInterface $accessor,
         private readonly ?PropertyNameConverterInterface $nameConverter = null,
         array $classMap = [],
     ) {
-        $this->typeResolver        = new TypeResolver($extractor);
-        $this->classResolver       = new ClassResolver($classMap);
-        $this->customTypeRegistry  = new CustomTypeRegistry();
-        $this->valueConverter      = new ValueConverter();
-        $this->collectionFactory   = new CollectionFactory(
+        $this->typeResolver       = new TypeResolver($extractor);
+        $this->classResolver      = new ClassResolver($classMap);
+        $this->customTypeRegistry = new CustomTypeRegistry();
+        $this->valueConverter     = new ValueConverter();
+        $this->collectionFactory  = new CollectionFactory(
             $this->valueConverter,
             $this->classResolver,
             function (string $className, ?array $arguments): object {
                 if ($arguments === null) {
-                    return $this->makeInstance($className, null);
+                    return $this->makeInstance($className);
                 }
 
                 return $this->makeInstance($className, $arguments);
@@ -103,9 +108,7 @@ class JsonMapper
         $this->valueConverter->addStrategy(
             new ObjectValueConversionStrategy(
                 $this->classResolver,
-                function (mixed $value, string $resolvedClass, MappingContext $context): mixed {
-                    return $this->map($value, $resolvedClass, null, $context);
-                },
+                fn (mixed $value, string $resolvedClass, MappingContext $context): mixed => $this->map($value, $resolvedClass, null, $context),
             ),
         );
         $this->valueConverter->addStrategy(new BuiltinValueConversionStrategy());
@@ -125,9 +128,11 @@ class JsonMapper
     /**
      * Add a custom class map entry.
      *
-     * @template T
+     * @param class-string                                                            $className
+     * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $closure
      *
-     * @param class-string<T> $className
+     * @phpstan-param class-string $className
+     * @phpstan-param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $closure
      */
     public function addCustomClassMapEntry(string $className, Closure $closure): JsonMapper
     {
@@ -139,15 +144,9 @@ class JsonMapper
     /**
      * Maps the JSON to the specified class entity.
      *
-     * @param mixed                                $json
-     * @param class-string<TEntity>|null           $className
-     * @param class-string<TEntityCollection>|null $collectionClassName
-     *
-     * @return mixed|TEntityCollection|TEntity|null
-     *
-     * @phpstan-return ($collectionClassName is class-string
-     *                      ? TEntityCollection
-     *                      : ($className is class-string ? TEntity : null|mixed))
+     * @param mixed             $json
+     * @param class-string|null $className
+     * @param class-string|null $collectionClassName
      *
      * @throws InvalidArgumentException
      */
@@ -156,43 +155,50 @@ class JsonMapper
         ?string $className = null,
         ?string $collectionClassName = null,
         ?MappingContext $context = null,
-    ) {
+    ): mixed {
         $context ??= new MappingContext($json);
 
         if ($className === null) {
             return $json;
         }
 
-        $className = $this->classResolver->resolve($className, $json, $context);
+        /** @var class-string $resolvedClassName */
+        $resolvedClassName = $this->classResolver->resolve($className, $json, $context);
 
-        if ($collectionClassName !== null) {
-            $collectionClassName = $this->classResolver->resolve($collectionClassName, $json, $context);
-        }
+        /** @var class-string|null $resolvedCollectionClassName */
+        $resolvedCollectionClassName = $collectionClassName === null
+            ? null
+            : $this->classResolver->resolve($collectionClassName, $json, $context);
 
-        $this->assertClassesExists($className, $collectionClassName);
-
-        if ($this->isIterableWithArraysOrObjects($json)) {
-            if ($collectionClassName !== null) {
-                $collection = $this->collectionFactory->mapIterable($json, new ObjectType($className), $context);
-
-                return $this->makeInstance($collectionClassName, $collection);
-            }
-
-            if ($this->isNumericIndexArray($json)) {
-                return $this->collectionFactory->mapIterable($json, new ObjectType($className), $context);
-            }
-        }
-
-        $entity = $this->makeInstance($className);
+        $this->assertClassesExists($resolvedClassName, $resolvedCollectionClassName);
 
         if (!is_array($json) && !is_object($json)) {
-            return $entity;
+            return $this->makeInstance($resolvedClassName);
         }
 
-        $properties          = $this->getProperties($className);
-        $replacePropertyMap  = $this->buildReplacePropertyMap($className);
+        if (
+            ($resolvedCollectionClassName !== null)
+            && $this->isIterableWithArraysOrObjects($json)
+        ) {
+            $collection = $this->collectionFactory->mapIterable($json, new ObjectType($resolvedClassName), $context);
 
-        foreach ($json as $propertyName => $propertyValue) {
+            return $this->makeInstance($resolvedCollectionClassName, $collection);
+        }
+
+        if (
+            $this->isIterableWithArraysOrObjects($json)
+            && $this->isNumericIndexArray($json)
+        ) {
+            return $this->collectionFactory->mapIterable($json, new ObjectType($resolvedClassName), $context);
+        }
+
+        $entity = $this->makeInstance($resolvedClassName);
+        $source = $this->toIterableArray($json);
+
+        $properties         = $this->getProperties($resolvedClassName);
+        $replacePropertyMap = $this->buildReplacePropertyMap($resolvedClassName);
+
+        foreach ($source as $propertyName => $propertyValue) {
             $normalizedProperty = $this->normalizePropertyName($propertyName, $replacePropertyMap);
 
             if (!is_string($normalizedProperty)) {
@@ -204,19 +210,19 @@ class JsonMapper
             }
 
             $context->withPathSegment($normalizedProperty, function (MappingContext $propertyContext) use (
-                $className,
+                $resolvedClassName,
                 $normalizedProperty,
                 $propertyValue,
                 $entity,
             ): void {
-                $type  = $this->typeResolver->resolve($className, $normalizedProperty, $propertyContext);
+                $type  = $this->typeResolver->resolve($resolvedClassName, $normalizedProperty);
                 $value = $this->convertValue($propertyValue, $type, $propertyContext);
 
                 if (
                     ($value === null)
-                    && $this->isReplaceNullWithDefaultValueAnnotation($className, $normalizedProperty)
+                    && $this->isReplaceNullWithDefaultValueAnnotation($resolvedClassName, $normalizedProperty)
                 ) {
-                    $value = $this->getDefaultValue($className, $normalizedProperty);
+                    $value = $this->getDefaultValue($resolvedClassName, $normalizedProperty);
                 }
 
                 $this->setProperty($entity, $normalizedProperty, $value);
@@ -241,23 +247,20 @@ class JsonMapper
     /**
      * Creates an instance of the given class name.
      *
-     * @template T of object
-     *
-     * @param class-string<T> $className
-     * @param mixed           ...$constructorArguments
-     *
-     * @return T
+     * @param string $className
      */
-    private function makeInstance(string $className, mixed ...$constructorArguments)
+    private function makeInstance(string $className, mixed ...$constructorArguments): object
     {
-        /** @var T $instance */
-        $instance = new $className(...$constructorArguments);
-
-        return $instance;
+        return new $className(...$constructorArguments);
     }
 
     /**
      * Returns TRUE if the property contains an "ReplaceNullWithDefaultValue" annotation.
+     */
+    /**
+     * Returns TRUE if the property contains an "ReplaceNullWithDefaultValue" annotation.
+     *
+     * @param class-string $className
      */
     private function isReplaceNullWithDefaultValueAnnotation(string $className, string $propertyName): bool
     {
@@ -271,6 +274,8 @@ class JsonMapper
     /**
      * Builds the map of properties replaced by the annotation.
      *
+     * @param class-string $className
+     *
      * @return array<string, string>
      */
     private function buildReplacePropertyMap(string $className): array
@@ -282,6 +287,10 @@ class JsonMapper
                 continue;
             }
 
+            if (!is_string($annotation->value)) {
+                continue;
+            }
+
             $map[$annotation->replaces] = $annotation->value;
         }
 
@@ -290,6 +299,8 @@ class JsonMapper
 
     /**
      * Normalizes the property name using annotations and converters.
+     *
+     * @param array<string, string> $replacePropertyMap
      */
     private function normalizePropertyName(string|int $propertyName, array $replacePropertyMap): string|int
     {
@@ -300,14 +311,36 @@ class JsonMapper
         }
 
         if (is_string($normalized) && ($this->nameConverter instanceof PropertyNameConverterInterface)) {
-            $normalized = $this->nameConverter->convert($normalized);
+            return $this->nameConverter->convert($normalized);
         }
 
         return $normalized;
     }
 
     /**
+     * Converts arrays and objects into a plain array structure.
+     *
+     * @param array<array-key, mixed>|object $json
+     *
+     * @return array<array-key, mixed>
+     */
+    private function toIterableArray(array|object $json): array
+    {
+        if ($json instanceof Traversable) {
+            return iterator_to_array($json);
+        }
+
+        if (is_object($json)) {
+            return get_object_vars($json);
+        }
+
+        return $json;
+    }
+
+    /**
      * Returns the specified reflection property.
+     *
+     * @param class-string $className
      */
     private function getReflectionProperty(string $className, string $propertyName): ?ReflectionProperty
     {
@@ -320,6 +353,8 @@ class JsonMapper
 
     /**
      * Returns the specified reflection class.
+     *
+     * @param class-string $className
      */
     private function getReflectionClass(string $className): ?ReflectionClass
     {
@@ -332,6 +367,8 @@ class JsonMapper
 
     /**
      * Extracts possible property annotations.
+     *
+     * @param class-string $className
      *
      * @return Annotation[]|object[]
      */
@@ -350,6 +387,8 @@ class JsonMapper
     /**
      * Extracts possible class annotations.
      *
+     * @param class-string $className
+     *
      * @return Annotation[]|object[]
      */
     private function extractClassAnnotations(string $className): array
@@ -366,6 +405,9 @@ class JsonMapper
 
     /**
      * Returns TRUE if the property has the given annotation.
+     *
+     * @param class-string $className
+     * @param class-string $annotationName
      */
     private function hasPropertyAnnotation(string $className, string $propertyName, string $annotationName): bool
     {
@@ -382,6 +424,8 @@ class JsonMapper
 
     /**
      * Returns the default value of a property.
+     *
+     * @param class-string $className
      */
     private function getDefaultValue(string $className, string $propertyName): mixed
     {
@@ -396,10 +440,12 @@ class JsonMapper
 
     /**
      * Returns TRUE if the given JSON contains integer property keys.
+     *
+     * @param array<array-key, mixed>|object $json
      */
     private function isNumericIndexArray(array|object $json): bool
     {
-        foreach ($json as $propertyName => $propertyValue) {
+        foreach (array_keys($this->toIterableArray($json)) as $propertyName) {
             if (is_int($propertyName)) {
                 return true;
             }
@@ -417,7 +463,9 @@ class JsonMapper
             return false;
         }
 
-        foreach ($json as $propertyValue) {
+        $values = is_array($json) ? $json : $this->toIterableArray($json);
+
+        foreach ($values as $propertyValue) {
             if (is_array($propertyValue)) {
                 continue;
             }
@@ -481,6 +529,8 @@ class JsonMapper
 
     /**
      * Get all public properties for the specified class.
+     *
+     * @param class-string $className
      *
      * @return string[]
      */
