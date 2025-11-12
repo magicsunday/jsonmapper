@@ -14,6 +14,7 @@ namespace MagicSunday\Test;
 use DateInterval;
 use MagicSunday\JsonMapper\Configuration\MappingConfiguration;
 use MagicSunday\Test\Classes\Base;
+use MagicSunday\Test\Classes\BaseCollection;
 use MagicSunday\Test\Classes\ClassMap\CollectionSource;
 use MagicSunday\Test\Classes\ClassMap\CollectionTarget;
 use MagicSunday\Test\Classes\ClassMap\SourceItem;
@@ -86,6 +87,28 @@ class JsonMapperTest extends TestCase
         self::assertInstanceOf(Base::class, $result[0]);
         self::assertInstanceOf(Base::class, $result[1]);
         self::assertSame('Item 1', $result[0]->name);
+        self::assertSame('Item 2', $result[1]->name);
+    }
+
+    /**
+     * Tests mapping a collection using a generic @extends annotation.
+     */
+    #[Test]
+    public function mapCollectionUsingDocBlockExtends(): void
+    {
+        $result = $this->getJsonMapper()
+            ->map(
+                $this->getJsonAsArray(Provider\DataProvider::mapCollectionJson()),
+                null,
+                BaseCollection::class
+            );
+
+        self::assertInstanceOf(BaseCollection::class, $result);
+        self::assertCount(2, $result);
+        self::assertContainsOnlyInstancesOf(Base::class, $result);
+        self::assertInstanceOf(Base::class, $result[0]);
+        self::assertSame('Item 1', $result[0]->name);
+        self::assertInstanceOf(Base::class, $result[1]);
         self::assertSame('Item 2', $result[1]->name);
     }
 
