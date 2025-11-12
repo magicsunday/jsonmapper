@@ -17,8 +17,6 @@ use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\CollectionType;
 
 use function assert;
-use function is_array;
-use function is_object;
 
 /**
  * Converts collection values using the configured factory.
@@ -32,7 +30,7 @@ final readonly class CollectionValueConversionStrategy implements ValueConversio
 
     public function supports(mixed $value, Type $type, MappingContext $context): bool
     {
-        return ($type instanceof CollectionType) && (is_array($value) || is_object($value) || $value === null);
+        return $type instanceof CollectionType;
     }
 
     public function convert(mixed $value, Type $type, MappingContext $context): mixed
