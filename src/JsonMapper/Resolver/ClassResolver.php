@@ -29,13 +29,20 @@ use function sprintf;
 final class ClassResolver
 {
     /**
+     * @var array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string>
+     *
+     * @phpstan-var array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string>
+     */
+    private array $classMap;
+
+    /**
      * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
      *
      * @phpstan-param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
      */
-    public function __construct(
-        private array $classMap = [],
-    ) {
+    public function __construct(array $classMap = [])
+    {
+        $this->classMap = $this->validateClassMap($classMap);
     }
 
     /**
@@ -49,6 +56,7 @@ final class ClassResolver
      */
     public function add(string $className, Closure $resolver): void
     {
+        $this->assertClassString($className);
         $this->classMap[$className] = $resolver;
     }
 
@@ -101,6 +109,28 @@ final class ClassResolver
         }
 
         return $resolver($json);
+    }
+
+    /**
+     * Validates the configured class map entries eagerly.
+     *
+     * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
+     *
+     * @return array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string>
+     */
+    private function validateClassMap(array $classMap): array
+    {
+        foreach ($classMap as $sourceClass => $mapping) {
+            $this->assertClassString($sourceClass);
+
+            if ($mapping instanceof Closure) {
+                continue;
+            }
+
+            $this->assertClassString($mapping);
+        }
+
+        return $classMap;
     }
 
     /**
