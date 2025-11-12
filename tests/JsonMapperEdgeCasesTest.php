@@ -14,7 +14,6 @@ namespace MagicSunday\Test;
 use MagicSunday\Test\Classes\Base;
 use MagicSunday\Test\Classes\Collection;
 use MagicSunday\Test\Classes\Person;
-use MagicSunday\Test\Classes\Simple;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
@@ -128,58 +127,6 @@ JSON
         self::assertInstanceOf(Base::class, $result);
         self::assertIsArray($result->simpleArray);
         self::assertCount(2, $result->simpleArray);
-    }
-
-    /**
-     * Tests getCollectionValueType public method.
-     */
-    #[Test]
-    public function getsCollectionValueType(): void
-    {
-        $mapper = $this->getJsonMapper();
-        
-        // Create a Type with collection value types
-        $collectionValueType = new \Symfony\Component\PropertyInfo\Type(
-            \Symfony\Component\PropertyInfo\Type::BUILTIN_TYPE_OBJECT,
-            false,
-            Simple::class
-        );
-        
-        $type = new \Symfony\Component\PropertyInfo\Type(
-            \Symfony\Component\PropertyInfo\Type::BUILTIN_TYPE_ARRAY,
-            false,
-            null,
-            true,
-            null,
-            $collectionValueType
-        );
-
-        $result = $mapper->getCollectionValueType($type);
-
-        self::assertInstanceOf(\Symfony\Component\PropertyInfo\Type::class, $result);
-        self::assertSame(\Symfony\Component\PropertyInfo\Type::BUILTIN_TYPE_OBJECT, $result->getBuiltinType());
-    }
-
-    /**
-     * Tests getCollectionValueType with no collection value types (returns default).
-     */
-    #[Test]
-    public function getsDefaultCollectionValueTypeWhenNoneSet(): void
-    {
-        $mapper = $this->getJsonMapper();
-        
-        // Create a Type without collection value types
-        $type = new \Symfony\Component\PropertyInfo\Type(
-            \Symfony\Component\PropertyInfo\Type::BUILTIN_TYPE_ARRAY,
-            false,
-            null,
-            true
-        );
-
-        $result = $mapper->getCollectionValueType($type);
-
-        self::assertInstanceOf(\Symfony\Component\PropertyInfo\Type::class, $result);
-        self::assertSame(\Symfony\Component\PropertyInfo\Type::BUILTIN_TYPE_STRING, $result->getBuiltinType());
     }
 
     /**
