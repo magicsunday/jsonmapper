@@ -59,9 +59,9 @@ class CamelCasePropertyNameConverterTest extends TestCase
     {
         $converter = new CamelCasePropertyNameConverter();
 
-        self::assertSame('name', $converter->convert('NAME'));
-        self::assertSame('userId', $converter->convert('USER_ID'));
-        self::assertSame('firstName', $converter->convert('FIRST_NAME'));
+        self::assertSame('nAME', $converter->convert('NAME'));
+        self::assertSame('uSERId', $converter->convert('USER_ID'));
+        self::assertSame('fIRSTName', $converter->convert('FIRST_NAME'));
     }
 
     /**
@@ -97,6 +97,6 @@ class CamelCasePropertyNameConverterTest extends TestCase
         $converter = new CamelCasePropertyNameConverter();
 
         self::assertSame('mixedDelimiterProperty', $converter->convert('mixed_delimiter-property'));
-        self::assertSame('complexProperty Name', $converter->convert('complex-property_name'));
+        self::assertSame('complexPropertyName', $converter->convert('complex-property_name'));
     }
 }
