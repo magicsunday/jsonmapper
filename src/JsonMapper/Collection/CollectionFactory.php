@@ -14,6 +14,7 @@ namespace MagicSunday\JsonMapper\Collection;
 use Closure;
 use DomainException;
 use MagicSunday\JsonMapper\Context\MappingContext;
+use MagicSunday\JsonMapper\Exception\CollectionMappingException;
 use MagicSunday\JsonMapper\Resolver\ClassResolver;
 use MagicSunday\JsonMapper\Value\ValueConverter;
 use Symfony\Component\TypeInfo\Type;
@@ -22,6 +23,7 @@ use Symfony\Component\TypeInfo\Type\ObjectType;
 use Symfony\Component\TypeInfo\Type\WrappingTypeInterface;
 use Traversable;
 
+use function get_debug_type;
 use function get_object_vars;
 use function is_array;
 use function is_object;
@@ -45,22 +47,31 @@ final readonly class CollectionFactory
     /**
      * Converts the provided iterable JSON structure to a PHP array.
      *
-     * @param array<array-key, mixed>|object|null $json
-     *
      * @return array<array-key, mixed>|null
      */
-    public function mapIterable(array|object|null $json, Type $valueType, MappingContext $context): ?array
+    public function mapIterable(mixed $json, Type $valueType, MappingContext $context): ?array
     {
         if ($json === null) {
             return null;
         }
 
-        /** @var array<array-key, mixed> $source */
         $source = match (true) {
             $json instanceof Traversable => iterator_to_array($json),
+            is_array($json)              => $json,
             is_object($json)             => get_object_vars($json),
-            default                      => $json,
+            default                      => null,
         };
+
+        if (!is_array($source)) {
+            $exception = new CollectionMappingException($context->getPath(), get_debug_type($json));
+            $context->recordException($exception);
+
+            if ($context->isStrictMode()) {
+                throw $exception;
+            }
+
+            return null;
+        }
 
         $collection = [];
 
@@ -78,11 +89,7 @@ final readonly class CollectionFactory
      */
     public function fromCollectionType(CollectionType $type, mixed $json, MappingContext $context): mixed
     {
-        $collection = $this->mapIterable(
-            is_array($json) || is_object($json) ? $json : null,
-            $type->getCollectionValueType(),
-            $context,
-        );
+        $collection = $this->mapIterable($json, $type->getCollectionValueType(), $context);
 
         $wrappedType = $type->getWrappedType();
 
