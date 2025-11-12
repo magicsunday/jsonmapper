@@ -11,6 +11,8 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test;
 
+use DateInterval;
+use MagicSunday\JsonMapper\Configuration\MappingConfiguration;
 use MagicSunday\Test\Classes\Base;
 use MagicSunday\Test\Classes\ClassMap\CollectionSource;
 use MagicSunday\Test\Classes\ClassMap\CollectionTarget;
@@ -18,14 +20,20 @@ use MagicSunday\Test\Classes\ClassMap\SourceItem;
 use MagicSunday\Test\Classes\ClassMap\TargetItem;
 use MagicSunday\Test\Classes\Collection;
 use MagicSunday\Test\Classes\CustomConstructor;
+use MagicSunday\Test\Classes\DateTimeHolder;
+use MagicSunday\Test\Classes\EnumHolder;
 use MagicSunday\Test\Classes\Initialized;
 use MagicSunday\Test\Classes\MapPlainArrayKeyValueClass;
 use MagicSunday\Test\Classes\MultidimensionalArray;
+use MagicSunday\Test\Classes\NullableStringHolder;
 use MagicSunday\Test\Classes\Person;
 use MagicSunday\Test\Classes\PlainArrayClass;
+use MagicSunday\Test\Classes\ScalarHolder;
 use MagicSunday\Test\Classes\Simple;
+use MagicSunday\Test\Classes\UnionHolder;
 use MagicSunday\Test\Classes\VariadicSetterClass;
 use MagicSunday\Test\Classes\VipPerson;
+use MagicSunday\Test\Fixtures\Enum\SampleStatus;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use stdClass;
@@ -528,11 +536,11 @@ JSON
     }
 
     /**
-     * Tests mapping of default values using @MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue
-     * annotation in case JSON contains NULL.
+     * Tests mapping of default values using #[MagicSunday\JsonMapper\Attribute\ReplaceNullWithDefaultValue]
+     * when the JSON payload contains null values.
      */
     #[Test]
-    public function mapNullToDefaultValueUsingAnnotation(): void
+    public function mapNullToDefaultValueUsingAttribute(): void
     {
         $result = $this->getJsonMapper()
             ->map(
@@ -757,5 +765,108 @@ JSON
 
         self::assertInstanceOf(CollectionTarget::class, $result);
         self::assertContainsOnlyInstancesOf(TargetItem::class, $result);
+    }
+
+    #[Test]
+    public function mapBackedEnumFromString(): void
+    {
+        $result = $this->getJsonMapper()
+            ->map(['status' => 'active'], EnumHolder::class);
+
+        self::assertInstanceOf(EnumHolder::class, $result);
+        self::assertSame(SampleStatus::Active, $result->status);
+    }
+
+    #[Test]
+    public function mapUnionTypeWithNumericString(): void
+    {
+        $result = $this->getJsonMapper()
+            ->map([
+                'value'    => '42',
+                'fallback' => 'hello',
+            ], UnionHolder::class);
+
+        self::assertInstanceOf(UnionHolder::class, $result);
+        self::assertSame(42, $result->value);
+        self::assertSame('hello', $result->fallback);
+    }
+
+    #[Test]
+    public function mapUnionTypeWithTextualValue(): void
+    {
+        $result = $this->getJsonMapper()
+            ->map([
+                'value'    => 'oops',
+                'fallback' => 99,
+            ], UnionHolder::class);
+
+        self::assertInstanceOf(UnionHolder::class, $result);
+        self::assertSame('oops', $result->value);
+        self::assertSame(99, $result->fallback);
+    }
+
+    #[Test]
+    public function mapDateTimeAndIntervalValues(): void
+    {
+        $result = $this->getJsonMapper()
+            ->map([
+                'createdAt' => '2024-04-01T12:00:00+00:00',
+                'timeout'   => 'PT15M',
+            ], DateTimeHolder::class);
+
+        self::assertInstanceOf(DateTimeHolder::class, $result);
+        self::assertSame('2024-04-01T12:00:00+00:00', $result->createdAt->format('c'));
+        self::assertInstanceOf(DateInterval::class, $result->timeout);
+        self::assertSame(15, $result->timeout->i);
+    }
+
+    #[Test]
+    public function mapScalarShorthandValues(): void
+    {
+        $result = $this->getJsonMapper()
+            ->map([
+                'intValue'   => '42',
+                'floatValue' => '3.14',
+                'boolValue'  => '1',
+            ], ScalarHolder::class);
+
+        self::assertInstanceOf(ScalarHolder::class, $result);
+        self::assertSame(42, $result->intValue);
+        self::assertSame(3.14, $result->floatValue);
+        self::assertTrue($result->boolValue);
+    }
+
+    #[Test]
+    public function mapScalarZeroStringToFalse(): void
+    {
+        $result = $this->getJsonMapper()
+            ->map([
+                'intValue'   => '0',
+                'floatValue' => '0',
+                'boolValue'  => '0',
+            ], ScalarHolder::class);
+
+        self::assertInstanceOf(ScalarHolder::class, $result);
+        self::assertSame(0, $result->intValue);
+        self::assertSame(0.0, $result->floatValue);
+        self::assertFalse($result->boolValue);
+    }
+
+    #[Test]
+    public function mapEmptyStringToNullWhenEnabled(): void
+    {
+        $configuration = MappingConfiguration::lenient()->withEmptyStringAsNull(true);
+
+        $result = $this->getJsonMapper()
+            ->map(
+                ['value' => ''],
+                NullableStringHolder::class,
+                null,
+                null,
+                $configuration,
+            );
+
+        self::assertInstanceOf(NullableStringHolder::class, $result);
+        self::assertNull($result->value);
     }
 }

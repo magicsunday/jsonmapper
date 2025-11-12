@@ -14,10 +14,12 @@ namespace MagicSunday\Test\JsonMapper;
 use MagicSunday\JsonMapper\Configuration\MappingConfiguration;
 use MagicSunday\JsonMapper\Exception\CollectionMappingException;
 use MagicSunday\JsonMapper\Exception\MissingPropertyException;
+use MagicSunday\JsonMapper\Exception\ReadonlyPropertyException;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\JsonMapper\Exception\UnknownPropertyException;
 use MagicSunday\Test\Classes\Base;
 use MagicSunday\Test\Classes\Person;
+use MagicSunday\Test\Classes\ReadonlyEntity;
 use MagicSunday\Test\Classes\Simple;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\Test;
@@ -173,6 +175,25 @@ final class JsonMapperErrorHandlingTest extends TestCase
             $errorsByPath['$.simple.unknown']->getMessage(),
         );
         self::assertInstanceOf(UnknownPropertyException::class, $errorsByPath['$.simple.unknown']->getException());
+    }
+
+    #[Test]
+    public function itReportsReadonlyPropertyViolations(): void
+    {
+        $result = $this->getJsonMapper()
+            ->mapWithReport([
+                'id' => 'changed',
+            ], ReadonlyEntity::class);
+
+        $entity = $result->getValue();
+
+        self::assertInstanceOf(ReadonlyEntity::class, $entity);
+        self::assertSame('initial', $entity->id);
+
+        $errors = $result->getReport()->getErrors();
+        self::assertCount(1, $errors);
+        self::assertInstanceOf(ReadonlyPropertyException::class, $errors[0]->getException());
+        self::assertSame('Readonly property ' . ReadonlyEntity::class . '::id cannot be written at $.id.', $errors[0]->getMessage());
     }
 
     #[Test]

@@ -12,17 +12,17 @@ declare(strict_types=1);
 namespace MagicSunday;
 
 use Closure;
-use Doctrine\Common\Annotations\Annotation;
-use Doctrine\Common\Annotations\AnnotationReader;
 use InvalidArgumentException;
-use MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue;
-use MagicSunday\JsonMapper\Annotation\ReplaceProperty;
+use MagicSunday\JsonMapper\Attribute\ReplaceNullWithDefaultValue;
+use MagicSunday\JsonMapper\Attribute\ReplaceProperty;
 use MagicSunday\JsonMapper\Collection\CollectionFactory;
 use MagicSunday\JsonMapper\Configuration\MappingConfiguration;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Converter\PropertyNameConverterInterface;
 use MagicSunday\JsonMapper\Exception\MappingException;
 use MagicSunday\JsonMapper\Exception\MissingPropertyException;
+use MagicSunday\JsonMapper\Exception\ReadonlyPropertyException;
+use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\JsonMapper\Exception\UnknownPropertyException;
 use MagicSunday\JsonMapper\Report\MappingReport;
 use MagicSunday\JsonMapper\Report\MappingResult;
@@ -32,11 +32,14 @@ use MagicSunday\JsonMapper\Value\CustomTypeRegistry;
 use MagicSunday\JsonMapper\Value\Strategy\BuiltinValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\Strategy\CollectionValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\Strategy\CustomTypeValueConversionStrategy;
+use MagicSunday\JsonMapper\Value\Strategy\DateTimeValueConversionStrategy;
+use MagicSunday\JsonMapper\Value\Strategy\EnumValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\Strategy\NullValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\Strategy\ObjectValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\Strategy\PassthroughValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\ValueConverter;
 use Psr\Cache\CacheItemPoolInterface;
+use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionMethod;
@@ -46,8 +49,11 @@ use ReflectionUnionType;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractorInterface;
 use Symfony\Component\TypeInfo\Type;
+use Symfony\Component\TypeInfo\Type\BuiltinType;
 use Symfony\Component\TypeInfo\Type\CollectionType;
 use Symfony\Component\TypeInfo\Type\ObjectType;
+use Symfony\Component\TypeInfo\Type\UnionType;
+use Symfony\Component\TypeInfo\TypeIdentifier;
 use Traversable;
 
 use function array_diff;
@@ -57,7 +63,9 @@ use function array_unique;
 use function array_values;
 use function call_user_func_array;
 use function count;
+use function get_debug_type;
 use function get_object_vars;
+use function implode;
 use function in_array;
 use function is_array;
 use function is_callable;
@@ -67,6 +75,7 @@ use function is_string;
 use function iterator_to_array;
 use function method_exists;
 use function sprintf;
+use function trim;
 use function ucfirst;
 
 /**
@@ -120,6 +129,8 @@ class JsonMapper
         $this->valueConverter->addStrategy(new NullValueConversionStrategy());
         $this->valueConverter->addStrategy(new CollectionValueConversionStrategy($this->collectionFactory));
         $this->valueConverter->addStrategy(new CustomTypeValueConversionStrategy($this->customTypeRegistry));
+        $this->valueConverter->addStrategy(new DateTimeValueConversionStrategy());
+        $this->valueConverter->addStrategy(new EnumValueConversionStrategy());
         $this->valueConverter->addStrategy(
             new ObjectValueConversionStrategy(
                 $this->classResolver,
@@ -257,8 +268,15 @@ class JsonMapper
 
                 $mappedProperties[] = $normalizedProperty;
 
-                $type  = $this->typeResolver->resolve($resolvedClassName, $normalizedProperty);
-                $value = $this->convertValue($propertyValue, $type, $propertyContext);
+                $type = $this->typeResolver->resolve($resolvedClassName, $normalizedProperty);
+
+                try {
+                    $value = $this->convertValue($propertyValue, $type, $propertyContext);
+                } catch (MappingException $exception) {
+                    $this->handleMappingException($exception, $propertyContext, $configuration);
+
+                    return;
+                }
 
                 if (
                     ($value === null)
@@ -267,7 +285,11 @@ class JsonMapper
                     $value = $this->getDefaultValue($resolvedClassName, $normalizedProperty);
                 }
 
-                $this->setProperty($entity, $normalizedProperty, $value);
+                try {
+                    $this->setProperty($entity, $normalizedProperty, $value, $propertyContext);
+                } catch (ReadonlyPropertyException $exception) {
+                    $this->handleMappingException($exception, $propertyContext, $configuration);
+                }
             });
         }
 
@@ -375,11 +397,146 @@ class JsonMapper
      */
     private function convertValue(mixed $json, Type $type, MappingContext $context): mixed
     {
+        if (
+            is_string($json)
+            && ($json === '' || trim($json) === '')
+            && (bool) $context->getOption(MappingContext::OPTION_TREAT_EMPTY_STRING_AS_NULL, false)
+        ) {
+            $json = null;
+        }
+
         if ($type instanceof CollectionType) {
             return $this->collectionFactory->fromCollectionType($type, $json, $context);
         }
 
+        if ($type instanceof UnionType) {
+            return $this->convertUnionValue($json, $type, $context);
+        }
+
+        if ($this->isNullType($type)) {
+            return null;
+        }
+
         return $this->valueConverter->convert($json, $type, $context);
+    }
+
+    /**
+     * Converts the value according to the provided union type.
+     */
+    private function convertUnionValue(mixed $json, UnionType $type, MappingContext $context): mixed
+    {
+        if ($json === null && $this->unionAllowsNull($type)) {
+            return null;
+        }
+
+        $lastException = null;
+
+        foreach ($type->getTypes() as $candidate) {
+            if ($this->isNullType($candidate) && $json !== null) {
+                continue;
+            }
+
+            $errorCount = $context->getErrorCount();
+
+            try {
+                $converted = $this->convertValue($json, $candidate, $context);
+            } catch (MappingException $exception) {
+                $context->trimErrors($errorCount);
+                $lastException = $exception;
+
+                continue;
+            }
+
+            if ($context->getErrorCount() > $errorCount) {
+                $context->trimErrors($errorCount);
+
+                $lastException = new TypeMismatchException(
+                    $context->getPath(),
+                    $this->describeType($candidate),
+                    get_debug_type($json),
+                );
+
+                continue;
+            }
+
+            return $converted;
+        }
+
+        if ($lastException instanceof MappingException) {
+            throw $lastException;
+        }
+
+        $exception = new TypeMismatchException(
+            $context->getPath(),
+            $this->describeUnionType($type),
+            get_debug_type($json),
+        );
+
+        $context->recordException($exception);
+
+        if ($context->isStrictMode()) {
+            throw $exception;
+        }
+
+        return $json;
+    }
+
+    /**
+     * Returns a string representation of the provided type.
+     */
+    private function describeType(Type $type): string
+    {
+        if ($type instanceof BuiltinType) {
+            return $type->getTypeIdentifier()->value . ($type->isNullable() ? '|null' : '');
+        }
+
+        if ($type instanceof ObjectType) {
+            return $type->getClassName();
+        }
+
+        if ($type instanceof CollectionType) {
+            return 'array';
+        }
+
+        if ($this->isNullType($type)) {
+            return 'null';
+        }
+
+        if ($type instanceof UnionType) {
+            return $this->describeUnionType($type);
+        }
+
+        return $type::class;
+    }
+
+    /**
+     * Returns a textual representation of the union type.
+     */
+    private function describeUnionType(UnionType $type): string
+    {
+        $parts = [];
+
+        foreach ($type->getTypes() as $candidate) {
+            $parts[] = $this->describeType($candidate);
+        }
+
+        return implode('|', $parts);
+    }
+
+    private function unionAllowsNull(UnionType $type): bool
+    {
+        foreach ($type->getTypes() as $candidate) {
+            if ($this->isNullType($candidate)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isNullType(Type $type): bool
+    {
+        return $type instanceof BuiltinType && $type->getTypeIdentifier() === TypeIdentifier::NULL;
     }
 
     /**
@@ -402,11 +559,13 @@ class JsonMapper
      */
     private function isReplaceNullWithDefaultValueAnnotation(string $className, string $propertyName): bool
     {
-        return $this->hasPropertyAnnotation(
-            $className,
-            $propertyName,
-            ReplaceNullWithDefaultValue::class,
-        );
+        $reflectionProperty = $this->getReflectionProperty($className, $propertyName);
+
+        if (!($reflectionProperty instanceof ReflectionProperty)) {
+            return false;
+        }
+
+        return $this->hasAttribute($reflectionProperty, ReplaceNullWithDefaultValue::class);
     }
 
     /**
@@ -418,21 +577,29 @@ class JsonMapper
      */
     private function buildReplacePropertyMap(string $className): array
     {
+        $reflectionClass = $this->getReflectionClass($className);
+
+        if (!($reflectionClass instanceof ReflectionClass)) {
+            return [];
+        }
+
         $map = [];
 
-        foreach ($this->extractClassAnnotations($className) as $annotation) {
-            if (!($annotation instanceof ReplaceProperty)) {
-                continue;
-            }
-
-            if (!is_string($annotation->value)) {
-                continue;
-            }
-
-            $map[$annotation->replaces] = $annotation->value;
+        foreach ($reflectionClass->getAttributes(ReplaceProperty::class, ReflectionAttribute::IS_INSTANCEOF) as $attribute) {
+            /** @var ReplaceProperty $instance */
+            $instance                 = $attribute->newInstance();
+            $map[$instance->replaces] = $instance->value;
         }
 
         return $map;
+    }
+
+    /**
+     * @param class-string $attributeClass
+     */
+    private function hasAttribute(ReflectionProperty $property, string $attributeClass): bool
+    {
+        return $property->getAttributes($attributeClass, ReflectionAttribute::IS_INSTANCEOF) !== [];
     }
 
     /**
@@ -501,63 +668,6 @@ class JsonMapper
         }
 
         return new ReflectionClass($className);
-    }
-
-    /**
-     * Extracts possible property annotations.
-     *
-     * @param class-string $className
-     *
-     * @return Annotation[]|object[]
-     */
-    private function extractPropertyAnnotations(string $className, string $propertyName): array
-    {
-        $reflectionProperty = $this->getReflectionProperty($className, $propertyName);
-
-        if ($reflectionProperty instanceof ReflectionProperty) {
-            return (new AnnotationReader())
-                ->getPropertyAnnotations($reflectionProperty);
-        }
-
-        return [];
-    }
-
-    /**
-     * Extracts possible class annotations.
-     *
-     * @param class-string $className
-     *
-     * @return Annotation[]|object[]
-     */
-    private function extractClassAnnotations(string $className): array
-    {
-        $reflectionClass = $this->getReflectionClass($className);
-
-        if ($reflectionClass instanceof ReflectionClass) {
-            return (new AnnotationReader())
-                ->getClassAnnotations($reflectionClass);
-        }
-
-        return [];
-    }
-
-    /**
-     * Returns TRUE if the property has the given annotation.
-     *
-     * @param class-string $className
-     * @param class-string $annotationName
-     */
-    private function hasPropertyAnnotation(string $className, string $propertyName, string $annotationName): bool
-    {
-        $annotations = $this->extractPropertyAnnotations($className, $propertyName);
-
-        foreach ($annotations as $annotation) {
-            if ($annotation instanceof $annotationName) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -641,8 +751,14 @@ class JsonMapper
     /**
      * Sets a property value.
      */
-    private function setProperty(object $entity, string $name, mixed $value): void
+    private function setProperty(object $entity, string $name, mixed $value, MappingContext $context): void
     {
+        $reflectionProperty = $this->getReflectionProperty($entity::class, $name);
+
+        if ($reflectionProperty instanceof ReflectionProperty && $reflectionProperty->isReadOnly()) {
+            throw new ReadonlyPropertyException($context->getPath(), $name, $entity::class);
+        }
+
         if (is_array($value)) {
             $methodName = 'set' . ucfirst($name);
 
