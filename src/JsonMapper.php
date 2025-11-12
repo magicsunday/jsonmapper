@@ -14,11 +14,22 @@ namespace MagicSunday;
 use Closure;
 use Doctrine\Common\Annotations\Annotation;
 use Doctrine\Common\Annotations\AnnotationReader;
-use DomainException;
 use InvalidArgumentException;
 use MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue;
 use MagicSunday\JsonMapper\Annotation\ReplaceProperty;
+use MagicSunday\JsonMapper\Collection\CollectionFactory;
+use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Converter\PropertyNameConverterInterface;
+use MagicSunday\JsonMapper\Resolver\ClassResolver;
+use MagicSunday\JsonMapper\Type\TypeResolver;
+use MagicSunday\JsonMapper\Value\CustomTypeRegistry;
+use MagicSunday\JsonMapper\Value\Strategy\BuiltinValueConversionStrategy;
+use MagicSunday\JsonMapper\Value\Strategy\CollectionValueConversionStrategy;
+use MagicSunday\JsonMapper\Value\Strategy\CustomTypeValueConversionStrategy;
+use MagicSunday\JsonMapper\Value\Strategy\NullValueConversionStrategy;
+use MagicSunday\JsonMapper\Value\Strategy\ObjectValueConversionStrategy;
+use MagicSunday\JsonMapper\Value\Strategy\PassthroughValueConversionStrategy;
+use MagicSunday\JsonMapper\Value\ValueConverter;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionMethod;
@@ -26,18 +37,21 @@ use ReflectionProperty;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractorInterface;
 use Symfony\Component\TypeInfo\Type;
-use Symfony\Component\TypeInfo\Type\BuiltinType;
 use Symfony\Component\TypeInfo\Type\CollectionType;
 use Symfony\Component\TypeInfo\Type\ObjectType;
-use Symfony\Component\TypeInfo\Type\UnionType;
-use Symfony\Component\TypeInfo\Type\WrappingTypeInterface;
-use Symfony\Component\TypeInfo\TypeIdentifier;
 
 use function array_key_exists;
+use function call_user_func_array;
+use function count;
 use function in_array;
 use function is_array;
+use function is_callable;
 use function is_int;
 use function is_object;
+use function is_string;
+use function method_exists;
+use function sprintf;
+use function ucfirst;
 
 /**
  * JsonMapper.
@@ -51,77 +65,59 @@ use function is_object;
  */
 class JsonMapper
 {
-    /**
-     * @var PropertyInfoExtractorInterface
-     */
-    private PropertyInfoExtractorInterface $extractor;
+    private TypeResolver $typeResolver;
 
-    /**
-     * @var PropertyAccessorInterface
-     */
-    private PropertyAccessorInterface $accessor;
+    private ClassResolver $classResolver;
 
-    /**
-     * The property name converter instance.
-     *
-     * @var PropertyNameConverterInterface|null
-     */
-    protected ?PropertyNameConverterInterface $nameConverter;
+    private ValueConverter $valueConverter;
 
-    /**
-     * Override class names that JsonMapper uses to create objects. Useful when your
-     * setter methods accept abstract classes or interfaces.
-     *
-     * @var string[]|Closure[]
-     */
-    private array $classMap;
+    private CollectionFactory $collectionFactory;
 
-    /**
-     * The default value type instance.
-     *
-     * @var BuiltinType
-     */
-    private BuiltinType $defaultType;
+    private CustomTypeRegistry $customTypeRegistry;
 
-    /**
-     * The custom types.
-     *
-     * @var Closure[]
-     */
-    private array $types = [];
-
-    /**
-     * JsonMapper constructor.
-     *
-     * @param PropertyInfoExtractorInterface      $extractor
-     * @param PropertyAccessorInterface           $accessor
-     * @param PropertyNameConverterInterface|null $nameConverter A name converter instance
-     * @param string[]|Closure[]                  $classMap      A class map to override the class names
-     */
     public function __construct(
-        PropertyInfoExtractorInterface $extractor,
-        PropertyAccessorInterface $accessor,
-        ?PropertyNameConverterInterface $nameConverter = null,
+        private readonly PropertyInfoExtractorInterface $extractor,
+        private readonly PropertyAccessorInterface $accessor,
+        private readonly ?PropertyNameConverterInterface $nameConverter = null,
         array $classMap = [],
     ) {
-        $this->extractor     = $extractor;
-        $this->accessor      = $accessor;
-        $this->nameConverter = $nameConverter;
-        $this->defaultType   = new BuiltinType(TypeIdentifier::STRING);
-        $this->classMap      = $classMap;
+        $this->typeResolver        = new TypeResolver($extractor);
+        $this->classResolver       = new ClassResolver($classMap);
+        $this->customTypeRegistry  = new CustomTypeRegistry();
+        $this->valueConverter      = new ValueConverter();
+        $this->collectionFactory   = new CollectionFactory(
+            $this->valueConverter,
+            $this->classResolver,
+            function (string $className, ?array $arguments): object {
+                if ($arguments === null) {
+                    return $this->makeInstance($className, null);
+                }
+
+                return $this->makeInstance($className, $arguments);
+            },
+        );
+
+        $this->valueConverter->addStrategy(new NullValueConversionStrategy());
+        $this->valueConverter->addStrategy(new CollectionValueConversionStrategy($this->collectionFactory));
+        $this->valueConverter->addStrategy(new CustomTypeValueConversionStrategy($this->customTypeRegistry));
+        $this->valueConverter->addStrategy(
+            new ObjectValueConversionStrategy(
+                $this->classResolver,
+                function (mixed $value, string $resolvedClass, MappingContext $context): mixed {
+                    return $this->map($value, $resolvedClass, null, $context);
+                },
+            ),
+        );
+        $this->valueConverter->addStrategy(new BuiltinValueConversionStrategy());
+        $this->valueConverter->addStrategy(new PassthroughValueConversionStrategy());
     }
 
     /**
      * Add a custom type.
-     *
-     * @param string  $type    The type name
-     * @param Closure $closure The closure to execute for the defined type
-     *
-     * @return JsonMapper
      */
     public function addType(string $type, Closure $closure): JsonMapper
     {
-        $this->types[$type] = $closure;
+        $this->customTypeRegistry->register($type, $closure);
 
         return $this;
     }
@@ -131,14 +127,11 @@ class JsonMapper
      *
      * @template T
      *
-     * @param class-string<T> $className The name of the base class
-     * @param Closure         $closure   The closure to execute if the base class was found
-     *
-     * @return JsonMapper
+     * @param class-string<T> $className
      */
     public function addCustomClassMapEntry(string $className, Closure $closure): JsonMapper
     {
-        $this->classMap[$className] = $closure;
+        $this->classResolver->add($className, $closure);
 
         return $this;
     }
@@ -146,10 +139,9 @@ class JsonMapper
     /**
      * Maps the JSON to the specified class entity.
      *
-     * @param mixed                                $json                The JSON to map
-     * @param class-string<TEntity>|null           $className           The class name of the initial element
-     * @param class-string<TEntityCollection>|null $collectionClassName The class name of a collection used to assign
-     *                                                                  the initial elements
+     * @param mixed                                $json
+     * @param class-string<TEntity>|null           $className
+     * @param class-string<TEntityCollection>|null $collectionClassName
      *
      * @return mixed|TEntityCollection|TEntity|null
      *
@@ -157,117 +149,106 @@ class JsonMapper
      *                      ? TEntityCollection
      *                      : ($className is class-string ? TEntity : null|mixed))
      *
-     * @throws DomainException
      * @throws InvalidArgumentException
      */
-    public function map(mixed $json, ?string $className = null, ?string $collectionClassName = null)
-    {
-        // Return plain JSON if no mapping classes are provided
+    public function map(
+        mixed $json,
+        ?string $className = null,
+        ?string $collectionClassName = null,
+        ?MappingContext $context = null,
+    ) {
+        $context ??= new MappingContext($json);
+
         if ($className === null) {
             return $json;
         }
 
-        // Map the original given class names to a custom ones
-        $className = $this->getMappedClassName($className, $json);
+        $className = $this->classResolver->resolve($className, $json, $context);
 
         if ($collectionClassName !== null) {
-            $collectionClassName = $this->getMappedClassName($collectionClassName, $json);
+            $collectionClassName = $this->classResolver->resolve($collectionClassName, $json, $context);
         }
 
-        // Assert that the given classes exist
         $this->assertClassesExists($className, $collectionClassName);
 
-        // Handle collections
         if ($this->isIterableWithArraysOrObjects($json)) {
-            /** @var array<mixed>|object $json */
             if ($collectionClassName !== null) {
-                // Map arrays into collection class if given
-                return $this->makeInstance(
-                    $collectionClassName,
-                    $this->asCollection(
-                        $json,
-                        new ObjectType($className)
-                    )
-                );
+                $collection = $this->collectionFactory->mapIterable($json, new ObjectType($className), $context);
+
+                return $this->makeInstance($collectionClassName, $collection);
             }
 
-            // Handle plain array collections
             if ($this->isNumericIndexArray($json)) {
-                // Map all elements of the JSON array to an array
-                return $this->asCollection(
-                    $json,
-                    new ObjectType($className)
-                );
+                return $this->collectionFactory->mapIterable($json, new ObjectType($className), $context);
             }
         }
 
-        $properties = $this->getProperties($className);
-        $entity     = $this->makeInstance($className);
+        $entity = $this->makeInstance($className);
 
-        // Return entity if JSON is not an array or object (is_iterable won't work here)
         if (!is_array($json) && !is_object($json)) {
             return $entity;
         }
 
-        // Process all children
+        $properties          = $this->getProperties($className);
+        $replacePropertyMap  = $this->buildReplacePropertyMap($className);
 
-        /** @var string|int $propertyName */
         foreach ($json as $propertyName => $propertyValue) {
-            // Replaces the property name with another one
-            if ($this->isReplacePropertyAnnotation($className)) {
-                $annotations = $this->extractClassAnnotations($className);
+            $normalizedProperty = $this->normalizePropertyName($propertyName, $replacePropertyMap);
 
-                foreach ($annotations as $annotation) {
-                    if (
-                        ($annotation instanceof ReplaceProperty)
-                        && ($propertyName === $annotation->replaces)
-                    ) {
-                        /** @var string $propertyName */
-                        $propertyName = $annotation->value;
-                    }
-                }
-            }
-
-            if (is_string($propertyName)
-                && ($this->nameConverter instanceof PropertyNameConverterInterface)
-            ) {
-                $propertyName = $this->nameConverter->convert($propertyName);
-            }
-
-            // Ignore all not defined properties
-            if (!in_array($propertyName, $properties, true)) {
+            if (!is_string($normalizedProperty)) {
                 continue;
             }
 
-            $type  = $this->getType($className, $propertyName);
-            $value = $this->getValue($propertyValue, $type);
-
-            if (
-                ($value === null)
-                && $this->isReplaceNullWithDefaultValueAnnotation($className, $propertyName)
-            ) {
-                // Get the default value of the property
-                $value = $this->getDefaultValue($className, $propertyName);
+            if (!in_array($normalizedProperty, $properties, true)) {
+                continue;
             }
 
-            $this->setProperty($entity, $propertyName, $value);
+            $context->withPathSegment($normalizedProperty, function (MappingContext $propertyContext) use (
+                $className,
+                $normalizedProperty,
+                $propertyValue,
+                $entity,
+            ): void {
+                $type  = $this->typeResolver->resolve($className, $normalizedProperty, $propertyContext);
+                $value = $this->convertValue($propertyValue, $type, $propertyContext);
+
+                if (
+                    ($value === null)
+                    && $this->isReplaceNullWithDefaultValueAnnotation($className, $normalizedProperty)
+                ) {
+                    $value = $this->getDefaultValue($className, $normalizedProperty);
+                }
+
+                $this->setProperty($entity, $normalizedProperty, $value);
+            });
         }
 
         return $entity;
     }
 
     /**
-     * Creates an instance of the given class name. If a dependency injection container is provided,
-     * it returns the instance for this.
+     * Converts the provided JSON value using the registered strategies.
+     */
+    private function convertValue(mixed $json, Type $type, MappingContext $context): mixed
+    {
+        if ($type instanceof CollectionType) {
+            return $this->collectionFactory->fromCollectionType($type, $json, $context);
+        }
+
+        return $this->valueConverter->convert($json, $type, $context);
+    }
+
+    /**
+     * Creates an instance of the given class name.
      *
      * @template T of object
      *
-     * @param class-string<T>   $className               The class to instantiate
-     * @param array<mixed>|null ...$constructorArguments The arguments of the constructor
+     * @param class-string<T> $className
+     * @param mixed           ...$constructorArguments
      *
      * @return T
      */
-    private function makeInstance(string $className, ?array ...$constructorArguments)
+    private function makeInstance(string $className, mixed ...$constructorArguments)
     {
         /** @var T $instance */
         $instance = new $className(...$constructorArguments);
@@ -277,43 +258,56 @@ class JsonMapper
 
     /**
      * Returns TRUE if the property contains an "ReplaceNullWithDefaultValue" annotation.
-     *
-     * @param class-string $className    The class name of the initial element
-     * @param string       $propertyName The name of the property
-     *
-     * @return bool
      */
     private function isReplaceNullWithDefaultValueAnnotation(string $className, string $propertyName): bool
     {
         return $this->hasPropertyAnnotation(
             $className,
             $propertyName,
-            ReplaceNullWithDefaultValue::class
+            ReplaceNullWithDefaultValue::class,
         );
     }
 
     /**
-     * Returns TRUE if the property contains an "ReplaceProperty" annotation.
+     * Builds the map of properties replaced by the annotation.
      *
-     * @param class-string $className The class name of the initial element
-     *
-     * @return bool
+     * @return array<string, string>
      */
-    private function isReplacePropertyAnnotation(string $className): bool
+    private function buildReplacePropertyMap(string $className): array
     {
-        return $this->hasClassAnnotation(
-            $className,
-            ReplaceProperty::class
-        );
+        $map = [];
+
+        foreach ($this->extractClassAnnotations($className) as $annotation) {
+            if (!($annotation instanceof ReplaceProperty)) {
+                continue;
+            }
+
+            $map[$annotation->replaces] = $annotation->value;
+        }
+
+        return $map;
+    }
+
+    /**
+     * Normalizes the property name using annotations and converters.
+     */
+    private function normalizePropertyName(string|int $propertyName, array $replacePropertyMap): string|int
+    {
+        $normalized = $propertyName;
+
+        if (is_string($normalized) && array_key_exists($normalized, $replacePropertyMap)) {
+            $normalized = $replacePropertyMap[$normalized];
+        }
+
+        if (is_string($normalized) && ($this->nameConverter instanceof PropertyNameConverterInterface)) {
+            $normalized = $this->nameConverter->convert($normalized);
+        }
+
+        return $normalized;
     }
 
     /**
      * Returns the specified reflection property.
-     *
-     * @param class-string $className    The class name of the initial element
-     * @param string       $propertyName The name of the property
-     *
-     * @return ReflectionProperty|null
      */
     private function getReflectionProperty(string $className, string $propertyName): ?ReflectionProperty
     {
@@ -326,10 +320,6 @@ class JsonMapper
 
     /**
      * Returns the specified reflection class.
-     *
-     * @param class-string $className The class name of the initial element
-     *
-     * @return ReflectionClass|null
      */
     private function getReflectionClass(string $className): ?ReflectionClass
     {
@@ -342,9 +332,6 @@ class JsonMapper
 
     /**
      * Extracts possible property annotations.
-     *
-     * @param class-string $className    The class name of the initial element
-     * @param string       $propertyName The name of the property
      *
      * @return Annotation[]|object[]
      */
@@ -363,8 +350,6 @@ class JsonMapper
     /**
      * Extracts possible class annotations.
      *
-     * @param class-string $className The class name of the initial element
-     *
      * @return Annotation[]|object[]
      */
     private function extractClassAnnotations(string $className): array
@@ -381,12 +366,6 @@ class JsonMapper
 
     /**
      * Returns TRUE if the property has the given annotation.
-     *
-     * @param class-string $className      The class name of the initial element
-     * @param string       $propertyName   The name of the property
-     * @param string       $annotationName The name of the property annotation
-     *
-     * @return bool
      */
     private function hasPropertyAnnotation(string $className, string $propertyName, string $annotationName): bool
     {
@@ -402,33 +381,7 @@ class JsonMapper
     }
 
     /**
-     * Returns TRUE if the class has the given annotation.
-     *
-     * @param class-string $className      The class name of the initial element
-     * @param string       $annotationName The name of the class annotation
-     *
-     * @return bool
-     */
-    private function hasClassAnnotation(string $className, string $annotationName): bool
-    {
-        $annotations = $this->extractClassAnnotations($className);
-
-        foreach ($annotations as $annotation) {
-            if ($annotation instanceof $annotationName) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Extracts the default value of a property.
-     *
-     * @param class-string $className    The class name of the initial element
-     * @param string       $propertyName The name of the property
-     *
-     * @return mixed|null
+     * Returns the default value of a property.
      */
     private function getDefaultValue(string $className, string $propertyName): mixed
     {
@@ -443,10 +396,6 @@ class JsonMapper
 
     /**
      * Returns TRUE if the given JSON contains integer property keys.
-     *
-     * @param array<mixed>|object $json
-     *
-     * @return bool
      */
     private function isNumericIndexArray(array|object $json): bool
     {
@@ -461,14 +410,9 @@ class JsonMapper
 
     /**
      * Returns TRUE if the given JSON is a plain array or object.
-     *
-     * @param mixed $json
-     *
-     * @return bool
      */
     private function isIterableWithArraysOrObjects(mixed $json): bool
     {
-        // Return false if JSON is not an array or object (is_iterable won't work here)
         if (!is_array($json) && !is_object($json)) {
             return false;
         }
@@ -490,12 +434,6 @@ class JsonMapper
 
     /**
      * Assert that the given classes exist.
-     *
-     * @param class-string      $className           The class name of the initial element
-     * @param class-string|null $collectionClassName The class name of a collection used to
-     *                                               assign the initial elements
-     *
-     * @throws InvalidArgumentException
      */
     private function assertClassesExists(string $className, ?string $collectionClassName = null): void
     {
@@ -516,14 +454,9 @@ class JsonMapper
 
     /**
      * Sets a property value.
-     *
-     * @param object $entity
-     * @param string $name
-     * @param mixed  $value
      */
     private function setProperty(object $entity, string $name, mixed $value): void
     {
-        // Handle variadic setters
         if (is_array($value)) {
             $methodName = 'set' . ucfirst($name);
 
@@ -549,205 +482,10 @@ class JsonMapper
     /**
      * Get all public properties for the specified class.
      *
-     * @param string $className The name of the class used to extract the properties
-     *
      * @return string[]
      */
     private function getProperties(string $className): array
     {
         return $this->extractor->getProperties($className) ?? [];
-    }
-
-    /**
-     * Determine the type for the specified property using reflection.
-     *
-     * @param string $className    The name of the class used to extract the property type info
-     * @param string $propertyName The name of the property
-     *
-     * @return Type
-     */
-    private function getType(string $className, string $propertyName): Type
-    {
-        $extractedType = $this->extractor->getType($className, $propertyName) ?? $this->defaultType;
-
-        if ($extractedType instanceof UnionType) {
-            return $extractedType->getTypes()[0];
-        }
-
-        return $extractedType;
-    }
-
-    /**
-     * Get the value for the specified node.
-     *
-     * @param mixed $json
-     * @param Type  $type
-     *
-     * @return mixed|null
-     *
-     * @throws DomainException
-     */
-    private function getValue(mixed $json, Type $type): mixed
-    {
-        if (
-            (is_array($json) || is_object($json))
-            && ($type instanceof CollectionType)
-        ) {
-            $collectionType = $type->getCollectionValueType();
-            $collection     = $this->asCollection($json, $collectionType);
-            $wrappedType    = $type->getWrappedType();
-
-            // Create a new instance of the collection class
-            if (
-                ($wrappedType instanceof WrappingTypeInterface)
-                && ($wrappedType->getWrappedType() instanceof ObjectType)
-            ) {
-                return $this->makeInstance(
-                    $this->getClassName($json, $wrappedType->getWrappedType()),
-                    $collection
-                );
-            }
-
-            return $collection;
-        }
-
-        // Ignore empty values
-        if ($json === null) {
-            return null;
-        }
-
-        if ($type instanceof ObjectType) {
-            return $this->asObject($json, $type);
-        }
-
-        if ($type instanceof BuiltinType) {
-            settype($json, $type->getTypeIdentifier()->value);
-        }
-
-        return $json;
-    }
-
-    /**
-     * Returns the mapped class name.
-     *
-     * @param class-string|string $className The class name to be mapped using the class map
-     * @param mixed               $json      The JSON data
-     *
-     * @return class-string
-     *
-     * @throws DomainException
-     */
-    private function getMappedClassName(string $className, mixed $json): string
-    {
-        if (array_key_exists($className, $this->classMap)) {
-            $classNameOrClosure = $this->classMap[$className];
-
-            if (!($classNameOrClosure instanceof Closure)) {
-                /** @var class-string $classNameOrClosure */
-                return $classNameOrClosure;
-            }
-
-            // Execute closure to get the mapped class name
-            $className = $classNameOrClosure($json);
-        }
-
-        /** @var class-string $className */
-        return $className;
-    }
-
-    /**
-     * Returns the class name.
-     *
-     * @param mixed      $json
-     * @param ObjectType $type
-     *
-     * @return class-string
-     *
-     * @throws DomainException
-     */
-    private function getClassName(mixed $json, ObjectType $type): string
-    {
-        return $this->getMappedClassName(
-            $type->getClassName(),
-            $json
-        );
-    }
-
-    /**
-     * Cast node to a collection.
-     *
-     * @param array<mixed>|object|null $json
-     * @param Type                     $type
-     *
-     * @return mixed[]|null
-     *
-     * @throws DomainException
-     */
-    private function asCollection(array|object|null $json, Type $type): ?array
-    {
-        if ($json === null) {
-            return null;
-        }
-
-        $collection = [];
-
-        foreach ($json as $key => $value) {
-            $collection[$key] = $this->getValue($value, $type);
-        }
-
-        return $collection;
-    }
-
-    /**
-     * Cast node to object.
-     *
-     * @param mixed      $json
-     * @param ObjectType $type
-     *
-     * @return mixed|null
-     *
-     * @throws DomainException
-     */
-    private function asObject(mixed $json, ObjectType $type): mixed
-    {
-        /** @var class-string<TEntity> $className */
-        $className = $this->getClassName($json, $type);
-
-        if ($this->isCustomType($className)) {
-            return $this->callCustomClosure($json, $className);
-        }
-
-        return $this->map($json, $className);
-    }
-
-    /**
-     * Determine if the specified type is a custom type.
-     *
-     * @template T
-     *
-     * @param class-string<T> $typeClassName
-     *
-     * @return bool
-     */
-    private function isCustomType(string $typeClassName): bool
-    {
-        return array_key_exists($typeClassName, $this->types);
-    }
-
-    /**
-     * Call the custom closure for the specified type.
-     *
-     * @template T
-     *
-     * @param mixed           $json
-     * @param class-string<T> $typeClassName
-     *
-     * @return mixed
-     */
-    private function callCustomClosure(mixed $json, string $typeClassName): mixed
-    {
-        $callback = $this->types[$typeClassName];
-
-        return $callback($json);
     }
 }

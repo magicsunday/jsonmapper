@@ -1,0 +1,88 @@
+<?php
+
+/**
+ * This file is part of the package magicsunday/jsonmapper.
+ *
+ * For the full copyright and license information, please read the
+ * LICENSE file that was distributed with this source code.
+ */
+
+declare(strict_types=1);
+
+namespace MagicSunday\JsonMapper\Resolver;
+
+use Closure;
+use DomainException;
+use MagicSunday\JsonMapper\Context\MappingContext;
+use ReflectionFunction;
+
+use function array_key_exists;
+use function get_debug_type;
+use function is_string;
+
+/**
+ * Resolves class names using the configured class map.
+ */
+final class ClassResolver
+{
+    /**
+     * @param array<class-string, class-string|Closure> $classMap
+     */
+    public function __construct(
+        private array $classMap = [],
+    ) {
+    }
+
+    /**
+     * Adds a custom resolution rule.
+     */
+    public function add(string $className, Closure $resolver): void
+    {
+        $this->classMap[$className] = $resolver;
+    }
+
+    /**
+     * Resolves the class name for the provided JSON payload.
+     *
+     * @param class-string $className
+     *
+     * @return class-string
+     */
+    public function resolve(string $className, mixed $json, MappingContext $context): string
+    {
+        if (!array_key_exists($className, $this->classMap)) {
+            return $className;
+        }
+
+        $mapped = $this->classMap[$className];
+
+        if (!($mapped instanceof Closure)) {
+            return $mapped;
+        }
+
+        $resolved = $this->invokeResolver($mapped, $json, $context);
+
+        if (!is_string($resolved)) {
+            throw new DomainException(
+                sprintf(
+                    'Class resolver for %s must return a class-string, %s given.',
+                    $className,
+                    get_debug_type($resolved),
+                ),
+            );
+        }
+
+        return $resolved;
+    }
+
+    private function invokeResolver(Closure $resolver, mixed $json, MappingContext $context): mixed
+    {
+        $reflection = new ReflectionFunction($resolver);
+
+        if ($reflection->getNumberOfParameters() >= 2) {
+            return $resolver($json, $context);
+        }
+
+        return $resolver($json);
+    }
+}
