@@ -62,8 +62,8 @@ final class MappingConfigurationTest extends TestCase
     public function itDerivesFromContext(): void
     {
         $context = new MappingContext([], [
-            MappingContext::OPTION_STRICT_MODE    => true,
-            MappingContext::OPTION_COLLECT_ERRORS => true,
+            MappingContext::OPTION_STRICT_MODE                => true,
+            MappingContext::OPTION_COLLECT_ERRORS             => true,
             MappingContext::OPTION_TREAT_EMPTY_STRING_AS_NULL => false,
         ]);
 
@@ -74,8 +74,8 @@ final class MappingConfigurationTest extends TestCase
         self::assertFalse($configuration->shouldTreatEmptyStringAsNull());
         self::assertSame(
             [
-                MappingContext::OPTION_STRICT_MODE    => true,
-                MappingContext::OPTION_COLLECT_ERRORS => true,
+                MappingContext::OPTION_STRICT_MODE                => true,
+                MappingContext::OPTION_COLLECT_ERRORS             => true,
                 MappingContext::OPTION_TREAT_EMPTY_STRING_AS_NULL => false,
             ],
             $configuration->toOptions(),
