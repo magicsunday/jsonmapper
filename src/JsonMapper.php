@@ -18,8 +18,7 @@ use MagicSunday\JsonMapper\Attribute\ReplaceProperty;
 use MagicSunday\JsonMapper\Collection\CollectionDocBlockTypeResolver;
 use MagicSunday\JsonMapper\Collection\CollectionFactory;
 use MagicSunday\JsonMapper\Collection\CollectionFactoryInterface;
-use MagicSunday\JsonMapper\Configuration\JsonMapperConfig;
-use MagicSunday\JsonMapper\Configuration\MappingConfiguration;
+use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Converter\PropertyNameConverterInterface;
 use MagicSunday\JsonMapper\Exception\MappingException;
@@ -117,7 +116,7 @@ class JsonMapper
         private readonly ?PropertyNameConverterInterface $nameConverter = null,
         array $classMap = [],
         ?CacheItemPoolInterface $typeCache = null,
-        private JsonMapperConfig $config = new JsonMapperConfig(),
+        private JsonMapperConfiguration $config = new JsonMapperConfiguration(),
     ) {
         $this->typeResolver                   = new TypeResolver($extractor, $typeCache);
         $this->classResolver                  = new ClassResolver($classMap);
@@ -145,7 +144,7 @@ class JsonMapper
             new ObjectValueConversionStrategy(
                 $this->classResolver,
                 function (mixed $value, string $resolvedClass, MappingContext $context): mixed {
-                    $configuration = MappingConfiguration::fromContext($context);
+                    $configuration = JsonMapperConfiguration::fromContext($context);
 
                     return $this->map($value, $resolvedClass, null, $context, $configuration);
                 },
@@ -196,9 +195,11 @@ class JsonMapper
     /**
      * Maps the JSON to the specified class entity.
      *
-     * @param mixed             $json
-     * @param class-string|null $className
-     * @param class-string|null $collectionClassName
+     * @param mixed                        $json
+     * @param class-string|null            $className
+     * @param class-string|null            $collectionClassName
+     * @param MappingContext|null          $context
+     * @param JsonMapperConfiguration|null $configuration
      *
      * @throws InvalidArgumentException
      */
@@ -207,13 +208,13 @@ class JsonMapper
         ?string $className = null,
         ?string $collectionClassName = null,
         ?MappingContext $context = null,
-        ?MappingConfiguration $configuration = null,
+        ?JsonMapperConfiguration $configuration = null,
     ): mixed {
         if (!$context instanceof MappingContext) {
             $configuration ??= $this->createDefaultConfiguration();
             $context = new MappingContext($json, $configuration->toOptions());
-        } elseif (!$configuration instanceof MappingConfiguration) {
-            $configuration = MappingConfiguration::fromContext($context);
+        } elseif (!$configuration instanceof JsonMapperConfiguration) {
+            $configuration = JsonMapperConfiguration::fromContext($context);
         } else {
             $context->replaceOptions($configuration->toOptions());
         }
@@ -379,15 +380,16 @@ class JsonMapper
     /**
      * Maps the JSON structure and returns a detailed mapping report.
      *
-     * @param mixed             $json
-     * @param class-string|null $className
-     * @param class-string|null $collectionClassName
+     * @param mixed                        $json
+     * @param class-string|null            $className
+     * @param class-string|null            $collectionClassName
+     * @param JsonMapperConfiguration|null $configuration
      */
     public function mapWithReport(
         mixed $json,
         ?string $className = null,
         ?string $collectionClassName = null,
-        ?MappingConfiguration $configuration = null,
+        ?JsonMapperConfiguration $configuration = null,
     ): MappingResult {
         $configuration = ($configuration ?? $this->createDefaultConfiguration())->withErrorCollection(true);
         $context       = new MappingContext($json, $configuration->toOptions());
@@ -396,27 +398,9 @@ class JsonMapper
         return new MappingResult($value, new MappingReport($context->getErrorRecords()));
     }
 
-    private function createDefaultConfiguration(): MappingConfiguration
+    private function createDefaultConfiguration(): JsonMapperConfiguration
     {
-        $configuration = $this->config->isStrictMode()
-            ? MappingConfiguration::strict()
-            : MappingConfiguration::lenient();
-
-        if ($this->config->shouldIgnoreUnknownProperties()) {
-            $configuration = $configuration->withIgnoreUnknownProperties(true);
-        }
-
-        if ($this->config->shouldTreatNullAsEmptyCollection()) {
-            $configuration = $configuration->withTreatNullAsEmptyCollection(true);
-        }
-
-        $configuration = $configuration->withDefaultDateFormat($this->config->getDefaultDateFormat());
-
-        if ($this->config->shouldAllowScalarToObjectCasting()) {
-            return $configuration->withScalarToObjectCasting(true);
-        }
-
-        return $configuration;
+        return clone $this->config;
     }
 
     /**
@@ -470,7 +454,7 @@ class JsonMapper
         return false;
     }
 
-    private function handleMappingException(MappingException $exception, MappingContext $context, MappingConfiguration $configuration): void
+    private function handleMappingException(MappingException $exception, MappingContext $context, JsonMapperConfiguration $configuration): void
     {
         $context->recordException($exception);
 
