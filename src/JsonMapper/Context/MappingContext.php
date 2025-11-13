@@ -24,13 +24,19 @@ use function is_string;
  */
 final class MappingContext
 {
-    public const OPTION_STRICT_MODE                    = 'strict_mode';
-    public const OPTION_COLLECT_ERRORS                 = 'collect_errors';
-    public const OPTION_TREAT_EMPTY_STRING_AS_NULL     = 'empty_string_is_null';
-    public const OPTION_IGNORE_UNKNOWN_PROPERTIES      = 'ignore_unknown_properties';
-    public const OPTION_TREAT_NULL_AS_EMPTY_COLLECTION = 'treat_null_as_empty_collection';
-    public const OPTION_DEFAULT_DATE_FORMAT            = 'default_date_format';
-    public const OPTION_ALLOW_SCALAR_TO_OBJECT_CASTING = 'allow_scalar_to_object_casting';
+    public const string OPTION_STRICT_MODE = 'strict_mode';
+
+    public const string OPTION_COLLECT_ERRORS = 'collect_errors';
+
+    public const string OPTION_TREAT_EMPTY_STRING_AS_NULL = 'empty_string_is_null';
+
+    public const string OPTION_IGNORE_UNKNOWN_PROPERTIES = 'ignore_unknown_properties';
+
+    public const string OPTION_TREAT_NULL_AS_EMPTY_COLLECTION = 'treat_null_as_empty_collection';
+
+    public const string OPTION_DEFAULT_DATE_FORMAT = 'default_date_format';
+
+    public const string OPTION_ALLOW_SCALAR_TO_OBJECT_CASTING = 'allow_scalar_to_object_casting';
 
     /**
      * @var list<string>

@@ -51,14 +51,12 @@ final readonly class ObjectValueConversionStrategy implements ValueConversionStr
         $className     = $this->resolveClassName($type);
         $resolvedClass = $this->classResolver->resolve($className, $value, $context);
 
-        if (($value !== null) && !is_array($value) && !is_object($value)) {
-            if (!$context->shouldAllowScalarToObjectCasting()) {
-                $exception = new TypeMismatchException($context->getPath(), $resolvedClass, get_debug_type($value));
-                $context->recordException($exception);
+        if ($value !== null && !is_array($value) && !is_object($value) && !$context->shouldAllowScalarToObjectCasting()) {
+            $exception = new TypeMismatchException($context->getPath(), $resolvedClass, get_debug_type($value));
+            $context->recordException($exception);
 
-                if ($context->isStrictMode()) {
-                    throw $exception;
-                }
+            if ($context->isStrictMode()) {
+                throw $exception;
             }
         }
 

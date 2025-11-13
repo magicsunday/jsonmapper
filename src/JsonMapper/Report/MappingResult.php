@@ -14,11 +14,11 @@ namespace MagicSunday\JsonMapper\Report;
 /**
  * Represents the outcome of a mapping operation and its report.
  */
-final class MappingResult
+final readonly class MappingResult
 {
     public function __construct(
-        private readonly mixed $value,
-        private readonly MappingReport $report,
+        private mixed $value,
+        private MappingReport $report,
     ) {
     }
 

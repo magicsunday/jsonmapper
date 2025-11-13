@@ -16,12 +16,12 @@ use MagicSunday\JsonMapper\Context\MappingError;
 /**
  * Represents the result of collecting mapping errors.
  */
-final class MappingReport
+final readonly class MappingReport
 {
     /**
      * @param list<MappingError> $errors
      */
-    public function __construct(private readonly array $errors)
+    public function __construct(private array $errors)
     {
     }
 

@@ -28,14 +28,10 @@ final class CollectionDocBlockTypeResolver
 {
     private DocBlockFactoryInterface $docBlockFactory;
 
-    private ContextFactory $contextFactory;
-
-    private PhpDocTypeHelper $phpDocTypeHelper;
-
     public function __construct(
         ?DocBlockFactoryInterface $docBlockFactory = null,
-        ?ContextFactory $contextFactory = null,
-        ?PhpDocTypeHelper $phpDocTypeHelper = null,
+        private ContextFactory $contextFactory = new ContextFactory(),
+        private PhpDocTypeHelper $phpDocTypeHelper = new PhpDocTypeHelper(),
     ) {
         if (!class_exists(DocBlockFactory::class)) {
             throw new LogicException(
@@ -46,9 +42,7 @@ final class CollectionDocBlockTypeResolver
             );
         }
 
-        $this->docBlockFactory  = $docBlockFactory ?? DocBlockFactory::createInstance();
-        $this->contextFactory   = $contextFactory ?? new ContextFactory();
-        $this->phpDocTypeHelper = $phpDocTypeHelper ?? new PhpDocTypeHelper();
+        $this->docBlockFactory = $docBlockFactory ?? DocBlockFactory::createInstance();
     }
 
     /**
