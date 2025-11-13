@@ -19,10 +19,16 @@ use phpDocumentor\Reflection\Type as DocType;
 use phpDocumentor\Reflection\Types\ContextFactory;
 use ReflectionClass;
 use Symfony\Component\PropertyInfo\Util\PhpDocTypeHelper;
+use Symfony\Component\TypeInfo\Type\BuiltinType;
 use Symfony\Component\TypeInfo\Type\CollectionType;
+use Symfony\Component\TypeInfo\Type\GenericType;
+use Symfony\Component\TypeInfo\Type\ObjectType;
+use Symfony\Component\TypeInfo\TypeIdentifier;
 
 /**
  * Resolves collection value types from PHPDoc annotations on collection classes.
+ *
+ * @phpstan-type CollectionWrappedType BuiltinType<TypeIdentifier::ARRAY>|BuiltinType<TypeIdentifier::ITERABLE>|ObjectType<class-string>
  */
 final class CollectionDocBlockTypeResolver
 {
@@ -49,6 +55,8 @@ final class CollectionDocBlockTypeResolver
      * Attempts to resolve a {@see CollectionType} from the collection class PHPDoc.
      *
      * @param class-string $collectionClassName
+     *
+     * @return CollectionType<CollectionWrappedType|GenericType<CollectionWrappedType>>|null
      */
     public function resolve(string $collectionClassName): ?CollectionType
     {

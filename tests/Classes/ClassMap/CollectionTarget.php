@@ -20,6 +20,9 @@ use ArrayObject;
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
  */
+/**
+ * @extends ArrayObject<int, mixed>
+ */
 class CollectionTarget extends ArrayObject
 {
 }

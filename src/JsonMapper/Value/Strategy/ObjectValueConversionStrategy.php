@@ -68,6 +68,8 @@ final readonly class ObjectValueConversionStrategy implements ValueConversionStr
     /**
      * Resolves the class name from the provided object type.
      *
+     * @param ObjectType<class-string> $type
+     *
      * @return class-string
      */
     private function resolveClassName(ObjectType $type): string
