@@ -12,8 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\Test;
 
 use DateInterval;
-use MagicSunday\JsonMapper\Configuration\JsonMapperConfig;
-use MagicSunday\JsonMapper\Configuration\MappingConfiguration;
+use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Exception\UnknownPropertyException;
 use MagicSunday\JsonMapper\Value\ClosureTypeHandler;
 use MagicSunday\Test\Classes\Base;
@@ -883,7 +882,7 @@ JSON
     #[Test]
     public function mapEmptyStringToNullWhenEnabled(): void
     {
-        $configuration = MappingConfiguration::lenient()->withEmptyStringAsNull(true);
+        $configuration = JsonMapperConfiguration::lenient()->withEmptyStringAsNull(true);
 
         $result = $this->getJsonMapper()
             ->map(
@@ -901,7 +900,7 @@ JSON
     #[Test]
     public function itAppliesConfiguredStrictModeByDefault(): void
     {
-        $config = (new JsonMapperConfig())->withStrictMode(true);
+        $config = (new JsonMapperConfiguration())->withStrictMode(true);
 
         $this->expectException(UnknownPropertyException::class);
 
@@ -917,7 +916,7 @@ JSON
     #[Test]
     public function itIgnoresUnknownPropertiesWhenConfigured(): void
     {
-        $config = (new JsonMapperConfig())->withIgnoreUnknownProperties(true);
+        $config = (new JsonMapperConfiguration())->withIgnoreUnknownProperties(true);
 
         $result = $this->getJsonMapper([], $config)
             ->mapWithReport(
@@ -935,7 +934,7 @@ JSON
     #[Test]
     public function itTreatsNullCollectionsAsEmptyWhenConfigured(): void
     {
-        $config = (new JsonMapperConfig())->withTreatNullAsEmptyCollection(true);
+        $config = (new JsonMapperConfiguration())->withTreatNullAsEmptyCollection(true);
 
         $result = $this->getJsonMapper([], $config)
             ->map(
@@ -952,7 +951,7 @@ JSON
     #[Test]
     public function itUsesDefaultDateFormatFromConfiguration(): void
     {
-        $config = (new JsonMapperConfig())->withDefaultDateFormat('d.m.Y H:i:s');
+        $config = (new JsonMapperConfiguration())->withDefaultDateFormat('d.m.Y H:i:s');
 
         $result = $this->getJsonMapper([], $config)
             ->map(
@@ -969,7 +968,7 @@ JSON
     #[Test]
     public function itAllowsScalarToObjectCastingWhenConfigured(): void
     {
-        $config = (new JsonMapperConfig())->withScalarToObjectCasting(true);
+        $config = (new JsonMapperConfiguration())->withScalarToObjectCasting(true);
 
         $result = $this->getJsonMapper([], $config)
             ->mapWithReport(
