@@ -23,6 +23,9 @@ use function assert;
  */
 final readonly class CollectionValueConversionStrategy implements ValueConversionStrategyInterface
 {
+    /**
+     * @param CollectionFactoryInterface<array-key, mixed> $collectionFactory
+     */
     public function __construct(
         private CollectionFactoryInterface $collectionFactory,
     ) {

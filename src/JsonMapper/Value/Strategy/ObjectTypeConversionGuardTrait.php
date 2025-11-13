@@ -23,6 +23,8 @@ trait ObjectTypeConversionGuardTrait
 {
     /**
      * Returns the provided type when it represents an object with a class name.
+     *
+     * @return ObjectType<class-string>|null
      */
     private function extractObjectType(Type $type): ?ObjectType
     {
@@ -39,6 +41,8 @@ trait ObjectTypeConversionGuardTrait
 
     /**
      * Ensures null values comply with the target object's nullability.
+     *
+     * @param ObjectType<class-string> $type
      */
     private function guardNullableValue(mixed $value, ObjectType $type, MappingContext $context): void
     {

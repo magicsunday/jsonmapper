@@ -63,6 +63,9 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
         return $converted;
     }
 
+    /**
+     * @param BuiltinType<TypeIdentifier> $type
+     */
     private function normalizeValue(mixed $value, BuiltinType $type): mixed
     {
         if ($value === null) {
@@ -122,6 +125,9 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
         return $value;
     }
 
+    /**
+     * @param BuiltinType<TypeIdentifier> $type
+     */
     private function guardCompatibility(mixed $value, BuiltinType $type, MappingContext $context): void
     {
         $identifier = $type->getTypeIdentifier();
@@ -153,6 +159,9 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
         }
     }
 
+    /**
+     * @param BuiltinType<TypeIdentifier> $type
+     */
     private function allowsNull(BuiltinType $type): bool
     {
         return $type->isNullable();

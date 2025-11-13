@@ -18,9 +18,12 @@ use MagicSunday\JsonMapper\Exception\CollectionMappingException;
 use MagicSunday\JsonMapper\Resolver\ClassResolver;
 use MagicSunday\JsonMapper\Value\ValueConverter;
 use Symfony\Component\TypeInfo\Type;
+use Symfony\Component\TypeInfo\Type\BuiltinType;
 use Symfony\Component\TypeInfo\Type\CollectionType;
+use Symfony\Component\TypeInfo\Type\GenericType;
 use Symfony\Component\TypeInfo\Type\ObjectType;
 use Symfony\Component\TypeInfo\Type\WrappingTypeInterface;
+use Symfony\Component\TypeInfo\TypeIdentifier;
 use Traversable;
 
 use function get_debug_type;
@@ -31,6 +34,10 @@ use function iterator_to_array;
 
 /**
  * Creates collections and hydrates wrapping collection classes.
+ *
+ * @phpstan-type CollectionWrappedType BuiltinType<TypeIdentifier::ARRAY>|BuiltinType<TypeIdentifier::ITERABLE>|ObjectType<class-string>
+ *
+ * @implements CollectionFactoryInterface<array-key, mixed>
  */
 final readonly class CollectionFactory implements CollectionFactoryInterface
 {
@@ -89,6 +96,8 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
     /**
      * Builds a collection based on the specified collection type description.
      *
+     * @param CollectionType<CollectionWrappedType|GenericType<CollectionWrappedType>> $type
+     *
      * @return array<array-key, mixed>|object|null
      */
     public function fromCollectionType(CollectionType $type, mixed $json, MappingContext $context): mixed
@@ -112,6 +121,8 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
 
     /**
      * Resolves the wrapped collection class name.
+     *
+     * @param ObjectType<class-string> $objectType
      *
      * @return class-string
      *

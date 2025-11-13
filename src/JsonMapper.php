@@ -98,6 +98,9 @@ class JsonMapper
 
     private ValueConverter $valueConverter;
 
+    /**
+     * @var CollectionFactoryInterface<array-key, mixed>
+     */
     private CollectionFactoryInterface $collectionFactory;
 
     private CollectionDocBlockTypeResolver $collectionDocBlockTypeResolver;
@@ -493,6 +496,8 @@ class JsonMapper
 
     /**
      * Converts the value according to the provided union type.
+     *
+     * @param UnionType<Type> $type
      */
     private function convertUnionValue(mixed $json, UnionType $type, MappingContext $context): mixed
     {
@@ -582,6 +587,8 @@ class JsonMapper
 
     /**
      * Returns a textual representation of the union type.
+     *
+     * @param UnionType<Type> $type
      */
     private function describeUnionType(UnionType $type): string
     {
@@ -594,6 +601,9 @@ class JsonMapper
         return implode('|', $parts);
     }
 
+    /**
+     * @param UnionType<Type> $type
+     */
     private function unionAllowsNull(UnionType $type): bool
     {
         foreach ($type->getTypes() as $candidate) {
@@ -731,6 +741,8 @@ class JsonMapper
      * Returns the specified reflection class.
      *
      * @param class-string $className
+     *
+     * @return ReflectionClass<object>|null
      */
     private function getReflectionClass(string $className): ?ReflectionClass
     {

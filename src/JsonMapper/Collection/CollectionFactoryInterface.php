@@ -13,13 +13,19 @@ namespace MagicSunday\JsonMapper\Collection;
 
 use MagicSunday\JsonMapper\Context\MappingContext;
 use Symfony\Component\TypeInfo\Type;
+use Symfony\Component\TypeInfo\Type\BuiltinType;
 use Symfony\Component\TypeInfo\Type\CollectionType;
+use Symfony\Component\TypeInfo\Type\GenericType;
+use Symfony\Component\TypeInfo\Type\ObjectType;
+use Symfony\Component\TypeInfo\TypeIdentifier;
 
 /**
  * Describes the operations required to materialize collection values.
  *
  * @template TKey of array-key
  * @template TValue
+ *
+ * @phpstan-type CollectionWrappedType BuiltinType<TypeIdentifier::ARRAY>|BuiltinType<TypeIdentifier::ITERABLE>|ObjectType<class-string>
  */
 interface CollectionFactoryInterface
 {
@@ -35,7 +41,7 @@ interface CollectionFactoryInterface
     /**
      * Builds a collection based on the specified collection type description.
      *
-     * @param CollectionType $type The collection type metadata extracted from PHPStan/Psalm annotations.
+     * @param CollectionType<CollectionWrappedType|GenericType<CollectionWrappedType>> $type The collection type metadata extracted from PHPStan/Psalm annotations.
      *
      * @return array<TKey, TValue>|object|null
      */

@@ -20,6 +20,9 @@ use MagicSunday\Test\Classes\Collection;
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
  */
+/**
+ * @extends Collection<int, mixed>
+ */
 class CollectionSource extends Collection
 {
 }

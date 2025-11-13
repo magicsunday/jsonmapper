@@ -30,6 +30,9 @@ final class TypeResolver
 {
     private const string CACHE_KEY_PREFIX = 'jsonmapper.property_type.';
 
+    /**
+     * @var BuiltinType<TypeIdentifier::STRING>
+     */
     private BuiltinType $defaultType;
 
     public function __construct(
@@ -221,6 +224,9 @@ final class TypeResolver
         return $resolved;
     }
 
+    /**
+     * @param UnionType<Type> $type
+     */
     private function normalizeUnionType(UnionType $type): Type
     {
         $types      = [];
