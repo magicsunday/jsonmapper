@@ -25,7 +25,7 @@
         "friendsofphp/php-cs-fixer": "^3.65",
         "overtrue/phplint": "^9.0",
         "phpdocumentor/reflection-docblock": "^5.0",
-        "phpstan/phpstan": "*",
+        "phpstan/phpstan": "^2.0",
         "phpstan/phpstan-deprecation-rules": "^2.0",
         "phpstan/phpstan-phpunit": "^2.0",
         "phpstan/phpstan-strict-rules": "^2.0",
