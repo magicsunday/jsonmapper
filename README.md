@@ -21,6 +21,70 @@ composer remove magicsunday/jsonmapper
 
 
 ## Usage
+### Quick start
+A minimal mapping run consists of two parts: a set of DTOs annotated with collection metadata and the mapper bootstrap code.
+
+```php
+namespace App\Dto;
+
+use ArrayObject;
+
+final class Comment
+{
+    public string $message;
+}
+
+/**
+ * @extends ArrayObject<int, Comment>
+ */
+final class CommentCollection extends ArrayObject
+{
+}
+
+/**
+ * @extends ArrayObject<int, Article>
+ */
+final class ArticleCollection extends ArrayObject
+{
+}
+
+final class Article
+{
+    public string $title;
+
+    /** @var CommentCollection */
+    public CommentCollection $comments;
+}
+```
+
+```php
+declare(strict_types=1);
+
+use App\Dto\Article;
+use App\Dto\ArticleCollection;
+use MagicSunday\JsonMapper\JsonMapper;
+use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
+use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
+use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
+
+$single = json_decode('{"title":"Hello world","comments":[{"message":"First!"}]}', associative: false, flags: JSON_THROW_ON_ERROR);
+$list = json_decode('[{"title":"Hello world","comments":[{"message":"First!"}]},{"title":"Second","comments":[]}]', associative: false, flags: JSON_THROW_ON_ERROR);
+
+$propertyInfo = new PropertyInfoExtractor(
+    [new ReflectionExtractor()],
+    [new PhpDocExtractor()]
+);
+$propertyAccessor = PropertyAccess::createPropertyAccessor();
+
+$mapper = new JsonMapper($propertyInfo, $propertyAccessor);
+
+$article = $mapper->map($single, Article::class);
+$articles = $mapper->map($list, Article::class, ArticleCollection::class);
+```
+
+The first call produces an `Article` instance with a populated `CommentCollection`; the second call returns an `ArticleCollection` containing `Article` objects.
+
 ### PHP classes
 In order to guarantee a seamless mapping of a JSON response into PHP classes you should prepare your classes well.
 Annotate all properties with the requested type.
@@ -199,6 +263,51 @@ protected function getJsonMapper(array $classMap = []): \MagicSunday\JsonMapper
     );
 }
 ```
+
+### Type converters and custom class maps
+Custom types should implement `MagicSunday\\JsonMapper\\Value\\TypeHandlerInterface` and can be registered once via `JsonMapper::addTypeHandler()`. For lightweight overrides you may still use `addType()` with a closure, but new code should prefer dedicated handler classes.
+
+Use `JsonMapper::addCustomClassMapEntry()` when the target class depends on runtime data. The resolver receives the decoded JSON payload and may inspect a `MappingContext` when you need additional state.
+
+```php
+$mapper->addCustomClassMapEntry(SdkFoo::class, static function (array $payload): string {
+    return $payload['type'] === 'bar' ? FooBar::class : FooBaz::class;
+});
+```
+
+### Error handling strategies
+The mapper operates in a lenient mode by default. Switch to strict mapping when every property must be validated:
+
+```php
+use MagicSunday\\JsonMapper\\Configuration\\JsonMapperConfiguration;
+
+$config = JsonMapperConfiguration::strict()
+    ->withCollectErrors(true);
+
+$result = $mapper->mapWithReport($payload, Article::class, configuration: $config);
+```
+
+For tolerant APIs combine `JsonMapperConfiguration::lenient()` with `->withIgnoreUnknownProperties(true)` or `->withTreatNullAsEmptyCollection(true)` to absorb schema drifts.
+
+### Performance hints
+Type resolution is the most expensive part of a mapping run. Provide a PSR-6 cache pool to the constructor to reuse computed `Type` metadata:
+
+```php
+use Symfony\\Component\\Cache\\Adapter\\ArrayAdapter;
+
+$cache = new ArrayAdapter();
+$mapper = new JsonMapper($propertyInfo, $propertyAccessor, nameConverter: null, classMap: [], typeCache: $cache);
+```
+
+Reuse a single `JsonMapper` instance across requests to share the cached metadata and registered handlers.
+
+## Additional documentation
+* [API reference](docs/API.md)
+* Recipes
+  * [Mapping JSON to PHP enums](docs/recipes/mapping-with-enums.md)
+  * [Using mapper attributes](docs/recipes/using-attributes.md)
+  * [Mapping nested collections](docs/recipes/nested-collections.md)
+  * [Using a custom name converter](docs/recipes/custom-name-converter.md)
 
 ## Development
 
