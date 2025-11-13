@@ -18,11 +18,14 @@ use MagicSunday\JsonMapper\Exception\ReadonlyPropertyException;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\JsonMapper\Exception\UnknownPropertyException;
 use MagicSunday\Test\Classes\Base;
+use MagicSunday\Test\Classes\DateTimeHolder;
+use MagicSunday\Test\Classes\EnumHolder;
 use MagicSunday\Test\Classes\Person;
 use MagicSunday\Test\Classes\ReadonlyEntity;
 use MagicSunday\Test\Classes\Simple;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\Test;
+use Symfony\Component\PropertyAccess\Exception\InvalidTypeException;
 
 /**
  * @internal
@@ -215,5 +218,59 @@ final class JsonMapperErrorHandlingTest extends TestCase
                 null,
                 JsonMapperConfiguration::strict(),
             );
+    }
+
+    #[Test]
+    public function itThrowsWhenRequiredPropertyIsNullInStrictMode(): void
+    {
+        $this->expectException(InvalidTypeException::class);
+        $this->expectExceptionMessage('Expected argument of type "string", "null" given at property path "name".');
+
+        $this->getJsonMapper()
+            ->map(
+                ['name' => null],
+                Person::class,
+                null,
+                null,
+                JsonMapperConfiguration::strict(),
+            );
+    }
+
+    #[Test]
+    public function itReportsInvalidDateTimeValuesInLenientMode(): void
+    {
+        $result = $this->getJsonMapper()
+            ->mapWithReport(
+                ['createdAt' => 'not-a-date'],
+                DateTimeHolder::class,
+            );
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors);
+        self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
+        self::assertSame(
+            'Type mismatch at $.createdAt: expected DateTimeImmutable, got string.',
+            $errors[0]->getMessage(),
+        );
+    }
+
+    #[Test]
+    public function itReportsInvalidEnumValuesInLenientMode(): void
+    {
+        $result = $this->getJsonMapper()
+            ->mapWithReport(
+                ['status' => 'archived'],
+                EnumHolder::class,
+            );
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors);
+        self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
+        self::assertSame(
+            'Type mismatch at $.status: expected MagicSunday\\Test\\Fixtures\\Enum\\SampleStatus, got string.',
+            $errors[0]->getMessage(),
+        );
     }
 }
