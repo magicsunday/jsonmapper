@@ -11,7 +11,7 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper;
 
-use MagicSunday\JsonMapper\Configuration\MappingConfiguration;
+use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Exception\CollectionMappingException;
 use MagicSunday\JsonMapper\Exception\MissingPropertyException;
 use MagicSunday\JsonMapper\Exception\ReadonlyPropertyException;
@@ -63,7 +63,7 @@ final class JsonMapperErrorHandlingTest extends TestCase
                 Person::class,
                 null,
                 null,
-                MappingConfiguration::strict(),
+                JsonMapperConfiguration::strict(),
             );
     }
 
@@ -78,7 +78,7 @@ final class JsonMapperErrorHandlingTest extends TestCase
                 Person::class,
                 null,
                 null,
-                MappingConfiguration::strict(),
+                JsonMapperConfiguration::strict(),
             );
     }
 
@@ -93,7 +93,7 @@ final class JsonMapperErrorHandlingTest extends TestCase
                 Base::class,
                 null,
                 null,
-                MappingConfiguration::strict(),
+                JsonMapperConfiguration::strict(),
             );
     }
 
@@ -111,7 +111,7 @@ final class JsonMapperErrorHandlingTest extends TestCase
                 Base::class,
                 null,
                 null,
-                MappingConfiguration::strict(),
+                JsonMapperConfiguration::strict(),
             );
     }
 
@@ -213,7 +213,7 @@ final class JsonMapperErrorHandlingTest extends TestCase
                 Base::class,
                 null,
                 null,
-                MappingConfiguration::strict(),
+                JsonMapperConfiguration::strict(),
             );
     }
 }
