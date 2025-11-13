@@ -28,7 +28,7 @@ use Symfony\Component\TypeInfo\TypeIdentifier;
  */
 final class TypeResolver
 {
-    private const CACHE_KEY_PREFIX = 'jsonmapper.property_type.';
+    private const string CACHE_KEY_PREFIX = 'jsonmapper.property_type.';
 
     private BuiltinType $defaultType;
 
@@ -61,11 +61,7 @@ final class TypeResolver
             $type = $this->resolveFromReflection($className, $propertyName);
         }
 
-        if ($type instanceof Type) {
-            $resolved = $this->normalizeType($type);
-        } else {
-            $resolved = $this->defaultType;
-        }
+        $resolved = $type instanceof Type ? $this->normalizeType($type) : $this->defaultType;
 
         $this->storeCachedType($className, $propertyName, $resolved);
 
@@ -91,7 +87,7 @@ final class TypeResolver
      */
     private function getCachedType(string $className, string $propertyName): ?Type
     {
-        if ($this->cache === null) {
+        if (!$this->cache instanceof CacheItemPoolInterface) {
             return null;
         }
 
@@ -119,7 +115,7 @@ final class TypeResolver
      */
     private function storeCachedType(string $className, string $propertyName, Type $type): void
     {
-        if ($this->cache === null) {
+        if (!$this->cache instanceof CacheItemPoolInterface) {
             return;
         }
 

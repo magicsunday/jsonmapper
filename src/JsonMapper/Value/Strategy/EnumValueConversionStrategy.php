@@ -15,6 +15,7 @@ use BackedEnum;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use Symfony\Component\TypeInfo\Type;
+use Symfony\Component\TypeInfo\Type\ObjectType;
 use ValueError;
 
 use function enum_exists;
@@ -34,7 +35,7 @@ final class EnumValueConversionStrategy implements ValueConversionStrategyInterf
     {
         $objectType = $this->extractObjectType($type);
 
-        if ($objectType === null) {
+        if (!$objectType instanceof ObjectType) {
             return false;
         }
 

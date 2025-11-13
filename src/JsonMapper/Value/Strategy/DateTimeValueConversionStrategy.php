@@ -18,6 +18,7 @@ use Exception;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use Symfony\Component\TypeInfo\Type;
+use Symfony\Component\TypeInfo\Type\ObjectType;
 
 use function get_debug_type;
 use function is_a;
@@ -35,7 +36,7 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
     {
         $objectType = $this->extractObjectType($type);
 
-        if ($objectType === null) {
+        if (!$objectType instanceof ObjectType) {
             return false;
         }
 

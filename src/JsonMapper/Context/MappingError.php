@@ -16,12 +16,12 @@ use MagicSunday\JsonMapper\Exception\MappingException;
 /**
  * Represents a collected mapping error.
  */
-final class MappingError
+final readonly class MappingError
 {
     public function __construct(
-        private readonly string $path,
-        private readonly string $message,
-        private readonly ?MappingException $exception = null,
+        private string $path,
+        private string $message,
+        private ?MappingException $exception = null,
     ) {
     }
 

@@ -48,7 +48,7 @@ class TestCase extends \PHPUnit\Framework\TestCase
             new CamelCasePropertyNameConverter(),
             $classMap,
             null,
-            $config,
+            $config ?? new JsonMapperConfig(),
         );
     }
 
