@@ -24,7 +24,7 @@ final class NullValueConversionStrategy implements ValueConversionStrategyInterf
         return $value === null;
     }
 
-    public function convert(mixed $value, Type $type, MappingContext $context): mixed
+    public function convert(mixed $value, Type $type, MappingContext $context): null
     {
         return null;
     }

@@ -108,10 +108,12 @@ final readonly class JsonMapper
     private CustomTypeRegistry $customTypeRegistry;
 
     /**
+     * @param PropertyInfoExtractorInterface                                                                            $extractor
+     * @param PropertyAccessorInterface                                                                                 $accessor
+     * @param PropertyNameConverterInterface|null                                                                       $nameConverter
      * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
      * @param CacheItemPoolInterface|null                                                                               $typeCache
-     *
-     * @phpstan-param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
+     * @param JsonMapperConfiguration                                                                                   $config
      */
     public function __construct(
         private PropertyInfoExtractorInterface $extractor,
@@ -204,7 +206,7 @@ final readonly class JsonMapper
      * @param MappingContext|null          $context
      * @param JsonMapperConfiguration|null $configuration
      *
-     * @throws InvalidArgumentException
+     * @return mixed
      */
     public function map(
         mixed $json,
@@ -216,10 +218,10 @@ final readonly class JsonMapper
         if (!$context instanceof MappingContext) {
             $configuration ??= $this->createDefaultConfiguration();
             $context = new MappingContext($json, $configuration->toOptions());
-        } elseif (!$configuration instanceof JsonMapperConfiguration) {
-            $configuration = JsonMapperConfiguration::fromContext($context);
-        } else {
+        } elseif ($configuration instanceof JsonMapperConfiguration) {
             $context->replaceOptions($configuration->toOptions());
+        } else {
+            $configuration = JsonMapperConfiguration::fromContext($context);
         }
 
         $resolvedClassName = $className === null
@@ -387,6 +389,8 @@ final readonly class JsonMapper
      * @param class-string|null            $className
      * @param class-string|null            $collectionClassName
      * @param JsonMapperConfiguration|null $configuration
+     *
+     * @return MappingResult
      */
     public function mapWithReport(
         mixed $json,
@@ -508,7 +512,7 @@ final readonly class JsonMapper
         $lastException = null;
 
         foreach ($type->getTypes() as $candidate) {
-            if ($this->isNullType($candidate) && $json !== null) {
+            if (($json !== null) && $this->isNullType($candidate)) {
                 continue;
             }
 
@@ -624,6 +628,9 @@ final readonly class JsonMapper
      * Creates an instance of the given class name.
      *
      * @param string $className
+     * @param mixed  ...$constructorArguments
+     *
+     * @return object
      */
     private function makeInstance(string $className, mixed ...$constructorArguments): object
     {

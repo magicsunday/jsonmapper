@@ -16,6 +16,8 @@ use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Value\Strategy\ValueConversionStrategyInterface;
 use Symfony\Component\TypeInfo\Type;
 
+use function sprintf;
+
 /**
  * Converts JSON values according to the registered strategies.
  */
@@ -45,6 +47,7 @@ final class ValueConverter
             }
         }
 
-        throw new LogicException(sprintf('No conversion strategy available for type %s.', $type::class));
+        throw new LogicException(
+            sprintf('No conversion strategy available for type %s.', $type::class));
     }
 }

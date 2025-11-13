@@ -25,6 +25,8 @@ use Symfony\Component\TypeInfo\Type\GenericType;
 use Symfony\Component\TypeInfo\Type\ObjectType;
 use Symfony\Component\TypeInfo\TypeIdentifier;
 
+use function sprintf;
+
 /**
  * Resolves collection value types from PHPDoc annotations on collection classes.
  *
@@ -36,8 +38,8 @@ final class CollectionDocBlockTypeResolver
 
     public function __construct(
         ?DocBlockFactoryInterface $docBlockFactory = null,
-        private ContextFactory $contextFactory = new ContextFactory(),
-        private PhpDocTypeHelper $phpDocTypeHelper = new PhpDocTypeHelper(),
+        private readonly ContextFactory $contextFactory = new ContextFactory(),
+        private readonly PhpDocTypeHelper $phpDocTypeHelper = new PhpDocTypeHelper(),
     ) {
         if (!class_exists(DocBlockFactory::class)) {
             throw new LogicException(

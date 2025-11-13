@@ -63,12 +63,11 @@ final class ClassResolver
     /**
      * Resolves the class name for the provided JSON payload.
      *
-     * @param class-string $className
-     * @param mixed        $json
+     * @param class-string   $className
+     * @param mixed          $json
+     * @param MappingContext $context
      *
      * @return class-string
-     *
-     * @throws DomainException
      */
     public function resolve(string $className, mixed $json, MappingContext $context): string
     {

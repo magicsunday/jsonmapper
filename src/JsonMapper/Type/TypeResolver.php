@@ -23,6 +23,8 @@ use Symfony\Component\TypeInfo\Type\BuiltinType;
 use Symfony\Component\TypeInfo\Type\UnionType;
 use Symfony\Component\TypeInfo\TypeIdentifier;
 
+use function count;
+
 /**
  * Resolves property types using Symfony's PropertyInfo component.
  */
@@ -141,7 +143,7 @@ final class TypeResolver
      */
     private function buildCacheKey(string $className, string $propertyName): string
     {
-        return self::CACHE_KEY_PREFIX . strtr($className, '\\', '_') . '.' . $propertyName;
+        return self::CACHE_KEY_PREFIX . str_replace('\\', '_', $className) . '.' . $propertyName;
     }
 
     /**

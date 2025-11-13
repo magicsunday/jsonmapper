@@ -98,9 +98,9 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
      *
      * @param CollectionType<CollectionWrappedType|GenericType<CollectionWrappedType>> $type
      *
-     * @return array<array-key, mixed>|object|null
+     * @return object|array<array-key, mixed>|null
      */
-    public function fromCollectionType(CollectionType $type, mixed $json, MappingContext $context): mixed
+    public function fromCollectionType(CollectionType $type, mixed $json, MappingContext $context): array|object|null
     {
         $collection = $this->mapIterable($json, $type->getCollectionValueType(), $context);
 

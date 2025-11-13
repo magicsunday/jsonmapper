@@ -13,6 +13,8 @@ namespace MagicSunday\JsonMapper\Report;
 
 use MagicSunday\JsonMapper\Context\MappingError;
 
+use function count;
+
 /**
  * Represents the result of collecting mapping errors.
  */
