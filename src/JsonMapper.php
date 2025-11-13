@@ -90,22 +90,22 @@ use function ucfirst;
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
  */
-final class JsonMapper
+final readonly class JsonMapper
 {
-    private readonly TypeResolver $typeResolver;
+    private TypeResolver $typeResolver;
 
-    private readonly ClassResolver $classResolver;
+    private ClassResolver $classResolver;
 
-    private readonly ValueConverter $valueConverter;
+    private ValueConverter $valueConverter;
 
     /**
      * @var CollectionFactoryInterface<array-key, mixed>
      */
-    private readonly CollectionFactoryInterface $collectionFactory;
+    private CollectionFactoryInterface $collectionFactory;
 
-    private readonly CollectionDocBlockTypeResolver $collectionDocBlockTypeResolver;
+    private CollectionDocBlockTypeResolver $collectionDocBlockTypeResolver;
 
-    private readonly CustomTypeRegistry $customTypeRegistry;
+    private CustomTypeRegistry $customTypeRegistry;
 
     /**
      * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
@@ -114,12 +114,12 @@ final class JsonMapper
      * @phpstan-param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
      */
     public function __construct(
-        private readonly PropertyInfoExtractorInterface $extractor,
-        private readonly PropertyAccessorInterface $accessor,
-        private readonly ?PropertyNameConverterInterface $nameConverter = null,
+        private PropertyInfoExtractorInterface $extractor,
+        private PropertyAccessorInterface $accessor,
+        private ?PropertyNameConverterInterface $nameConverter = null,
         array $classMap = [],
         ?CacheItemPoolInterface $typeCache = null,
-        private readonly JsonMapperConfiguration $config = new JsonMapperConfiguration(),
+        private JsonMapperConfiguration $config = new JsonMapperConfiguration(),
     ) {
         $this->typeResolver                   = new TypeResolver($extractor, $typeCache);
         $this->classResolver                  = new ClassResolver($classMap);

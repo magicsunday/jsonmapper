@@ -21,9 +21,9 @@ use Doctrine\Inflector\InflectorFactory;
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
  */
-final class CamelCasePropertyNameConverter implements PropertyNameConverterInterface
+final readonly class CamelCasePropertyNameConverter implements PropertyNameConverterInterface
 {
-    private readonly Inflector $inflector;
+    private Inflector $inflector;
 
     public function __construct()
     {
