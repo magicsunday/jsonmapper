@@ -206,5 +206,6 @@ composer ci:test
 composer ci:test:php:phplint
 composer ci:test:php:phpstan
 composer ci:test:php:rector
+composer ci:test:php:cpd
 composer ci:test:php:unit
 ```

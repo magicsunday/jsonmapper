@@ -20,7 +20,7 @@ This project targets PHP 8.3+ and follows strict typing with PSR-12 formatting. 
 1. `composer ci:cgl` — apply and commit formatting changes.
 2. `composer ci:rector` — apply and commit changes.
 3. `composer ci:test:php:phpstan` — ensure no failures for changed files; project uses maximum PHPStan level.
-4. `composer ci:test:php:cpd` (or `npx jscpd --config .jscpd.json`) — keep the duplication check green.
+4. `composer ci:test:php:cpd` — keep the duplication check green.
 5. `composer ci:test:php:unit:coverage` — ensure green status with ≥ 90% coverage.
 
 Address all findings produced by these commands before committing. Run `composer ci:rector` when automated refactoring is appropriate and commit accepted results.
