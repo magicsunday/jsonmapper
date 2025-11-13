@@ -90,22 +90,22 @@ use function ucfirst;
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
  */
-class JsonMapper
+final class JsonMapper
 {
-    private TypeResolver $typeResolver;
+    private readonly TypeResolver $typeResolver;
 
-    private ClassResolver $classResolver;
+    private readonly ClassResolver $classResolver;
 
-    private ValueConverter $valueConverter;
+    private readonly ValueConverter $valueConverter;
 
     /**
      * @var CollectionFactoryInterface<array-key, mixed>
      */
-    private CollectionFactoryInterface $collectionFactory;
+    private readonly CollectionFactoryInterface $collectionFactory;
 
-    private CollectionDocBlockTypeResolver $collectionDocBlockTypeResolver;
+    private readonly CollectionDocBlockTypeResolver $collectionDocBlockTypeResolver;
 
-    private CustomTypeRegistry $customTypeRegistry;
+    private readonly CustomTypeRegistry $customTypeRegistry;
 
     /**
      * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
@@ -119,7 +119,7 @@ class JsonMapper
         private readonly ?PropertyNameConverterInterface $nameConverter = null,
         array $classMap = [],
         ?CacheItemPoolInterface $typeCache = null,
-        private JsonMapperConfiguration $config = new JsonMapperConfiguration(),
+        private readonly JsonMapperConfiguration $config = new JsonMapperConfiguration(),
     ) {
         $this->typeResolver                   = new TypeResolver($extractor, $typeCache);
         $this->classResolver                  = new ClassResolver($classMap);
