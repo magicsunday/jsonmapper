@@ -16,7 +16,6 @@ use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\BuiltinType;
 use Symfony\Component\TypeInfo\TypeIdentifier;
-use Traversable;
 
 use function assert;
 use function filter_var;
@@ -169,7 +168,7 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
             'array'    => is_array($value),
             'object'   => is_object($value),
             'callable' => is_callable($value),
-            'iterable' => is_array($value) || $value instanceof Traversable,
+            'iterable' => is_iterable($value),
             'null'     => $value === null,
             default    => true,
         };

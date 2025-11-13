@@ -17,11 +17,11 @@ use Attribute;
  * Attribute used to instruct the mapper to rename a JSON field.
  */
 #[Attribute(Attribute::TARGET_CLASS | Attribute::IS_REPEATABLE)]
-final class ReplaceProperty
+final readonly class ReplaceProperty
 {
     public function __construct(
-        public readonly string $value,
-        public readonly string $replaces,
+        public string $value,
+        public string $replaces,
     ) {
     }
 }

@@ -105,8 +105,6 @@ class JsonMapper
 
     private CustomTypeRegistry $customTypeRegistry;
 
-    private JsonMapperConfig $config;
-
     /**
      * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
      * @param CacheItemPoolInterface|null                                                                               $typeCache
@@ -119,9 +117,8 @@ class JsonMapper
         private readonly ?PropertyNameConverterInterface $nameConverter = null,
         array $classMap = [],
         ?CacheItemPoolInterface $typeCache = null,
-        ?JsonMapperConfig $config = null,
+        private JsonMapperConfig $config = new JsonMapperConfig(),
     ) {
-        $this->config                         = $config ?? new JsonMapperConfig();
         $this->typeResolver                   = new TypeResolver($extractor, $typeCache);
         $this->classResolver                  = new ClassResolver($classMap);
         $this->customTypeRegistry             = new CustomTypeRegistry();
@@ -212,15 +209,13 @@ class JsonMapper
         ?MappingContext $context = null,
         ?MappingConfiguration $configuration = null,
     ): mixed {
-        if ($context === null) {
-            $configuration = $configuration ?? $this->createDefaultConfiguration();
-            $context       = new MappingContext($json, $configuration->toOptions());
+        if (!$context instanceof MappingContext) {
+            $configuration ??= $this->createDefaultConfiguration();
+            $context = new MappingContext($json, $configuration->toOptions());
+        } elseif (!$configuration instanceof MappingConfiguration) {
+            $configuration = MappingConfiguration::fromContext($context);
         } else {
-            if ($configuration === null) {
-                $configuration = MappingConfiguration::fromContext($context);
-            } else {
-                $context->replaceOptions($configuration->toOptions());
-            }
+            $context->replaceOptions($configuration->toOptions());
         }
 
         $resolvedClassName = $className === null
@@ -418,7 +413,7 @@ class JsonMapper
         $configuration = $configuration->withDefaultDateFormat($this->config->getDefaultDateFormat());
 
         if ($this->config->shouldAllowScalarToObjectCasting()) {
-            $configuration = $configuration->withScalarToObjectCasting(true);
+            return $configuration->withScalarToObjectCasting(true);
         }
 
         return $configuration;
