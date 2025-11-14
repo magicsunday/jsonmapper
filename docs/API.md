@@ -5,6 +5,18 @@ This document summarises the public surface of the JsonMapper package. All class
 ## JsonMapper (final)
 The `JsonMapper` class is the main entry point for mapping arbitrary JSON structures to PHP objects. The class is `final`; prefer composition over inheritance.
 
+### Factory helper
+```php
+<?php
+declare(strict_types=1);
+
+use MagicSunday\JsonMapper;
+
+$mapper = JsonMapper::createWithDefaults();
+```
+
+The helper wires the Symfony `PropertyInfoExtractor` (reflection + PhpDoc) and a default `PropertyAccessor`. Use the constructor described below when you need custom extractors, caches, or accessors.
+
 ### Constructor
 ```php
 <?php
@@ -81,24 +93,13 @@ declare(strict_types=1);
 
 require __DIR__ . '/vendor/autoload.php';
 
-use MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter;
 use MagicSunday\JsonMapper;
-use Symfony\Component\PropertyAccess\PropertyAccess;
-use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
-use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
-use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
-
-// Collect metadata and build the property accessor.
-$propertyInfo = new PropertyInfoExtractor(
-    listExtractors: [new ReflectionExtractor()],
-    typeExtractors: [new PhpDocExtractor()],
-);
-$propertyAccessor = PropertyAccess::createPropertyAccessor();
+use MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter;
 
 // Translate snake_case JSON keys into camelCase DTO properties.
 $nameConverter = new CamelCasePropertyNameConverter();
 
-$mapper = new JsonMapper($propertyInfo, $propertyAccessor, $nameConverter);
+$mapper = JsonMapper::createWithDefaults($nameConverter);
 
 var_dump($mapper::class);
 ```

@@ -65,23 +65,13 @@ require __DIR__ . '/vendor/autoload.php';
 use App\Dto\Article;
 use App\Dto\ArticleCollection;
 use MagicSunday\JsonMapper;
-use Symfony\Component\PropertyAccess\PropertyAccess;
-use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
-use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
-use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
 
 // Decode a single article and a list of articles, raising on malformed JSON.
 $single = json_decode('{"title":"Hello world","comments":[{"message":"First!"}]}', associative: false, flags: JSON_THROW_ON_ERROR);
 $list = json_decode('[{"title":"Hello world","comments":[{"message":"First!"}]},{"title":"Second","comments":[]}]', associative: false, flags: JSON_THROW_ON_ERROR);
 
-// Configure JsonMapper with reflection and PhpDoc support.
-$propertyInfo = new PropertyInfoExtractor(
-    listExtractors: [new ReflectionExtractor()],
-    typeExtractors: [new PhpDocExtractor()],
-);
-$propertyAccessor = PropertyAccess::createPropertyAccessor();
-
-$mapper = new JsonMapper($propertyInfo, $propertyAccessor);
+// Bootstrap JsonMapper with reflection and PhpDoc extractors.
+$mapper = JsonMapper::createWithDefaults();
 
 // Map a single DTO and an entire collection in one go.
 $article = $mapper->map($single, Article::class);
@@ -92,6 +82,8 @@ var_dump($article, $articles);
 ```
 
 The first call produces an `Article` instance with a populated `CommentCollection`; the second call returns an `ArticleCollection` containing `Article` objects.
+
+`JsonMapper::createWithDefaults()` wires the default Symfony `PropertyInfoExtractor` (reflection + PhpDoc) and a `PropertyAccessor`. When you need custom extractors, caching, or a specialised accessor you can still instantiate `JsonMapper` manually with your preferred services.
 
 Test coverage: `tests/JsonMapper/DocsQuickStartTest.php`.
 

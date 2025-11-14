@@ -50,7 +50,11 @@ use ReflectionMethod;
 use ReflectionNamedType;
 use ReflectionProperty;
 use ReflectionUnionType;
+use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
+use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
+use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
+use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractorInterface;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\BuiltinType;
@@ -159,6 +163,35 @@ final readonly class JsonMapper
         );
         $this->valueConverter->addStrategy(new BuiltinValueConversionStrategy());
         $this->valueConverter->addStrategy(new PassthroughValueConversionStrategy());
+    }
+
+    /**
+     * Creates a mapper with sensible default Symfony services.
+     *
+     * @param PropertyNameConverterInterface|null                                                                       $nameConverter Optional converter to normalise incoming property names.
+     * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap      Optional class map forwarded to the mapper constructor.
+     * @param CacheItemPoolInterface|null                                                                               $typeCache     Optional cache for resolved type information.
+     * @param JsonMapperConfiguration|null                                                                              $config        Default mapper configuration cloned for new mapping contexts.
+     */
+    public static function createWithDefaults(
+        ?PropertyNameConverterInterface $nameConverter = null,
+        array $classMap = [],
+        ?CacheItemPoolInterface $typeCache = null,
+        ?JsonMapperConfiguration $config = null,
+    ): self {
+        $extractor = new PropertyInfoExtractor(
+            [new ReflectionExtractor()],
+            [new PhpDocExtractor()],
+        );
+
+        return new self(
+            $extractor,
+            PropertyAccess::createPropertyAccessor(),
+            $nameConverter,
+            $classMap,
+            $typeCache,
+            $config ?? new JsonMapperConfiguration(),
+        );
     }
 
     /**
