@@ -6,15 +6,30 @@ This document summarises the public surface of the JsonMapper package. All class
 The `JsonMapper` class is the main entry point for mapping arbitrary JSON structures to PHP objects. The class is `final`; prefer composition over inheritance.
 
 ### Constructor
-```
-__construct(
-    PropertyInfoExtractorInterface $extractor,
-    PropertyAccessorInterface $accessor,
-    ?PropertyNameConverterInterface $nameConverter = null,
-    array $classMap = [],
-    ?CacheItemPoolInterface $typeCache = null,
-    JsonMapperConfiguration $config = new JsonMapperConfiguration(),
-)
+```php
+<?php
+declare(strict_types=1);
+
+use MagicSunday\JsonMapper\JsonMapper;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
+use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
+use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
+
+// Describe DTO metadata and wiring through Symfony extractors.
+$propertyInfo = new PropertyInfoExtractor(
+    listExtractors: [new ReflectionExtractor()],
+    typeExtractors: [new PhpDocExtractor()],
+);
+$propertyAccessor = PropertyAccess::createPropertyAccessor();
+
+// Cache resolved Type metadata for subsequent mappings.
+$typeCache = new ArrayAdapter();
+
+$mapper = new JsonMapper($propertyInfo, $propertyAccessor, classMap: [], typeCache: $typeCache);
+
+var_dump($mapper::class);
 ```
 
 * `$classMap` allows overriding resolved target classes. Use `addCustomClassMapEntry()` for runtime registration.
@@ -60,25 +75,72 @@ Use `toOptions()` to feed configuration data into a `MappingContext`, or `toArra
 ## Property name converters
 `CamelCasePropertyNameConverter` implements `PropertyNameConverterInterface` and is declared `final`. Instantiate it when JSON keys use snake case:
 
-```
+```php
+<?php
+declare(strict_types=1);
+
+require __DIR__ . '/vendor/autoload.php';
+
+use MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter;
+use MagicSunday\JsonMapper\JsonMapper;
+use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
+use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
+use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
+
+// Collect metadata and build the property accessor.
+$propertyInfo = new PropertyInfoExtractor(
+    listExtractors: [new ReflectionExtractor()],
+    typeExtractors: [new PhpDocExtractor()],
+);
+$propertyAccessor = PropertyAccess::createPropertyAccessor();
+
+// Translate snake_case JSON keys into camelCase DTO properties.
 $nameConverter = new CamelCasePropertyNameConverter();
-$mapper = new JsonMapper($extractor, $accessor, $nameConverter);
+
+$mapper = new JsonMapper($propertyInfo, $propertyAccessor, $nameConverter);
+
+var_dump($mapper::class);
 ```
 
 ## Custom type handlers
 Implement `Value\TypeHandlerInterface` to plug in custom conversion logic:
 
-```
+```php
+<?php
+declare(strict_types=1);
+
+require __DIR__ . '/vendor/autoload.php';
+
+use MagicSunday\JsonMapper\Context\MappingContext;
+use MagicSunday\JsonMapper\Value\TypeHandlerInterface;
+use Symfony\Component\TypeInfo\Type;
+use Symfony\Component\TypeInfo\Type\ObjectType;
+
+final class FakeUuid
+{
+    private function __construct(private string $value)
+    {
+    }
+
+    public static function fromString(string $value): self
+    {
+        return new self($value);
+    }
+}
+
 final class UuidTypeHandler implements TypeHandlerInterface
 {
     public function supports(Type $type, mixed $value): bool
     {
-        return $type instanceof ObjectType && $type->getClassName() === Uuid::class;
+        // Only handle FakeUuid targets to keep conversion focused.
+        return $type instanceof ObjectType && $type->getClassName() === FakeUuid::class;
     }
 
-    public function convert(Type $type, mixed $value, MappingContext $context): Uuid
+    public function convert(Type $type, mixed $value, MappingContext $context): FakeUuid
     {
-        return Uuid::fromString((string) $value);
+        // Build the value object from the incoming scalar payload.
+        return FakeUuid::fromString((string) $value);
     }
 }
 ```

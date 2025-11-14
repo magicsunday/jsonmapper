@@ -3,6 +3,9 @@
 JsonMapper can map backed enums transparently when the target property is typed with the enum class. The built-in `EnumValueConversionStrategy` handles the conversion from scalars to enum cases.
 
 ```php
+<?php
+declare(strict_types=1);
+
 namespace App\Dto;
 
 enum Status: string
@@ -19,21 +22,38 @@ final class Article
 ```
 
 ```php
+<?php
+declare(strict_types=1);
+
+require __DIR__ . '/vendor/autoload.php';
+
 use App\Dto\Article;
+use App\Dto\Status;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\JsonMapper;
+use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
+use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
+use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
 
+// Decode the incoming JSON payload into an object.
 $json = json_decode('{
-    "title": "Enum mapping", 
+    "title": "Enum mapping",
     "status": "published"
 }', associative: false, flags: JSON_THROW_ON_ERROR);
 
-// Create PropertyInfoExtractor and PropertyAccessor instances as shown in the quick start guide.
+// Wire up the mapper with reflection and PhpDoc metadata.
+$propertyInfo = new PropertyInfoExtractor(
+    listExtractors: [new ReflectionExtractor()],
+    typeExtractors: [new PhpDocExtractor()],
+);
+$propertyAccessor = PropertyAccess::createPropertyAccessor();
+$configuration = JsonMapperConfiguration::lenient();
+
 $mapper = new JsonMapper($propertyInfo, $propertyAccessor);
-$article = $mapper->map($json, Article::class);
+$article = $mapper->map($json, Article::class, configuration: $configuration);
 
 assert($article instanceof Article);
 assert($article->status === Status::Published);
 ```
-
 The mapper validates enum values. When strict mode is enabled (`JsonMapperConfiguration::strict()`), an invalid enum value results in a `TypeMismatchException`.
