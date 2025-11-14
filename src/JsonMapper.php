@@ -110,12 +110,12 @@ final readonly class JsonMapper
     /**
      * Creates a mapper that converts JSON data into PHP objects using the configured Symfony services.
      *
-     * @param PropertyInfoExtractorInterface                                                                            $extractor    Extractor that provides type information for mapped properties.
-     * @param PropertyAccessorInterface                                                                                 $accessor     Property accessor used to write values onto target objects.
+     * @param PropertyInfoExtractorInterface                                                                            $extractor     Extractor that provides type information for mapped properties.
+     * @param PropertyAccessorInterface                                                                                 $accessor      Property accessor used to write values onto target objects.
      * @param PropertyNameConverterInterface|null                                                                       $nameConverter Optional converter to normalise incoming property names.
-     * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap     Map of base classes to resolvers that determine the concrete class to instantiate.
-     * @param CacheItemPoolInterface|null                                                                               $typeCache    Optional cache for resolved type information.
-     * @param JsonMapperConfiguration                                                                                   $config       Default mapper configuration cloned for new mapping contexts.
+     * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap      Map of base classes to resolvers that determine the concrete class to instantiate.
+     * @param CacheItemPoolInterface|null                                                                               $typeCache     Optional cache for resolved type information.
+     * @param JsonMapperConfiguration                                                                                   $config        Default mapper configuration cloned for new mapping contexts.
      */
     public function __construct(
         private PropertyInfoExtractorInterface $extractor,
@@ -179,7 +179,7 @@ final readonly class JsonMapper
      * Registers a custom type using a closure-based handler.
      *
      * @param non-empty-string $type    Name of the custom type alias handled by the closure.
-     * @param Closure $closure Closure that converts the incoming value to the target type.
+     * @param Closure          $closure Closure that converts the incoming value to the target type.
      *
      * @deprecated Use addTypeHandler() with a TypeHandlerInterface implementation instead.
      *
@@ -213,11 +213,11 @@ final readonly class JsonMapper
     /**
      * Maps the JSON to the specified class entity.
      *
-     * @param mixed                        $json                 Source data to map into PHP objects.
-     * @param class-string|null            $className            Fully qualified class name that should be instantiated for mapped objects.
-     * @param class-string|null            $collectionClassName  Collection class that should wrap the mapped objects when required.
-     * @param MappingContext|null          $context              Optional mapping context reused across nested mappings.
-     * @param JsonMapperConfiguration|null $configuration        Optional configuration that overrides the default mapper settings.
+     * @param mixed                        $json                Source data to map into PHP objects.
+     * @param class-string|null            $className           Fully qualified class name that should be instantiated for mapped objects.
+     * @param class-string|null            $collectionClassName Collection class that should wrap the mapped objects when required.
+     * @param MappingContext|null          $context             Optional mapping context reused across nested mappings.
+     * @param JsonMapperConfiguration|null $configuration       Optional configuration that overrides the default mapper settings.
      *
      * @return mixed The mapped PHP value or collection produced from the given JSON.
      */
@@ -540,9 +540,9 @@ final readonly class JsonMapper
     /**
      * Converts the value according to the provided union type.
      *
-     * @param mixed           $json     Value being converted so it matches one of the union candidates.
-     * @param UnionType<Type> $type     Union definition listing acceptable target types.
-     * @param MappingContext  $context  Context used to track conversion errors while testing candidates.
+     * @param mixed           $json    Value being converted so it matches one of the union candidates.
+     * @param UnionType<Type> $type    Union definition listing acceptable target types.
+     * @param MappingContext  $context Context used to track conversion errors while testing candidates.
      *
      * @return mixed Value converted to a type accepted by the union.
      */
@@ -683,7 +683,7 @@ final readonly class JsonMapper
     /**
      * Creates an instance of the given class name.
      *
-     * @param string $className            Fully qualified class name to instantiate.
+     * @param string $className               Fully qualified class name to instantiate.
      * @param mixed  ...$constructorArguments Arguments forwarded to the constructor of the class.
      *
      * @return object Newly created instance of the requested class.

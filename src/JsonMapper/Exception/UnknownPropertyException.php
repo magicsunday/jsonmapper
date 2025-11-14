@@ -19,9 +19,9 @@ use function sprintf;
 final class UnknownPropertyException extends MappingException
 {
     /**
-     * @param string $path         Path to the JSON value that references the unknown property.
-     * @param string $propertyName Name of the property that does not exist on the PHP target.
-     * @param class-string $className Fully qualified name of the object that lacks the property.
+     * @param string       $path         Path to the JSON value that references the unknown property.
+     * @param string       $propertyName Name of the property that does not exist on the PHP target.
+     * @param class-string $className    Fully qualified name of the object that lacks the property.
      */
     public function __construct(
         string $path,

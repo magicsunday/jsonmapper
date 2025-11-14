@@ -27,9 +27,9 @@ final class JsonMapperTypeCacheTest extends TestCase
     #[Test]
     public function itCachesResolvedTypesWhenConfigured(): void
     {
-        $cache = new InMemoryCachePool();
+        $cache     = new InMemoryCachePool();
         $extractor = new PropertyInfoExtractor([new ReflectionExtractor()], [new PhpDocExtractor()]);
-        $mapper = new JsonMapper(
+        $mapper    = new JsonMapper(
             $extractor,
             PropertyAccess::createPropertyAccessor(),
             new CamelCasePropertyNameConverter(),

@@ -48,8 +48,8 @@ final class ClassResolver
     /**
      * Adds a custom resolution rule.
      *
-     * @param class-string $className Base class or interface the resolver handles.
-     * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $resolver Callback returning a concrete class based on the JSON payload and optional mapping context.
+     * @param class-string                                                            $className Base class or interface the resolver handles.
+     * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $resolver  Callback returning a concrete class based on the JSON payload and optional mapping context.
      *
      * @phpstan-param class-string $className
      * @phpstan-param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $resolver
@@ -63,9 +63,9 @@ final class ClassResolver
     /**
      * Resolves the class name for the provided JSON payload.
      *
-     * @param class-string $className Base class name configured in the resolver map.
-     * @param mixed $json Raw JSON fragment inspected to determine the target class.
-     * @param MappingContext $context Mapping context passed to resolution callbacks when required.
+     * @param class-string   $className Base class name configured in the resolver map.
+     * @param mixed          $json      Raw JSON fragment inspected to determine the target class.
+     * @param MappingContext $context   Mapping context passed to resolution callbacks when required.
      *
      * @return class-string Fully-qualified class name that should be instantiated for the payload.
      */
@@ -100,8 +100,8 @@ final class ClassResolver
      * Executes a resolver callback while adapting the invocation to its declared arity.
      *
      * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $resolver User-provided resolver that determines the concrete class; the parameter list defines whether the mapping context can be injected.
-     * @param mixed $json JSON fragment forwarded to the resolver so it can inspect discriminator values.
-     * @param MappingContext $context Context object passed when supported to supply additional mapping metadata.
+     * @param mixed                                                                   $json     JSON fragment forwarded to the resolver so it can inspect discriminator values.
+     * @param MappingContext                                                          $context  Context object passed when supported to supply additional mapping metadata.
      *
      * @return mixed Raw resolver result that will subsequently be validated as a class-string.
      */

@@ -20,9 +20,9 @@ use Throwable;
 abstract class MappingException extends RuntimeException
 {
     /**
-     * @param string $message   Human readable description of the failure scenario.
-     * @param string $path      JSON pointer or dotted path identifying the failing value.
-     * @param int $code         Optional error code to bubble up to the caller.
+     * @param string         $message  Human readable description of the failure scenario.
+     * @param string         $path     JSON pointer or dotted path identifying the failing value.
+     * @param int            $code     Optional error code to bubble up to the caller.
      * @param Throwable|null $previous Underlying cause, if the exception wraps another failure.
      */
     public function __construct(

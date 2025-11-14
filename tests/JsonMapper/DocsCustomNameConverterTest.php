@@ -28,7 +28,7 @@ final class DocsCustomNameConverterTest extends TestCase
     {
         $converter = new UpperSnakeCaseConverter();
         $extractor = new PropertyInfoExtractor([new ReflectionExtractor()], [new PhpDocExtractor()]);
-        $mapper = new JsonMapper(
+        $mapper    = new JsonMapper(
             $extractor,
             PropertyAccess::createPropertyAccessor(),
             $converter,

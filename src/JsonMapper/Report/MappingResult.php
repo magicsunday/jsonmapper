@@ -17,7 +17,7 @@ namespace MagicSunday\JsonMapper\Report;
 final readonly class MappingResult
 {
     /**
-     * @param mixed $value  The mapped value returned by the mapper.
+     * @param mixed         $value  The mapped value returned by the mapper.
      * @param MappingReport $report Report containing diagnostics for the mapping operation.
      */
     public function __construct(

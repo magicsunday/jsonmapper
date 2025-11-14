@@ -19,9 +19,9 @@ use function sprintf;
 final class MissingPropertyException extends MappingException
 {
     /**
-     * @param string $path         Path indicating where the missing property should have been present.
-     * @param string $propertyName Name of the required property defined on the PHP target.
-     * @param class-string $className Fully qualified name of the DTO or object declaring the property.
+     * @param string       $path         Path indicating where the missing property should have been present.
+     * @param string       $propertyName Name of the required property defined on the PHP target.
+     * @param class-string $className    Fully qualified name of the DTO or object declaring the property.
      */
     public function __construct(
         string $path,

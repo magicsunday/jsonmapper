@@ -22,8 +22,8 @@ final class PassthroughValueConversionStrategy implements ValueConversionStrateg
     /**
      * Always supports conversion and acts as the terminal strategy.
      *
-     * @param mixed $value Raw value coming from the input payload.
-     * @param Type $type Type metadata describing the target property.
+     * @param mixed          $value   Raw value coming from the input payload.
+     * @param Type           $type    Type metadata describing the target property.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return bool Always TRUE so the strategy can act as the final fallback.
@@ -36,8 +36,8 @@ final class PassthroughValueConversionStrategy implements ValueConversionStrateg
     /**
      * Returns the original value without modification.
      *
-     * @param mixed $value Raw value coming from the input payload.
-     * @param Type $type Type metadata describing the target property.
+     * @param mixed          $value   Raw value coming from the input payload.
+     * @param Type           $type    Type metadata describing the target property.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return mixed Unmodified value passed through from the input.

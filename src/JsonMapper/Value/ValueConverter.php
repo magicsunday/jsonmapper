@@ -43,8 +43,8 @@ final class ValueConverter
     /**
      * Converts the value using the first matching strategy.
      *
-     * @param mixed $value Raw JSON value that needs to be converted.
-     * @param Type $type Target type metadata that should be satisfied by the conversion result.
+     * @param mixed          $value   Raw JSON value that needs to be converted.
+     * @param Type           $type    Target type metadata that should be satisfied by the conversion result.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return mixed Result from the first strategy that declares support for the value.

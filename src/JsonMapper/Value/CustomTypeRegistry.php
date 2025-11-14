@@ -30,7 +30,7 @@ final class CustomTypeRegistry
     /**
      * Registers the converter for the provided class name.
      *
-     * @param non-empty-string $className Fully-qualified type alias handled by the converter.
+     * @param non-empty-string                                            $className Fully-qualified type alias handled by the converter.
      * @param callable(mixed):mixed|callable(mixed, MappingContext):mixed $converter Callback responsible for creating the destination value.
      *
      * @return void
@@ -55,7 +55,7 @@ final class CustomTypeRegistry
     /**
      * Returns TRUE if a handler for the type exists.
      *
-     * @param Type $type Type information describing the target property.
+     * @param Type  $type  Type information describing the target property.
      * @param mixed $value JSON value that should be converted.
      *
      * @return bool TRUE when at least one registered handler supports the value.
@@ -74,8 +74,8 @@ final class CustomTypeRegistry
     /**
      * Executes the converter for the class.
      *
-     * @param Type $type Type information describing the target property.
-     * @param mixed $value JSON value that should be converted.
+     * @param Type           $type    Type information describing the target property.
+     * @param mixed          $value   JSON value that should be converted.
      * @param MappingContext $context Mapping context providing runtime configuration and state.
      *
      * @return mixed Converted value returned by the first supporting handler.

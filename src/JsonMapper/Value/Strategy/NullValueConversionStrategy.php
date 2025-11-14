@@ -22,8 +22,8 @@ final class NullValueConversionStrategy implements ValueConversionStrategyInterf
     /**
      * Determines whether the incoming value represents a null assignment.
      *
-     * @param mixed $value Raw value coming from the input payload.
-     * @param Type $type Type metadata describing the target property.
+     * @param mixed          $value   Raw value coming from the input payload.
+     * @param Type           $type    Type metadata describing the target property.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return bool TRUE when the value is exactly null.
@@ -36,8 +36,8 @@ final class NullValueConversionStrategy implements ValueConversionStrategyInterf
     /**
      * Returns null to preserve the absence of a value.
      *
-     * @param mixed $value Raw value coming from the input payload.
-     * @param Type $type Type metadata describing the target property.
+     * @param mixed          $value   Raw value coming from the input payload.
+     * @param Type           $type    Type metadata describing the target property.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return null Always returns null for supported values.
