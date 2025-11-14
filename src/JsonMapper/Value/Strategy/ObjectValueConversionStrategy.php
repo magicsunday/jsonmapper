@@ -29,7 +29,10 @@ use function is_object;
 final readonly class ObjectValueConversionStrategy implements ValueConversionStrategyInterface
 {
     /**
-     * @param Closure(mixed, class-string, MappingContext):mixed $mapper
+     * Creates the strategy with the class resolver and mapper callback.
+     *
+     * @param ClassResolver $classResolver Resolver used to select the concrete class to instantiate.
+     * @param Closure(mixed, class-string, MappingContext):mixed $mapper Callback responsible for mapping values into objects.
      */
     public function __construct(
         private ClassResolver $classResolver,
@@ -37,11 +40,29 @@ final readonly class ObjectValueConversionStrategy implements ValueConversionStr
     ) {
     }
 
+    /**
+     * Determines whether the metadata describes an object type.
+     *
+     * @param mixed $value Raw value coming from the input payload.
+     * @param Type $type Type metadata describing the target property.
+     * @param MappingContext $context Mapping context providing configuration such as strict mode.
+     *
+     * @return bool TRUE when the target type represents an object.
+     */
     public function supports(mixed $value, Type $type, MappingContext $context): bool
     {
         return $type instanceof ObjectType;
     }
 
+    /**
+     * Delegates conversion to the mapper for the resolved class.
+     *
+     * @param mixed $value Raw value coming from the input payload.
+     * @param Type $type Type metadata describing the target property.
+     * @param MappingContext $context Mapping context providing configuration such as strict mode.
+     *
+     * @return mixed Value returned by the mapper callback.
+     */
     public function convert(mixed $value, Type $type, MappingContext $context): mixed
     {
         if (!($type instanceof ObjectType)) {
@@ -68,9 +89,9 @@ final readonly class ObjectValueConversionStrategy implements ValueConversionStr
     /**
      * Resolves the class name from the provided object type.
      *
-     * @param ObjectType<class-string> $type
+     * @param ObjectType<class-string> $type Object type metadata describing the target property.
      *
-     * @return class-string
+     * @return class-string Concrete class name extracted from the metadata.
      */
     private function resolveClassName(ObjectType $type): string
     {

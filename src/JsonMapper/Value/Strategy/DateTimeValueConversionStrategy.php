@@ -32,6 +32,15 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
 {
     use ObjectTypeConversionGuardTrait;
 
+    /**
+     * Determines whether the requested type is a supported date or interval class.
+     *
+     * @param mixed $value Raw value coming from the input payload.
+     * @param Type $type Type metadata describing the target property.
+     * @param MappingContext $context Mapping context providing configuration such as strict mode.
+     *
+     * @return bool TRUE when the type represents a supported date/time object.
+     */
     public function supports(mixed $value, Type $type, MappingContext $context): bool
     {
         $objectType = $this->extractObjectType($type);
@@ -45,6 +54,15 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
         return is_a($className, DateTimeImmutable::class, true) || is_a($className, DateInterval::class, true);
     }
 
+    /**
+     * Converts ISO-8601 strings and timestamps into the desired date/time object.
+     *
+     * @param mixed $value Raw value coming from the input payload.
+     * @param Type $type Type metadata describing the target property.
+     * @param MappingContext $context Mapping context providing configuration such as strict mode.
+     *
+     * @return mixed Instance of the configured date/time class.
+     */
     public function convert(mixed $value, Type $type, MappingContext $context): mixed
     {
         return $this->convertObjectValue(

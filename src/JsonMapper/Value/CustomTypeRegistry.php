@@ -30,7 +30,10 @@ final class CustomTypeRegistry
     /**
      * Registers the converter for the provided class name.
      *
-     * @param callable(mixed):mixed|callable(mixed, MappingContext):mixed $converter
+     * @param string $className Fully-qualified class name handled by the converter.
+     * @param callable(mixed):mixed|callable(mixed, MappingContext):mixed $converter Callback responsible for creating the destination value.
+     *
+     * @return void
      */
     public function register(string $className, callable $converter): void
     {
@@ -39,6 +42,10 @@ final class CustomTypeRegistry
 
     /**
      * Registers a custom type handler.
+     *
+     * @param TypeHandlerInterface $handler Handler performing support checks and conversion for a particular type.
+     *
+     * @return void
      */
     public function registerHandler(TypeHandlerInterface $handler): void
     {
@@ -47,6 +54,11 @@ final class CustomTypeRegistry
 
     /**
      * Returns TRUE if a handler for the type exists.
+     *
+     * @param Type $type Type information describing the target property.
+     * @param mixed $value JSON value that should be converted.
+     *
+     * @return bool TRUE when at least one registered handler supports the value.
      */
     public function supports(Type $type, mixed $value): bool
     {
@@ -61,6 +73,12 @@ final class CustomTypeRegistry
 
     /**
      * Executes the converter for the class.
+     *
+     * @param Type $type Type information describing the target property.
+     * @param mixed $value JSON value that should be converted.
+     * @param MappingContext $context Mapping context providing runtime configuration and state.
+     *
+     * @return mixed Converted value returned by the first supporting handler.
      */
     public function convert(Type $type, mixed $value, MappingContext $context): mixed
     {

@@ -24,7 +24,9 @@ trait ObjectTypeConversionGuardTrait
     /**
      * Returns the provided type when it represents an object with a class name.
      *
-     * @return ObjectType<class-string>|null
+     * @param Type $type Type metadata describing the target property.
+     *
+     * @return ObjectType<class-string>|null Object type when the metadata targets a concrete class; otherwise null.
      */
     private function extractObjectType(Type $type): ?ObjectType
     {
@@ -42,7 +44,11 @@ trait ObjectTypeConversionGuardTrait
     /**
      * Ensures null values comply with the target object's nullability.
      *
-     * @param ObjectType<class-string> $type
+     * @param mixed $value Raw value coming from the input payload.
+     * @param ObjectType<class-string> $type Object type metadata describing the target property.
+     * @param MappingContext $context Mapping context providing configuration such as strict mode.
+     *
+     * @return void
      */
     private function guardNullableValue(mixed $value, ObjectType $type, MappingContext $context): void
     {
@@ -60,7 +66,12 @@ trait ObjectTypeConversionGuardTrait
     /**
      * Executes the provided converter when a valid object type is available.
      *
-     * @param callable(string, mixed): mixed $converter
+     * @param Type $type Type metadata describing the target property.
+     * @param MappingContext $context Mapping context providing configuration such as strict mode.
+     * @param mixed $value Raw value coming from the input payload.
+     * @param callable(string, mixed): mixed $converter Callback that performs the actual conversion when a class-string is available.
+     *
+     * @return mixed Result from the converter or the original value when no object type was detected.
      */
     private function convertObjectValue(Type $type, MappingContext $context, mixed $value, callable $converter): mixed
     {
