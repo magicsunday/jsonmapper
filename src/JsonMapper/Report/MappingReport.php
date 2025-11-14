@@ -35,11 +35,21 @@ final readonly class MappingReport
         return $this->errors;
     }
 
+    /**
+     * Determines whether the report contains any mapping errors.
+     *
+     * @return bool True when at least one {@see MappingError} has been collected, false otherwise.
+     */
     public function hasErrors(): bool
     {
         return $this->errors !== [];
     }
 
+    /**
+     * Counts the number of mapping errors stored in the report.
+     *
+     * @return int Total amount of collected {@see MappingError} instances.
+     */
     public function getErrorCount(): int
     {
         return count($this->errors);
