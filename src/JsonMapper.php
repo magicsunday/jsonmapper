@@ -157,7 +157,13 @@ final readonly class JsonMapper
                 function (mixed $value, string $resolvedClass, MappingContext $context): mixed {
                     $configuration = JsonMapperConfiguration::fromContext($context);
 
-                    return $this->map($value, $resolvedClass, null, $context, $configuration);
+                    return $this->map(
+                        $value,
+                        $resolvedClass,
+                        null,
+                        $context,
+                        $configuration
+                    );
                 },
             ),
         );
@@ -280,7 +286,10 @@ final readonly class JsonMapper
 
         $this->assertClassesExists($resolvedClassName, $resolvedCollectionClassName);
 
-        $collectionValueType = $this->extractCollectionType($resolvedClassName, $resolvedCollectionClassName);
+        $collectionValueType = $this->extractCollectionType(
+            $resolvedClassName,
+            $resolvedCollectionClassName
+        );
 
         $collectionResult = $this->mapCollection(
             $json,
@@ -323,7 +332,14 @@ final readonly class JsonMapper
     ): MappingResult {
         $configuration = ($configuration ?? $this->createDefaultConfiguration())->withErrorCollection(true);
         $context       = new MappingContext($json, $configuration->toOptions());
-        $value         = $this->map($json, $className, $collectionClassName, $context, $configuration);
+
+        $value = $this->map(
+            $json,
+            $className,
+            $collectionClassName,
+            $context,
+            $configuration
+        );
 
         return new MappingResult($value, new MappingReport($context->getErrorRecords()));
     }
@@ -351,20 +367,24 @@ final readonly class JsonMapper
         $docBlockCollectionType = $this->collectionDocBlockTypeResolver->resolve($resolvedCollectionClassName);
 
         if (!$docBlockCollectionType instanceof CollectionType) {
-            throw new InvalidArgumentException(sprintf(
-                'Unable to resolve the element type for collection [%s]. Define an "@extends" annotation such as "@extends %s<YourClass>".',
-                $resolvedCollectionClassName,
-                $resolvedCollectionClassName,
-            ));
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Unable to resolve the element type for collection [%s]. Define an "@extends" annotation such as "@extends %s<YourClass>".',
+                    $resolvedCollectionClassName,
+                    $resolvedCollectionClassName,
+                )
+            );
         }
 
         $collectionValueType = $docBlockCollectionType->getCollectionValueType();
 
         if ($collectionValueType instanceof TemplateType) {
-            throw new InvalidArgumentException(sprintf(
-                'Unable to resolve the element type for collection [%s]. Please provide a concrete class in the "@extends" annotation.',
-                $resolvedCollectionClassName,
-            ));
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Unable to resolve the element type for collection [%s]. Please provide a concrete class in the "@extends" annotation.',
+                    $resolvedCollectionClassName,
+                )
+            );
         }
 
         return $collectionValueType;
@@ -392,7 +412,9 @@ final readonly class JsonMapper
 
         if ($isGenericCollectionMapping) {
             if ($resolvedCollectionClassName === null) {
-                throw new InvalidArgumentException('A collection class name must be provided when mapping without an element class.');
+                throw new InvalidArgumentException(
+                    'A collection class name must be provided when mapping without an element class.'
+                );
             }
 
             $collection = $this->collectionFactory->mapIterable($json, $collectionValueType, $context);
@@ -576,8 +598,11 @@ final readonly class JsonMapper
      *
      * @return list<string> List of property names that are still required after mapping.
      */
-    private function determineMissingProperties(string $className, array $declaredProperties, array $mappedProperties): array
-    {
+    private function determineMissingProperties(
+        string $className,
+        array $declaredProperties,
+        array $mappedProperties,
+    ): array {
         $used = array_values(array_unique($mappedProperties));
 
         return array_values(array_filter(
@@ -632,8 +657,11 @@ final readonly class JsonMapper
      * @param MappingContext          $context       Context collecting the error information.
      * @param JsonMapperConfiguration $configuration Configuration that controls strict-mode behaviour.
      */
-    private function handleMappingException(MappingException $exception, MappingContext $context, JsonMapperConfiguration $configuration): void
-    {
+    private function handleMappingException(
+        MappingException $exception,
+        MappingContext $context,
+        JsonMapperConfiguration $configuration,
+    ): void {
         $context->recordException($exception);
 
         // Strict mode propagates the failure immediately to abort mapping on the first error.
@@ -645,8 +673,11 @@ final readonly class JsonMapper
     /**
      * Converts the provided JSON value using the registered strategies.
      */
-    private function convertValue(mixed $json, Type $type, MappingContext $context): mixed
-    {
+    private function convertValue(
+        mixed $json,
+        Type $type,
+        MappingContext $context,
+    ): mixed {
         if (
             is_string($json)
             && ($json === '' || trim($json) === '')
@@ -679,8 +710,11 @@ final readonly class JsonMapper
      *
      * @return mixed Value converted to a type accepted by the union.
      */
-    private function convertUnionValue(mixed $json, UnionType $type, MappingContext $context): mixed
-    {
+    private function convertUnionValue(
+        mixed $json,
+        UnionType $type,
+        MappingContext $context,
+    ): mixed {
         if ($json === null && $this->unionAllowsNull($type)) {
             return null;
         }
@@ -810,7 +844,7 @@ final readonly class JsonMapper
      */
     private function isNullType(Type $type): bool
     {
-        return $type instanceof BuiltinType && $type->getTypeIdentifier() === TypeIdentifier::NULL;
+        return ($type instanceof BuiltinType) && ($type->getTypeIdentifier() === TypeIdentifier::NULL);
     }
 
     /**
@@ -860,9 +894,10 @@ final readonly class JsonMapper
             return [];
         }
 
-        $map = [];
+        $map        = [];
+        $attributes = $reflectionClass->getAttributes(ReplaceProperty::class, ReflectionAttribute::IS_INSTANCEOF);
 
-        foreach ($reflectionClass->getAttributes(ReplaceProperty::class, ReflectionAttribute::IS_INSTANCEOF) as $attribute) {
+        foreach ($attributes as $attribute) {
             /** @var ReplaceProperty $instance */
             $instance                 = $attribute->newInstance();
             $map[$instance->replaces] = $instance->value;
@@ -896,11 +931,17 @@ final readonly class JsonMapper
     {
         $normalized = $propertyName;
 
-        if (is_string($normalized) && array_key_exists($normalized, $replacePropertyMap)) {
+        if (
+            is_string($normalized)
+            && array_key_exists($normalized, $replacePropertyMap)
+        ) {
             $normalized = $replacePropertyMap[$normalized];
         }
 
-        if (is_string($normalized) && ($this->nameConverter instanceof PropertyNameConverterInterface)) {
+        if (
+            is_string($normalized)
+            && ($this->nameConverter instanceof PropertyNameConverterInterface)
+        ) {
             return $this->nameConverter->convert($normalized);
         }
 
@@ -1002,7 +1043,10 @@ final readonly class JsonMapper
      */
     private function isIterableWithArraysOrObjects(mixed $json): bool
     {
-        if (!is_array($json) && !is_object($json)) {
+        if (
+            !is_array($json)
+            && !is_object($json)
+        ) {
             return false;
         }
 
@@ -1028,8 +1072,16 @@ final readonly class JsonMapper
      */
     private function assertClassesExists(?string $className, ?string $collectionClassName = null): void
     {
-        if ($className !== null && !class_exists($className)) {
-            throw new InvalidArgumentException(sprintf('Class [%s] does not exist', $className));
+        if (
+            ($className !== null)
+            && !class_exists($className)
+        ) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Class [%s] does not exist',
+                    $className
+                )
+            );
         }
 
         if ($collectionClassName === null) {
@@ -1040,18 +1092,31 @@ final readonly class JsonMapper
             return;
         }
 
-        throw new InvalidArgumentException(sprintf('Class [%s] does not exist', $collectionClassName));
+        throw new InvalidArgumentException(
+            sprintf(
+                'Class [%s] does not exist',
+                $collectionClassName
+            )
+        );
     }
 
     /**
      * Sets a property value.
      */
-    private function setProperty(object $entity, string $name, mixed $value, MappingContext $context): void
-    {
+    private function setProperty(
+        object $entity,
+        string $name,
+        mixed $value,
+        MappingContext $context,
+    ): void {
         $reflectionProperty = $this->getReflectionProperty($entity::class, $name);
 
         if ($reflectionProperty instanceof ReflectionProperty && $reflectionProperty->isReadOnly()) {
-            throw new ReadonlyPropertyException($context->getPath(), $name, $entity::class);
+            throw new ReadonlyPropertyException(
+                $context->getPath(),
+                $name,
+                $entity::class
+            );
         }
 
         if (is_array($value)) {
