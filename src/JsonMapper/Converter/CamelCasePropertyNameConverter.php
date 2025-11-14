@@ -21,15 +21,14 @@ use Doctrine\Inflector\InflectorFactory;
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
  */
-class CamelCasePropertyNameConverter implements PropertyNameConverterInterface
+final readonly class CamelCasePropertyNameConverter implements PropertyNameConverterInterface
 {
-    /**
-     * @var Inflector
-     */
     private Inflector $inflector;
 
     /**
-     * CamelCasePropertyNameConverter constructor.
+     * Creates the converter with the Doctrine inflector responsible for camel case transformations.
+     *
+     * The inflector dependency is initialised here so it can be reused for every conversion.
      */
     public function __construct()
     {
@@ -37,11 +36,11 @@ class CamelCasePropertyNameConverter implements PropertyNameConverterInterface
     }
 
     /**
-     * Convert the specified JSON property name to its PHP property name.
+     * Converts a raw JSON property name to the camelCase variant expected by PHP properties.
      *
-     * @param string $name
+     * @param string $name Raw property name as provided by the JSON payload.
      *
-     * @return string
+     * @return string Normalised camelCase property name that matches PHP naming conventions.
      */
     public function convert(string $name): string
     {

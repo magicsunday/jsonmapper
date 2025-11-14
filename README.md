@@ -21,6 +21,72 @@ composer remove magicsunday/jsonmapper
 
 
 ## Usage
+### Quick start
+A minimal mapping run consists of two parts: a set of DTOs annotated with collection metadata and the mapper bootstrap code.
+
+```php
+namespace App\Dto;
+
+use ArrayObject;
+
+final class Comment
+{
+    public string $message;
+}
+
+/**
+ * @extends ArrayObject<int, Comment>
+ */
+final class CommentCollection extends ArrayObject
+{
+}
+
+/**
+ * @extends ArrayObject<int, Article>
+ */
+final class ArticleCollection extends ArrayObject
+{
+}
+
+final class Article
+{
+    public string $title;
+
+    /**
+     * @var CommentCollection<int, Comment>
+     */
+    public CommentCollection $comments;
+}
+```
+
+```php
+require __DIR__ . '/vendor/autoload.php';
+
+use App\Dto\Article;
+use App\Dto\ArticleCollection;
+use MagicSunday\JsonMapper;
+
+// Decode a single article and a list of articles, raising on malformed JSON.
+$single = json_decode('{"title":"Hello world","comments":[{"message":"First!"}]}', associative: false, flags: JSON_THROW_ON_ERROR);
+$list = json_decode('[{"title":"Hello world","comments":[{"message":"First!"}]},{"title":"Second","comments":[]}]', associative: false, flags: JSON_THROW_ON_ERROR);
+
+// Bootstrap JsonMapper with reflection and PhpDoc extractors.
+$mapper = JsonMapper::createWithDefaults();
+
+// Map a single DTO and an entire collection in one go.
+$article = $mapper->map($single, Article::class);
+$articles = $mapper->map($list, Article::class, ArticleCollection::class);
+
+// Dump the results to verify the hydrated structures.
+var_dump($article, $articles);
+```
+
+The first call produces an `Article` instance with a populated `CommentCollection`; the second call returns an `ArticleCollection` containing `Article` objects.
+
+`JsonMapper::createWithDefaults()` wires the default Symfony `PropertyInfoExtractor` (reflection + PhpDoc) and a `PropertyAccessor`. When you need custom extractors, caching, or a specialised accessor you can still instantiate `JsonMapper` manually with your preferred services.
+
+Test coverage: `tests/JsonMapper/DocsQuickStartTest.php`.
+
 ### PHP classes
 In order to guarantee a seamless mapping of a JSON response into PHP classes you should prepare your classes well.
 Annotate all properties with the requested type.
@@ -32,19 +98,19 @@ values.
 For example:
 
 ```php
-@var SomeCollection<DateTime>
-@var SomeCollection<string>
-@var Collection\SomeCollection<App\Entity\SomeEntity>
+/** @var SomeCollection<DateTime> $dates */
+/** @var SomeCollection<string> $labels */
+/** @var Collection\\SomeCollection<App\\Entity\\SomeEntity> $entities */
 ```
 
 
-#### Custom annotations
+#### Custom attributes
 Sometimes its may be required to circumvent the limitations of a poorly designed API. Together with custom
-annotations it becomes possible to fix some API design issues (e.g. mismatch between documentation and webservice
+attributes it becomes possible to fix some API design issues (e.g. mismatch between documentation and webservice
 response), to create a clean SDK.
 
-##### @MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue
-This annotation is used to inform the JsonMapper that an existing default value should be used when
+##### #[MagicSunday\JsonMapper\Attribute\ReplaceNullWithDefaultValue]
+This attribute is used to inform the JsonMapper that an existing default value should be used when
 setting a property, if the value derived from the JSON is a NULL value instead of the expected property type.
 
 This can be necessary, for example, in the case of a bad API design, if the API documentation defines a
@@ -52,31 +118,36 @@ certain type (e.g. array), but the API call itself then returns NULL if no data 
 instead of an empty array that can be expected.
 
 ```php
-/**
- * @var array<string>
- *
- * @MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue
- */
-public array $array = [];
+namespace App\Dto;
+
+use MagicSunday\JsonMapper\Attribute\ReplaceNullWithDefaultValue;
+
+final class AttributeExample
+{
+    /**
+     * @var array<string>
+     */
+    #[ReplaceNullWithDefaultValue]
+    public array $roles = [];
+}
 ```
 
 If the mapping tries to assign NULL to the property, the default value will be used, as annotated.
 
-##### @MagicSunday\JsonMapper\Annotation\ReplaceProperty
-This annotation is used to inform the JsonMapper to replace one or more properties with another one. It's
+##### #[MagicSunday\JsonMapper\Attribute\ReplaceProperty]
+This attribute is used to inform the JsonMapper to replace one or more properties with another one. It's
 used in class context.
 
 For instance if you want to replace a cryptic named property to a more human-readable name.
 ```php
-/**
- * @MagicSunday\JsonMapper\Annotation\ReplaceProperty("type", replaces="crypticTypeNameProperty")
- */
-class FooClass
+namespace App\Dto;
+
+use MagicSunday\JsonMapper\Attribute\ReplaceProperty;
+
+#[ReplaceProperty('type', replaces: 'crypticTypeNameProperty')]
+final class FooClass
 {
-    /**
-     * @var string
-     */
-    public $type;
+    public string $type;
 }
 ```
 
@@ -94,107 +165,320 @@ your needs.
 To use the `PhpDocExtractor` extractor you need to install the `phpdocumentor/reflection-docblock` library too.
 
 ```php
-use \Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
-use \Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
-use \Symfony\Component\PropertyInfo\PropertyInfoExtractor;
-use \Symfony\Component\PropertyAccess\PropertyAccessor;
-```
+require __DIR__ . '/vendor/autoload.php';
 
-A common extractor setup:
-```php
-$listExtractors = [ new ReflectionExtractor() ];
-$typeExtractors = [ new PhpDocExtractor() ];
-$propertyInfoExtractor = new PropertyInfoExtractor($listExtractors, $typeExtractors);
-```
+use MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter;
+use MagicSunday\JsonMapper;
+use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
+use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
+use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
 
-Create an instance of the property accessor:
-```php
+final class SdkFoo
+{
+}
+
+final class Foo
+{
+}
+
+// Gather Symfony extractors that describe available DTO properties.
+$propertyInfo = new PropertyInfoExtractor(
+    listExtractors: [new ReflectionExtractor()],
+    typeExtractors: [new PhpDocExtractor()],
+);
+
+// Build a property accessor so JsonMapper can read and write DTO values.
 $propertyAccessor = PropertyAccess::createPropertyAccessor();
-```
 
-Using the third argument you can pass a property name converter instance to the mapper. With this you can convert 
-the JSON property names to you desired format your PHP classes are using.
-```php
-$nameConverter = new \MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter();
-```
+// Convert snake_case JSON keys into camelCase DTO properties.
+$nameConverter = new CamelCasePropertyNameConverter();
 
-The last constructor parameter allows you to pass a class map to JsonMapper in order to change the default mapping 
-behaviour. For instance if you have an SDK which maps the JSON response of a webservice to PHP. Using the class map you could override
-the default mapping to the SDK's classes by providing an alternative list of classes used to map.
-```php
+// Provide explicit class-map overrides when API classes differ from DTOs.
 $classMap = [
     SdkFoo::class => Foo::class,
 ];
-```
 
-Create an instance of the JsonMapper:
-```php
-$mapper = new \MagicSunday\JsonMapper(
-    $propertyInfoExtractor,
+// Finally create the mapper with the configured dependencies.
+$mapper = new JsonMapper(
+    $propertyInfo,
     $propertyAccessor,
     $nameConverter,
-    $classMap
+    $classMap,
 );
 ```
 
 To handle custom or special types of objects, add them to the mapper. For instance to perform
 special treatment if an object of type Bar should be mapped:
-```php
-$mapper->addType(
-    Bar::class,
-    /** @var mixed $value JSON data */
-    static function ($value): ?Bar {
-        return $value ? new Bar($value['name']) : null;
-    }
-);
-```
 
-or add a handler to map DateTime values:
+You may alternatively implement `\MagicSunday\JsonMapper\Value\TypeHandlerInterface` to package reusable handlers.
+
 ```php
-$mapper->addType(
-    \DateTime::class,
-    /** @var mixed $value JSON data */
-    static function ($value): ?\DateTime {
-        return $value ? new \DateTime($value) : null;
+require __DIR__ . '/vendor/autoload.php';
+
+use DateTimeImmutable;
+use MagicSunday\JsonMapper;
+use MagicSunday\JsonMapper\Value\ClosureTypeHandler;
+use stdClass;
+use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
+use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
+use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
+
+final class Bar
+{
+    public function __construct(public string $name)
+    {
     }
+}
+
+final class Wrapper
+{
+    public Bar $bar;
+    public DateTimeImmutable $createdAt;
+}
+
+// Describe DTO properties through Symfony extractors.
+$propertyInfo = new PropertyInfoExtractor(
+    listExtractors: [new ReflectionExtractor()],
+    typeExtractors: [new PhpDocExtractor()],
 );
+$propertyAccessor = PropertyAccess::createPropertyAccessor();
+
+$mapper = new JsonMapper($propertyInfo, $propertyAccessor);
+
+// Register a handler that hydrates Bar value objects from nested stdClass payloads.
+$mapper->addTypeHandler(
+    new ClosureTypeHandler(
+        Bar::class,
+        static function (stdClass $value): Bar {
+            // Convert the decoded JSON object into a strongly typed Bar instance.
+            return new Bar($value->name);
+        },
+    ),
+);
+
+// Register a handler for DateTimeImmutable conversion using ISO-8601 timestamps.
+$mapper->addTypeHandler(
+    new ClosureTypeHandler(
+        DateTimeImmutable::class,
+        static function (string $value): DateTimeImmutable {
+            return new DateTimeImmutable($value);
+        },
+    ),
+);
+
+// Decode the JSON payload while throwing on malformed input.
+$payload = json_decode('{"bar":{"name":"custom"},"createdAt":"2024-01-01T10:00:00+00:00"}', associative: false, flags: JSON_THROW_ON_ERROR);
+
+// Map the payload into the Wrapper DTO.
+$result = $mapper->map($payload, Wrapper::class);
+
+var_dump($result);
 ```
 
 Convert a JSON string into a JSON array/object using PHPs built in method `json_decode`
 ```php
-$json = json_decode('JSON STRING', true, 512, JSON_THROW_ON_ERROR);
+// Decode the JSON document while propagating parser errors.
+$json = json_decode('{"title":"Sample"}', associative: false, flags: JSON_THROW_ON_ERROR);
+
+// Inspect the decoded representation.
+var_dump($json);
 ```
 
 Call method `map` to do the actual mapping of the JSON object/array into PHP classes. Pass the initial class name
 and optional the name of a collection class to the method.
 ```php
+require __DIR__ . '/vendor/autoload.php';
+
+use ArrayObject;
+use MagicSunday\JsonMapper;
+use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
+use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
+use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
+
+final class FooCollection extends ArrayObject
+{
+}
+
+final class Foo
+{
+    public string $name;
+}
+
+// Decode a JSON array into objects and throw on malformed payloads.
+$json = json_decode('[{"name":"alpha"},{"name":"beta"}]', associative: false, flags: JSON_THROW_ON_ERROR);
+
+// Configure JsonMapper with reflection and PHPDoc metadata.
+$propertyInfo = new PropertyInfoExtractor(
+    listExtractors: [new ReflectionExtractor()],
+    typeExtractors: [new PhpDocExtractor()],
+);
+$propertyAccessor = PropertyAccess::createPropertyAccessor();
+
+$mapper = new JsonMapper($propertyInfo, $propertyAccessor);
+
+// Map the collection into Foo instances stored inside FooCollection.
 $mappedResult = $mapper->map($json, Foo::class, FooCollection::class);
+
+var_dump($mappedResult);
 ```
 
 A complete set-up may look like this:
 
 ```php
-/**
- * Returns an instance of the JsonMapper for testing.
- *
- * @param string[]|Closure[] $classMap A class map to override the class names
- *
- * @return \MagicSunday\JsonMapper
- */
-protected function getJsonMapper(array $classMap = []): \MagicSunday\JsonMapper
-{
-    $listExtractors = [ new ReflectionExtractor() ];
-    $typeExtractors = [ new PhpDocExtractor() ];
-    $extractor      = new PropertyInfoExtractor($listExtractors, $typeExtractors);
+require __DIR__ . '/vendor/autoload.php';
 
-    return new \MagicSunday\JsonMapper(
-        $extractor,
+use MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter;
+use MagicSunday\JsonMapper;
+use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
+use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
+use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
+
+/**
+ * Bootstrap a JsonMapper instance with Symfony extractors and optional class-map overrides.
+ *
+ * @param array<class-string, class-string> $classMap Override source classes with DTO replacements.
+ */
+function createJsonMapper(array $classMap = []): JsonMapper
+{
+    // Cache property metadata to avoid repeated reflection work.
+    $propertyInfo = new PropertyInfoExtractor(
+        listExtractors: [new ReflectionExtractor()],
+        typeExtractors: [new PhpDocExtractor()],
+    );
+
+    // Return a mapper configured with a camelCase converter and optional overrides.
+    return new JsonMapper(
+        $propertyInfo,
         PropertyAccess::createPropertyAccessor(),
         new CamelCasePropertyNameConverter(),
-        $classMap
+        $classMap,
     );
 }
+
+$mapper = createJsonMapper();
 ```
+
+### Type converters and custom class maps
+Custom types should implement `MagicSunday\\JsonMapper\\Value\\TypeHandlerInterface` and can be registered once via `JsonMapper::addTypeHandler()`. For lightweight overrides you may still use `addType()` with a closure, but new code should prefer dedicated handler classes.
+
+Use `JsonMapper::addCustomClassMapEntry()` when the target class depends on runtime data. The resolver receives the decoded JSON payload and may inspect a `MappingContext` when you need additional state.
+
+```php
+require __DIR__ . '/vendor/autoload.php';
+
+use MagicSunday\JsonMapper;
+use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
+use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
+use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
+
+final class SdkFoo
+{
+}
+
+final class FooBar
+{
+}
+
+final class FooBaz
+{
+}
+
+// Build the dependencies shared by all mapping runs.
+$propertyInfo = new PropertyInfoExtractor(
+    listExtractors: [new ReflectionExtractor()],
+    typeExtractors: [new PhpDocExtractor()],
+);
+$propertyAccessor = PropertyAccess::createPropertyAccessor();
+
+$mapper = new JsonMapper($propertyInfo, $propertyAccessor);
+
+// Route SDK payloads to specific DTOs based on runtime discriminator data.
+$mapper->addCustomClassMapEntry(SdkFoo::class, static function (array $payload): string {
+    // Decide which DTO to instantiate by inspecting the payload type.
+    return $payload['type'] === 'bar' ? FooBar::class : FooBaz::class;
+});
+```
+
+### Error handling strategies
+The mapper operates in a lenient mode by default. Switch to strict mapping when every property must be validated:
+
+```php
+require __DIR__ . '/vendor/autoload.php';
+
+use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
+use MagicSunday\JsonMapper;
+use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
+use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
+use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
+
+final class Article
+{
+    public string $title;
+}
+
+// Decode the JSON payload that should comply with the DTO schema.
+$payload = json_decode('{"title":"Strict example"}', associative: false, flags: JSON_THROW_ON_ERROR);
+
+// Prepare the mapper with Symfony metadata extractors.
+$propertyInfo = new PropertyInfoExtractor(
+    listExtractors: [new ReflectionExtractor()],
+    typeExtractors: [new PhpDocExtractor()],
+);
+$propertyAccessor = PropertyAccess::createPropertyAccessor();
+
+$mapper = new JsonMapper($propertyInfo, $propertyAccessor);
+
+// Enable strict validation and collect every encountered error.
+$config = JsonMapperConfiguration::strict()->withCollectErrors(true);
+
+// Map while receiving a result object that contains the mapped DTO and issues.
+$result = $mapper->mapWithReport($payload, Article::class, configuration: $config);
+
+var_dump($result->getMappedValue());
+```
+
+For tolerant APIs combine `JsonMapperConfiguration::lenient()` with `->withIgnoreUnknownProperties(true)` or `->withTreatNullAsEmptyCollection(true)` to absorb schema drifts.
+
+### Performance hints
+Type resolution is the most expensive part of a mapping run. Provide a PSR-6 cache pool to the constructor to reuse computed `Type` metadata:
+
+```php
+require __DIR__ . '/vendor/autoload.php';
+
+use MagicSunday\JsonMapper;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
+use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
+use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
+
+// Assemble the reflection and PHPDoc extractors once.
+$propertyInfo = new PropertyInfoExtractor(
+    listExtractors: [new ReflectionExtractor()],
+    typeExtractors: [new PhpDocExtractor()],
+);
+$propertyAccessor = PropertyAccess::createPropertyAccessor();
+
+// Cache resolved Type metadata between mapping runs.
+$cache = new ArrayAdapter();
+$mapper = new JsonMapper($propertyInfo, $propertyAccessor, nameConverter: null, classMap: [], typeCache: $cache);
+```
+
+Reuse a single `JsonMapper` instance across requests to share the cached metadata and registered handlers.
+
+## Additional documentation
+* [API reference](docs/API.md)
+* Recipes
+  * [Mapping JSON to PHP enums](docs/recipes/mapping-with-enums.md)
+  * [Using mapper attributes](docs/recipes/using-attributes.md)
+  * [Mapping nested collections](docs/recipes/nested-collections.md)
+  * [Using a custom name converter](docs/recipes/custom-name-converter.md)
 
 ## Development
 

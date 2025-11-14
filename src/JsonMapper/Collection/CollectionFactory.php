@@ -1,0 +1,148 @@
+<?php
+
+/**
+ * This file is part of the package magicsunday/jsonmapper.
+ *
+ * For the full copyright and license information, please read the
+ * LICENSE file that was distributed with this source code.
+ */
+
+declare(strict_types=1);
+
+namespace MagicSunday\JsonMapper\Collection;
+
+use Closure;
+use DomainException;
+use MagicSunday\JsonMapper\Context\MappingContext;
+use MagicSunday\JsonMapper\Exception\CollectionMappingException;
+use MagicSunday\JsonMapper\Resolver\ClassResolver;
+use MagicSunday\JsonMapper\Value\ValueConverter;
+use Symfony\Component\TypeInfo\Type;
+use Symfony\Component\TypeInfo\Type\BuiltinType;
+use Symfony\Component\TypeInfo\Type\CollectionType;
+use Symfony\Component\TypeInfo\Type\GenericType;
+use Symfony\Component\TypeInfo\Type\ObjectType;
+use Symfony\Component\TypeInfo\Type\WrappingTypeInterface;
+use Symfony\Component\TypeInfo\TypeIdentifier;
+use Traversable;
+
+use function get_debug_type;
+use function get_object_vars;
+use function is_array;
+use function is_object;
+use function iterator_to_array;
+
+/**
+ * Creates collections and hydrates wrapping collection classes.
+ *
+ * @phpstan-type CollectionWrappedType BuiltinType<TypeIdentifier::ARRAY>|BuiltinType<TypeIdentifier::ITERABLE>|ObjectType<class-string>
+ *
+ * @implements CollectionFactoryInterface<array-key, mixed>
+ */
+final readonly class CollectionFactory implements CollectionFactoryInterface
+{
+    /**
+     * @param Closure(class-string, array<array-key, mixed>|null):object $instantiator
+     */
+    public function __construct(
+        private ValueConverter $valueConverter,
+        private ClassResolver $classResolver,
+        private Closure $instantiator,
+    ) {
+    }
+
+    /**
+     * Converts the provided iterable JSON structure to a PHP array.
+     *
+     * @param mixed          $json      Raw JSON data representing the collection to hydrate.
+     * @param Type           $valueType Type descriptor for individual collection entries.
+     * @param MappingContext $context   Active mapping context providing path and strictness information.
+     *
+     * @return array<array-key, mixed>|null Normalised collection data or null when conversion fails.
+     */
+    public function mapIterable(mixed $json, Type $valueType, MappingContext $context): ?array
+    {
+        if ($json === null) {
+            if ($context->shouldTreatNullAsEmptyCollection()) {
+                return [];
+            }
+
+            return null;
+        }
+
+        $source = match (true) {
+            $json instanceof Traversable => iterator_to_array($json),
+            is_array($json)              => $json,
+            is_object($json)             => get_object_vars($json),
+            default                      => null,
+        };
+
+        if (!is_array($source)) {
+            $exception = new CollectionMappingException($context->getPath(), get_debug_type($json));
+            $context->recordException($exception);
+
+            if ($context->isStrictMode()) {
+                throw $exception;
+            }
+
+            return null;
+        }
+
+        $collection = [];
+
+        foreach ($source as $key => $value) {
+            $collection[$key] = $context->withPathSegment((string) $key, fn (MappingContext $childContext): mixed => $this->valueConverter->convert($value, $valueType, $childContext));
+        }
+
+        return $collection;
+    }
+
+    /**
+     * Builds a collection based on the specified collection type description.
+     *
+     * @param CollectionType<CollectionWrappedType|GenericType<CollectionWrappedType>> $type    Resolved collection metadata from docblocks or attributes.
+     * @param mixed                                                                    $json    Raw JSON payload containing the collection values.
+     * @param MappingContext                                                           $context Mapping context controlling strict mode and error tracking.
+     *
+     * @return object|array<array-key, mixed>|null Instantiated collection wrapper or the normalised array values.
+     */
+    public function fromCollectionType(CollectionType $type, mixed $json, MappingContext $context): array|object|null
+    {
+        $collection = $this->mapIterable($json, $type->getCollectionValueType(), $context);
+
+        $wrappedType = $type->getWrappedType();
+
+        if (($wrappedType instanceof WrappingTypeInterface) && ($wrappedType->getWrappedType() instanceof ObjectType)) {
+            $objectType    = $wrappedType->getWrappedType();
+            $className     = $this->resolveWrappedClass($objectType);
+            $resolvedClass = $this->classResolver->resolve($className, $json, $context);
+
+            $instantiator = $this->instantiator;
+
+            return $instantiator($resolvedClass, $collection);
+        }
+
+        return $collection;
+    }
+
+    /**
+     * Resolves the wrapped collection class name.
+     *
+     * @param ObjectType<class-string> $objectType
+     *
+     * @return class-string
+     *
+     * @throws DomainException
+     */
+    private function resolveWrappedClass(ObjectType $objectType): string
+    {
+        $className = $objectType->getClassName();
+
+        if ($className === '') {
+            throw new DomainException('Collection type must define a class-string for the wrapped object.');
+        }
+
+        /** @var class-string $className */
+        return $className;
+    }
+}

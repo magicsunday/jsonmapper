@@ -24,7 +24,9 @@ use ArrayObject;
  * @template TKey of array-key
  * @template TValue
  *
- * @implements ArrayAccess<array-key, Base>
+ * @extends ArrayObject<TKey, TValue>
+ *
+ * @implements ArrayAccess<TKey, TValue>
  */
 class Collection extends ArrayObject implements ArrayAccess
 {

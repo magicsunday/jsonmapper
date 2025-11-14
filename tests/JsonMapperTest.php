@@ -11,21 +11,32 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test;
 
+use DateInterval;
+use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
+use MagicSunday\JsonMapper\Exception\UnknownPropertyException;
+use MagicSunday\JsonMapper\Value\ClosureTypeHandler;
 use MagicSunday\Test\Classes\Base;
+use MagicSunday\Test\Classes\BaseCollection;
 use MagicSunday\Test\Classes\ClassMap\CollectionSource;
 use MagicSunday\Test\Classes\ClassMap\CollectionTarget;
 use MagicSunday\Test\Classes\ClassMap\SourceItem;
 use MagicSunday\Test\Classes\ClassMap\TargetItem;
 use MagicSunday\Test\Classes\Collection;
 use MagicSunday\Test\Classes\CustomConstructor;
+use MagicSunday\Test\Classes\DateTimeHolder;
+use MagicSunday\Test\Classes\EnumHolder;
 use MagicSunday\Test\Classes\Initialized;
 use MagicSunday\Test\Classes\MapPlainArrayKeyValueClass;
 use MagicSunday\Test\Classes\MultidimensionalArray;
+use MagicSunday\Test\Classes\NullableStringHolder;
 use MagicSunday\Test\Classes\Person;
 use MagicSunday\Test\Classes\PlainArrayClass;
+use MagicSunday\Test\Classes\ScalarHolder;
 use MagicSunday\Test\Classes\Simple;
+use MagicSunday\Test\Classes\UnionHolder;
 use MagicSunday\Test\Classes\VariadicSetterClass;
 use MagicSunday\Test\Classes\VipPerson;
+use MagicSunday\Test\Fixtures\Enum\SampleStatus;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use stdClass;
@@ -78,6 +89,28 @@ class JsonMapperTest extends TestCase
         self::assertInstanceOf(Base::class, $result[0]);
         self::assertInstanceOf(Base::class, $result[1]);
         self::assertSame('Item 1', $result[0]->name);
+        self::assertSame('Item 2', $result[1]->name);
+    }
+
+    /**
+     * Tests mapping a collection using a generic @extends annotation.
+     */
+    #[Test]
+    public function mapCollectionUsingDocBlockExtends(): void
+    {
+        $result = $this->getJsonMapper()
+            ->map(
+                $this->getJsonAsArray(Provider\DataProvider::mapCollectionJson()),
+                null,
+                BaseCollection::class
+            );
+
+        self::assertInstanceOf(BaseCollection::class, $result);
+        self::assertCount(2, $result);
+        self::assertContainsOnlyInstancesOf(Base::class, $result);
+        self::assertInstanceOf(Base::class, $result[0]);
+        self::assertSame('Item 1', $result[0]->name);
+        self::assertInstanceOf(Base::class, $result[1]);
         self::assertSame('Item 2', $result[1]->name);
     }
 
@@ -219,27 +252,29 @@ JSON
     public function mapCustomType(string $jsonString): void
     {
         $result = $this->getJsonMapper()
-            ->addType(
-                CustomConstructor::class,
-                static function (mixed $value): ?CustomConstructor {
-                    if (
-                        is_array($value)
-                        && isset($value['name'])
-                        && is_string($value['name'])
-                    ) {
-                        return new CustomConstructor($value['name']);
-                    }
+            ->addTypeHandler(
+                new ClosureTypeHandler(
+                    CustomConstructor::class,
+                    static function (mixed $value): ?CustomConstructor {
+                        if (
+                            is_array($value)
+                            && isset($value['name'])
+                            && is_string($value['name'])
+                        ) {
+                            return new CustomConstructor($value['name']);
+                        }
 
-                    if (
-                        ($value instanceof stdClass)
-                        && property_exists($value, 'name')
-                        && is_string($value->name)
-                    ) {
-                        return new CustomConstructor($value->name);
-                    }
+                        if (
+                            ($value instanceof stdClass)
+                            && property_exists($value, 'name')
+                            && is_string($value->name)
+                        ) {
+                            return new CustomConstructor($value->name);
+                        }
 
-                    return null;
-                }
+                        return null;
+                    },
+                ),
             )
             ->map(
                 $this->getJsonAsArray($jsonString),
@@ -528,11 +563,11 @@ JSON
     }
 
     /**
-     * Tests mapping of default values using @MagicSunday\JsonMapper\Annotation\ReplaceNullWithDefaultValue
-     * annotation in case JSON contains NULL.
+     * Tests mapping of default values using #[MagicSunday\JsonMapper\Attribute\ReplaceNullWithDefaultValue]
+     * when the JSON payload contains null values.
      */
     #[Test]
-    public function mapNullToDefaultValueUsingAnnotation(): void
+    public function mapNullToDefaultValueUsingAttribute(): void
     {
         $result = $this->getJsonMapper()
             ->map(
@@ -757,5 +792,194 @@ JSON
 
         self::assertInstanceOf(CollectionTarget::class, $result);
         self::assertContainsOnlyInstancesOf(TargetItem::class, $result);
+    }
+
+    #[Test]
+    public function mapBackedEnumFromString(): void
+    {
+        $result = $this->getJsonMapper()
+            ->map(['status' => 'active'], EnumHolder::class);
+
+        self::assertInstanceOf(EnumHolder::class, $result);
+        self::assertSame(SampleStatus::Active, $result->status);
+    }
+
+    #[Test]
+    public function mapUnionTypeWithNumericString(): void
+    {
+        $result = $this->getJsonMapper()
+            ->map([
+                'value'    => '42',
+                'fallback' => 'hello',
+            ], UnionHolder::class);
+
+        self::assertInstanceOf(UnionHolder::class, $result);
+        self::assertSame(42, $result->value);
+        self::assertSame('hello', $result->fallback);
+    }
+
+    #[Test]
+    public function mapUnionTypeWithTextualValue(): void
+    {
+        $result = $this->getJsonMapper()
+            ->map([
+                'value'    => 'oops',
+                'fallback' => 99,
+            ], UnionHolder::class);
+
+        self::assertInstanceOf(UnionHolder::class, $result);
+        self::assertSame('oops', $result->value);
+        self::assertSame(99, $result->fallback);
+    }
+
+    #[Test]
+    public function mapDateTimeAndIntervalValues(): void
+    {
+        $result = $this->getJsonMapper()
+            ->map([
+                'createdAt' => '2024-04-01T12:00:00+00:00',
+                'timeout'   => 'PT15M',
+            ], DateTimeHolder::class);
+
+        self::assertInstanceOf(DateTimeHolder::class, $result);
+        self::assertSame('2024-04-01T12:00:00+00:00', $result->createdAt->format('c'));
+        self::assertInstanceOf(DateInterval::class, $result->timeout);
+        self::assertSame(15, $result->timeout->i);
+    }
+
+    #[Test]
+    public function mapScalarShorthandValues(): void
+    {
+        $result = $this->getJsonMapper()
+            ->map([
+                'intValue'   => '42',
+                'floatValue' => '3.14',
+                'boolValue'  => '1',
+            ], ScalarHolder::class);
+
+        self::assertInstanceOf(ScalarHolder::class, $result);
+        self::assertSame(42, $result->intValue);
+        self::assertSame(3.14, $result->floatValue);
+        self::assertTrue($result->boolValue);
+    }
+
+    #[Test]
+    public function mapScalarZeroStringToFalse(): void
+    {
+        $result = $this->getJsonMapper()
+            ->map([
+                'intValue'   => '0',
+                'floatValue' => '0',
+                'boolValue'  => '0',
+            ], ScalarHolder::class);
+
+        self::assertInstanceOf(ScalarHolder::class, $result);
+        self::assertSame(0, $result->intValue);
+        self::assertSame(0.0, $result->floatValue);
+        self::assertFalse($result->boolValue);
+    }
+
+    #[Test]
+    public function mapEmptyStringToNullWhenEnabled(): void
+    {
+        $configuration = JsonMapperConfiguration::lenient()->withEmptyStringAsNull(true);
+
+        $result = $this->getJsonMapper()
+            ->map(
+                ['value' => ''],
+                NullableStringHolder::class,
+                null,
+                null,
+                $configuration,
+            );
+
+        self::assertInstanceOf(NullableStringHolder::class, $result);
+        self::assertNull($result->value);
+    }
+
+    #[Test]
+    public function itAppliesConfiguredStrictModeByDefault(): void
+    {
+        $config = (new JsonMapperConfiguration())->withStrictMode(true);
+
+        $this->expectException(UnknownPropertyException::class);
+
+        $this->getJsonMapper([], $config)->map(
+            [
+                'name'    => 'John Doe',
+                'unknown' => 'value',
+            ],
+            Person::class,
+        );
+    }
+
+    #[Test]
+    public function itIgnoresUnknownPropertiesWhenConfigured(): void
+    {
+        $config = (new JsonMapperConfiguration())->withIgnoreUnknownProperties(true);
+
+        $result = $this->getJsonMapper([], $config)
+            ->mapWithReport(
+                [
+                    'name'    => 'John Doe',
+                    'unknown' => 'value',
+                ],
+                Person::class,
+            );
+
+        self::assertInstanceOf(Person::class, $result->getValue());
+        self::assertFalse($result->getReport()->hasErrors());
+    }
+
+    #[Test]
+    public function itTreatsNullCollectionsAsEmptyWhenConfigured(): void
+    {
+        $config = (new JsonMapperConfiguration())->withTreatNullAsEmptyCollection(true);
+
+        $result = $this->getJsonMapper([], $config)
+            ->map(
+                [
+                    'simpleArray' => null,
+                ],
+                Base::class,
+            );
+
+        self::assertInstanceOf(Base::class, $result);
+        self::assertSame([], $result->simpleArray);
+    }
+
+    #[Test]
+    public function itUsesDefaultDateFormatFromConfiguration(): void
+    {
+        $config = (new JsonMapperConfiguration())->withDefaultDateFormat('d.m.Y H:i:s');
+
+        $result = $this->getJsonMapper([], $config)
+            ->map(
+                [
+                    'createdAt' => '24.01.2024 18:45:00',
+                ],
+                DateTimeHolder::class,
+            );
+
+        self::assertInstanceOf(DateTimeHolder::class, $result);
+        self::assertSame('24.01.2024 18:45:00', $result->createdAt->format('d.m.Y H:i:s'));
+    }
+
+    #[Test]
+    public function itAllowsScalarToObjectCastingWhenConfigured(): void
+    {
+        $config = (new JsonMapperConfiguration())->withScalarToObjectCasting(true);
+
+        $result = $this->getJsonMapper([], $config)
+            ->mapWithReport(
+                [
+                    'simple' => 'identifier',
+                ],
+                Base::class,
+            );
+
+        self::assertFalse($result->getReport()->hasErrors());
+        $mapped = $result->getValue();
+        self::assertInstanceOf(Base::class, $mapped);
     }
 }
