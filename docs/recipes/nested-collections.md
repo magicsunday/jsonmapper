@@ -53,7 +53,7 @@ use App\Dto\Article;
 use App\Dto\ArticleCollection;
 use App\Dto\NestedTagCollection;
 use App\Dto\TagCollection;
-use MagicSunday\JsonMapper\JsonMapper;
+use MagicSunday\JsonMapper;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
@@ -87,3 +87,6 @@ assert($articles[0]->tags instanceof NestedTagCollection);
 ```
 
 Each custom collection advertises its value type through the `@extends` PHPDoc annotation, allowing the mapper to recurse through nested structures.
+
+Test coverage: `tests/JsonMapper/DocsNestedCollectionsTest.php`.
+

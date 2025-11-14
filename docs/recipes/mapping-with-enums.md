@@ -29,8 +29,7 @@ require __DIR__ . '/vendor/autoload.php';
 
 use App\Dto\Article;
 use App\Dto\Status;
-use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
-use MagicSunday\JsonMapper\JsonMapper;
+use MagicSunday\JsonMapper;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
@@ -48,12 +47,14 @@ $propertyInfo = new PropertyInfoExtractor(
     typeExtractors: [new PhpDocExtractor()],
 );
 $propertyAccessor = PropertyAccess::createPropertyAccessor();
-$configuration = JsonMapperConfiguration::lenient();
 
 $mapper = new JsonMapper($propertyInfo, $propertyAccessor);
-$article = $mapper->map($json, Article::class, configuration: $configuration);
+$article = $mapper->map($json, Article::class);
 
 assert($article instanceof Article);
 assert($article->status === Status::Published);
 ```
-The mapper validates enum values. When strict mode is enabled (`JsonMapperConfiguration::strict()`), an invalid enum value results in a `TypeMismatchException`.
+
+The mapper validates enum values. In strict mode (`JsonMapperConfiguration::strict()`), an invalid enum value results in a `TypeMismatchException` instead of populating the property.
+
+Test coverage: `tests/JsonMapperTest.php::mapBackedEnumFromString` and `tests/JsonMapper/JsonMapperErrorHandlingTest.php::itReportsInvalidEnumValuesInLenientMode`.

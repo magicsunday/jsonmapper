@@ -51,6 +51,10 @@ final class ArticleCollection extends ArrayObject
 final class Article
 {
     public string $title;
+
+    /**
+     * @var CommentCollection<int, Comment>
+     */
     public CommentCollection $comments;
 }
 ```
@@ -60,7 +64,7 @@ require __DIR__ . '/vendor/autoload.php';
 
 use App\Dto\Article;
 use App\Dto\ArticleCollection;
-use MagicSunday\JsonMapper\JsonMapper;
+use MagicSunday\JsonMapper;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
@@ -88,6 +92,8 @@ var_dump($article, $articles);
 ```
 
 The first call produces an `Article` instance with a populated `CommentCollection`; the second call returns an `ArticleCollection` containing `Article` objects.
+
+Test coverage: `tests/JsonMapper/DocsQuickStartTest.php`.
 
 ### PHP classes
 In order to guarantee a seamless mapping of a JSON response into PHP classes you should prepare your classes well.
@@ -170,7 +176,7 @@ To use the `PhpDocExtractor` extractor you need to install the `phpdocumentor/re
 require __DIR__ . '/vendor/autoload.php';
 
 use MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter;
-use MagicSunday\JsonMapper\JsonMapper;
+use MagicSunday\JsonMapper;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
@@ -219,7 +225,7 @@ You may alternatively implement `\MagicSunday\JsonMapper\Value\TypeHandlerInterf
 require __DIR__ . '/vendor/autoload.php';
 
 use DateTimeImmutable;
-use MagicSunday\JsonMapper\JsonMapper;
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Value\ClosureTypeHandler;
 use stdClass;
 use Symfony\Component\PropertyAccess\PropertyAccess;
@@ -294,7 +300,7 @@ and optional the name of a collection class to the method.
 require __DIR__ . '/vendor/autoload.php';
 
 use ArrayObject;
-use MagicSunday\JsonMapper\JsonMapper;
+use MagicSunday\JsonMapper;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
@@ -333,7 +339,7 @@ A complete set-up may look like this:
 require __DIR__ . '/vendor/autoload.php';
 
 use MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter;
-use MagicSunday\JsonMapper\JsonMapper;
+use MagicSunday\JsonMapper;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
@@ -372,7 +378,7 @@ Use `JsonMapper::addCustomClassMapEntry()` when the target class depends on runt
 ```php
 require __DIR__ . '/vendor/autoload.php';
 
-use MagicSunday\JsonMapper\JsonMapper;
+use MagicSunday\JsonMapper;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
@@ -413,7 +419,7 @@ The mapper operates in a lenient mode by default. Switch to strict mapping when 
 require __DIR__ . '/vendor/autoload.php';
 
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
-use MagicSunday\JsonMapper\JsonMapper;
+use MagicSunday\JsonMapper;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
@@ -453,7 +459,7 @@ Type resolution is the most expensive part of a mapping run. Provide a PSR-6 cac
 ```php
 require __DIR__ . '/vendor/autoload.php';
 
-use MagicSunday\JsonMapper\JsonMapper;
+use MagicSunday\JsonMapper;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;

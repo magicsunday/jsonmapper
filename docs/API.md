@@ -10,7 +10,7 @@ The `JsonMapper` class is the main entry point for mapping arbitrary JSON struct
 <?php
 declare(strict_types=1);
 
-use MagicSunday\JsonMapper\JsonMapper;
+use MagicSunday\JsonMapper;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
@@ -82,7 +82,7 @@ declare(strict_types=1);
 require __DIR__ . '/vendor/autoload.php';
 
 use MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter;
-use MagicSunday\JsonMapper\JsonMapper;
+use MagicSunday\JsonMapper;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
