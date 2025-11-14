@@ -108,12 +108,14 @@ final readonly class JsonMapper
     private CustomTypeRegistry $customTypeRegistry;
 
     /**
-     * @param PropertyInfoExtractorInterface                                                                            $extractor
-     * @param PropertyAccessorInterface                                                                                 $accessor
-     * @param PropertyNameConverterInterface|null                                                                       $nameConverter
-     * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
-     * @param CacheItemPoolInterface|null                                                                               $typeCache
-     * @param JsonMapperConfiguration                                                                                   $config
+     * Creates a mapper that converts JSON data into PHP objects using the configured Symfony services.
+     *
+     * @param PropertyInfoExtractorInterface                                                                            $extractor    Extractor that provides type information for mapped properties.
+     * @param PropertyAccessorInterface                                                                                 $accessor     Property accessor used to write values onto target objects.
+     * @param PropertyNameConverterInterface|null                                                                       $nameConverter Optional converter to normalise incoming property names.
+     * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap     Map of base classes to resolvers that determine the concrete class to instantiate.
+     * @param CacheItemPoolInterface|null                                                                               $typeCache    Optional cache for resolved type information.
+     * @param JsonMapperConfiguration                                                                                   $config       Default mapper configuration cloned for new mapping contexts.
      */
     public function __construct(
         private PropertyInfoExtractorInterface $extractor,
@@ -161,6 +163,10 @@ final readonly class JsonMapper
 
     /**
      * Registers a custom type handler.
+     *
+     * @param TypeHandlerInterface $handler Type handler implementation to register with the mapper.
+     *
+     * @return JsonMapper Returns the mapper instance for fluent configuration.
      */
     public function addTypeHandler(TypeHandlerInterface $handler): JsonMapper
     {
@@ -172,7 +178,12 @@ final readonly class JsonMapper
     /**
      * Registers a custom type using a closure-based handler.
      *
+     * @param string  $type    Name of the custom type alias handled by the closure.
+     * @param Closure $closure Closure that converts the incoming value to the target type.
+     *
      * @deprecated Use addTypeHandler() with a TypeHandlerInterface implementation instead.
+     *
+     * @return JsonMapper Returns the mapper instance for fluent configuration.
      */
     public function addType(string $type, Closure $closure): JsonMapper
     {
@@ -184,11 +195,13 @@ final readonly class JsonMapper
     /**
      * Add a custom class map entry.
      *
-     * @param class-string                                                            $className
-     * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $closure
+     * @param class-string                                                            $className Fully qualified class name that should be resolved dynamically.
+     * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $closure   Closure that returns the concrete class to instantiate for the provided value.
      *
      * @phpstan-param class-string $className
      * @phpstan-param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $closure
+     *
+     * @return JsonMapper Returns the mapper instance for fluent configuration.
      */
     public function addCustomClassMapEntry(string $className, Closure $closure): JsonMapper
     {
@@ -200,13 +213,13 @@ final readonly class JsonMapper
     /**
      * Maps the JSON to the specified class entity.
      *
-     * @param mixed                        $json
-     * @param class-string|null            $className
-     * @param class-string|null            $collectionClassName
-     * @param MappingContext|null          $context
-     * @param JsonMapperConfiguration|null $configuration
+     * @param mixed                        $json                 Source data to map into PHP objects.
+     * @param class-string|null            $className            Fully qualified class name that should be instantiated for mapped objects.
+     * @param class-string|null            $collectionClassName  Collection class that should wrap the mapped objects when required.
+     * @param MappingContext|null          $context              Optional mapping context reused across nested mappings.
+     * @param JsonMapperConfiguration|null $configuration        Optional configuration that overrides the default mapper settings.
      *
-     * @return mixed
+     * @return mixed The mapped PHP value or collection produced from the given JSON.
      */
     public function map(
         mixed $json,
@@ -224,6 +237,7 @@ final readonly class JsonMapper
             $configuration = JsonMapperConfiguration::fromContext($context);
         }
 
+        // Resolve the target class and optional collection from the configured resolvers.
         $resolvedClassName = $className === null
             ? null
             : $this->classResolver->resolve($className, $json, $context);
@@ -237,6 +251,7 @@ final readonly class JsonMapper
         /** @var Type|null $collectionValueType */
         $collectionValueType = null;
 
+        // Determine the element type when the mapping targets a collection.
         if ($resolvedCollectionClassName !== null) {
             if ($resolvedClassName !== null) {
                 $collectionValueType = new ObjectType($resolvedClassName);
@@ -264,6 +279,7 @@ final readonly class JsonMapper
 
         $isGenericCollectionMapping = $resolvedClassName === null && $collectionValueType !== null;
 
+        // Map into a standalone collection when the element class is derived from the collection definition.
         if ($isGenericCollectionMapping) {
             if ($resolvedCollectionClassName === null) {
                 throw new InvalidArgumentException('A collection class name must be provided when mapping without an element class.');
@@ -282,6 +298,7 @@ final readonly class JsonMapper
             return $this->makeInstance($resolvedClassName);
         }
 
+        // Map array or object sources into the configured collection type when requested.
         if (
             ($resolvedCollectionClassName !== null)
             && $this->isIterableWithArraysOrObjects($json)
@@ -291,6 +308,7 @@ final readonly class JsonMapper
             return $this->makeInstance($resolvedCollectionClassName, $collection);
         }
 
+        // Handle sequential arrays by mapping them into a native collection of resolved objects.
         if (
             $this->isIterableWithArraysOrObjects($json)
             && $this->isNumericIndexArray($json)
@@ -305,6 +323,7 @@ final readonly class JsonMapper
         $replacePropertyMap = $this->buildReplacePropertyMap($resolvedClassName);
         $mappedProperties   = [];
 
+        // Iterate over the source data and map each property onto the target entity.
         foreach ($source as $propertyName => $propertyValue) {
             $normalizedProperty = $this->normalizePropertyName($propertyName, $replacePropertyMap);
             $pathSegment        = is_string($normalizedProperty) ? $normalizedProperty : (string) $propertyName;
@@ -385,12 +404,12 @@ final readonly class JsonMapper
     /**
      * Maps the JSON structure and returns a detailed mapping report.
      *
-     * @param mixed                        $json
-     * @param class-string|null            $className
-     * @param class-string|null            $collectionClassName
-     * @param JsonMapperConfiguration|null $configuration
+     * @param mixed                        $json                Source data to map into PHP objects.
+     * @param class-string|null            $className           Fully qualified class name that should be instantiated for mapped objects.
+     * @param class-string|null            $collectionClassName Collection class that should wrap the mapped objects when required.
+     * @param JsonMapperConfiguration|null $configuration       Optional configuration that overrides the default mapper settings.
      *
-     * @return MappingResult
+     * @return MappingResult Mapping result containing the mapped value and a detailed report.
      */
     public function mapWithReport(
         mixed $json,
