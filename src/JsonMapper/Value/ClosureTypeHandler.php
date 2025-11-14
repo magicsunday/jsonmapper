@@ -27,11 +27,21 @@ final class ClosureTypeHandler implements TypeHandlerInterface
 {
     private Closure $converter;
 
+    /**
+     * @param class-string $className                      Fully-qualified class name the handler is responsible for.
+     * @param callable(mixed):mixed|callable(mixed, MappingContext):mixed $converter Callable receiving the mapped value and
+     *                                                                               optionally the mapping context.
+     */
     public function __construct(private readonly string $className, callable $converter)
     {
         $this->converter = $this->normalizeConverter($converter);
     }
 
+    /**
+     * Determines whether the given type is supported.
+     *
+     * The handler accepts only object types that match the configured class name; other type instances are rejected.
+     */
     public function supports(Type $type, mixed $value): bool
     {
         if (!$type instanceof ObjectType) {
@@ -41,6 +51,11 @@ final class ClosureTypeHandler implements TypeHandlerInterface
         return $type->getClassName() === $this->className;
     }
 
+    /**
+     * Converts the provided value to the supported type using the configured converter.
+     *
+     * @throws LogicException When the supplied type is not supported by this handler.
+     */
     public function convert(Type $type, mixed $value, MappingContext $context): mixed
     {
         if (!$this->supports($type, $value)) {
@@ -51,6 +66,11 @@ final class ClosureTypeHandler implements TypeHandlerInterface
     }
 
     /**
+     * Normalizes a user-supplied callable into the internal converter signature.
+     *
+     * The converter may accept either one argument (the value) or two arguments (value and mapping context). Single-argument
+     * callables are wrapped so that the mapping context can be provided when invoking the handler.
+     *
      * @param callable(mixed):mixed|callable(mixed, MappingContext):mixed $converter
      */
     private function normalizeConverter(callable $converter): Closure
@@ -62,6 +82,7 @@ final class ClosureTypeHandler implements TypeHandlerInterface
             return $closure;
         }
 
+        // Ensure the converter always accepts the mapping context even if the original callable does not need it.
         return static fn (mixed $value, MappingContext $context): mixed => $closure($value);
     }
 }
