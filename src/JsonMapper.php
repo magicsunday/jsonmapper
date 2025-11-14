@@ -178,7 +178,7 @@ final readonly class JsonMapper
     /**
      * Registers a custom type using a closure-based handler.
      *
-     * @param string  $type    Name of the custom type alias handled by the closure.
+     * @param non-empty-string $type    Name of the custom type alias handled by the closure.
      * @param Closure $closure Closure that converts the incoming value to the target type.
      *
      * @deprecated Use addTypeHandler() with a TypeHandlerInterface implementation instead.

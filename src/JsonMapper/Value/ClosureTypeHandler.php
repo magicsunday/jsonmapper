@@ -28,7 +28,7 @@ final class ClosureTypeHandler implements TypeHandlerInterface
     private Closure $converter;
 
     /**
-     * @param class-string $className                      Fully-qualified class name the handler is responsible for.
+     * @param non-empty-string $className                      Type alias handled by the converter.
      * @param callable(mixed):mixed|callable(mixed, MappingContext):mixed $converter Callable receiving the mapped value and
      *                                                                               optionally the mapping context.
      */
