@@ -18,6 +18,11 @@ use function sprintf;
  */
 final class ReadonlyPropertyException extends MappingException
 {
+    /**
+     * @param string $path      Path pointing to the JSON field that tried to set the readonly property.
+     * @param string $property  Name of the property that cannot be written.
+     * @param string $className Fully qualified class declaring the readonly property.
+     */
     public function __construct(string $path, string $property, string $className)
     {
         parent::__construct(

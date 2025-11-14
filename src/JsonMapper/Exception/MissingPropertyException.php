@@ -18,6 +18,11 @@ use function sprintf;
  */
 final class MissingPropertyException extends MappingException
 {
+    /**
+     * @param string $path         Path indicating where the missing property should have been present.
+     * @param string $propertyName Name of the required property defined on the PHP target.
+     * @param class-string $className Fully qualified name of the DTO or object declaring the property.
+     */
     public function __construct(
         string $path,
         private readonly string $propertyName,
@@ -30,13 +35,24 @@ final class MissingPropertyException extends MappingException
         );
     }
 
+    /**
+     * Returns the required property name that could not be resolved from the JSON input.
+     *
+     * Use this to inform API clients about the field they need to provide.
+     *
+     * @return string Name of the missing property.
+     */
     public function getPropertyName(): string
     {
         return $this->propertyName;
     }
 
     /**
-     * @return class-string
+     * Provides the class in which the missing property is declared.
+     *
+     * Consumers may use the information to scope the validation error when working with nested DTOs.
+     *
+     * @return class-string Fully qualified class name declaring the missing property.
      */
     public function getClassName(): string
     {
