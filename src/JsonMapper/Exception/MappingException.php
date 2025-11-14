@@ -19,6 +19,12 @@ use Throwable;
  */
 abstract class MappingException extends RuntimeException
 {
+    /**
+     * @param string $message   Human readable description of the failure scenario.
+     * @param string $path      JSON pointer or dotted path identifying the failing value.
+     * @param int $code         Optional error code to bubble up to the caller.
+     * @param Throwable|null $previous Underlying cause, if the exception wraps another failure.
+     */
     public function __construct(
         string $message,
         private readonly string $path,
@@ -28,6 +34,14 @@ abstract class MappingException extends RuntimeException
         parent::__construct($message, $code, $previous);
     }
 
+    /**
+     * Returns the JSON path pointing to the value that could not be mapped.
+     *
+     * Callers can use the path to inform end users about the exact location of the
+     * mapping problem or to log structured diagnostics.
+     *
+     * @return string JSON pointer or dotted path describing the failing location.
+     */
     public function getPath(): string
     {
         return $this->path;
