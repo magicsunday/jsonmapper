@@ -424,17 +424,24 @@ final readonly class JsonMapper
         return new MappingResult($value, new MappingReport($context->getErrorRecords()));
     }
 
+    /**
+     * Creates a clone of the default mapper configuration for a fresh mapping context.
+     *
+     * @return JsonMapperConfiguration Copy of the base configuration that can be mutated safely.
+     */
     private function createDefaultConfiguration(): JsonMapperConfiguration
     {
         return clone $this->config;
     }
 
     /**
-     * @param class-string              $className
-     * @param array<int|string, string> $declaredProperties
-     * @param list<string>              $mappedProperties
+     * Identifies required properties that were not provided in the source data.
      *
-     * @return list<string>
+     * @param class-string              $className          Fully qualified class name inspected for required metadata.
+     * @param array<int|string, string> $declaredProperties List of property names resolved from the target class definition.
+     * @param list<string>              $mappedProperties   List of properties that successfully received mapped values.
+     *
+     * @return list<string> List of property names that are still required after mapping.
      */
     private function determineMissingProperties(string $className, array $declaredProperties, array $mappedProperties): array
     {
@@ -447,7 +454,12 @@ final readonly class JsonMapper
     }
 
     /**
-     * @param class-string $className
+     * Determines whether the given property must be present on the input data.
+     *
+     * @param class-string $className    Fully qualified class name whose property metadata is evaluated.
+     * @param string       $propertyName Property name checked for default values and nullability.
+     *
+     * @return bool True when the property is mandatory and missing values must be reported.
      */
     private function isRequiredProperty(string $className, string $propertyName): bool
     {
@@ -480,10 +492,18 @@ final readonly class JsonMapper
         return false;
     }
 
+    /**
+     * Records a mapping exception and decides whether it should stop the mapping process.
+     *
+     * @param MappingException        $exception     Exception that occurred while mapping a property.
+     * @param MappingContext          $context       Context collecting the error information.
+     * @param JsonMapperConfiguration $configuration Configuration that controls strict-mode behaviour.
+     */
     private function handleMappingException(MappingException $exception, MappingContext $context, JsonMapperConfiguration $configuration): void
     {
         $context->recordException($exception);
 
+        // Strict mode propagates the failure immediately to abort mapping on the first error.
         if ($configuration->isStrictMode()) {
             throw $exception;
         }
@@ -520,7 +540,11 @@ final readonly class JsonMapper
     /**
      * Converts the value according to the provided union type.
      *
-     * @param UnionType<Type> $type
+     * @param mixed           $json     Value being converted so it matches one of the union candidates.
+     * @param UnionType<Type> $type     Union definition listing acceptable target types.
+     * @param MappingContext  $context  Context used to track conversion errors while testing candidates.
+     *
+     * @return mixed Value converted to a type accepted by the union.
      */
     private function convertUnionValue(mixed $json, UnionType $type, MappingContext $context): mixed
     {
@@ -611,7 +635,9 @@ final readonly class JsonMapper
     /**
      * Returns a textual representation of the union type.
      *
-     * @param UnionType<Type> $type
+     * @param UnionType<Type> $type Union type converted into a human-readable string.
+     *
+     * @return string Pipe-separated description of all candidate types.
      */
     private function describeUnionType(UnionType $type): string
     {
@@ -625,7 +651,11 @@ final readonly class JsonMapper
     }
 
     /**
-     * @param UnionType<Type> $type
+     * Checks whether the provided union type accepts null values.
+     *
+     * @param UnionType<Type> $type Union type inspected for a nullable member.
+     *
+     * @return bool True when null is part of the union definition.
      */
     private function unionAllowsNull(UnionType $type): bool
     {
@@ -638,6 +668,13 @@ final readonly class JsonMapper
         return false;
     }
 
+    /**
+     * Checks whether the provided type explicitly represents the null value.
+     *
+     * @param Type $type Type information extracted for a property or union candidate.
+     *
+     * @return bool True when the type identifies the null built-in.
+     */
     private function isNullType(Type $type): bool
     {
         return $type instanceof BuiltinType && $type->getTypeIdentifier() === TypeIdentifier::NULL;
@@ -646,10 +683,10 @@ final readonly class JsonMapper
     /**
      * Creates an instance of the given class name.
      *
-     * @param string $className
-     * @param mixed  ...$constructorArguments
+     * @param string $className            Fully qualified class name to instantiate.
+     * @param mixed  ...$constructorArguments Arguments forwarded to the constructor of the class.
      *
-     * @return object
+     * @return object Newly created instance of the requested class.
      */
     private function makeInstance(string $className, mixed ...$constructorArguments): object
     {
@@ -657,12 +694,12 @@ final readonly class JsonMapper
     }
 
     /**
-     * Returns TRUE if the property contains an "ReplaceNullWithDefaultValue" annotation.
-     */
-    /**
-     * Returns TRUE if the property contains an "ReplaceNullWithDefaultValue" annotation.
+     * Checks whether the property declares the ReplaceNullWithDefaultValue attribute.
      *
-     * @param class-string $className
+     * @param class-string $className    Fully qualified class containing the property to inspect.
+     * @param string       $propertyName Property name that may carry the attribute.
+     *
+     * @return bool True when null inputs should be replaced with the property's default value.
      */
     private function isReplaceNullWithDefaultValueAnnotation(string $className, string $propertyName): bool
     {
@@ -676,11 +713,11 @@ final readonly class JsonMapper
     }
 
     /**
-     * Builds the map of properties replaced by the annotation.
+     * Builds the mapping of legacy property names to their replacements declared via attributes.
      *
-     * @param class-string $className
+     * @param class-string $className Fully qualified class inspected for ReplaceProperty attributes.
      *
-     * @return array<string, string>
+     * @return array<string, string> Map of original property names to their replacement names.
      */
     private function buildReplacePropertyMap(string $className): array
     {
@@ -702,7 +739,12 @@ final readonly class JsonMapper
     }
 
     /**
-     * @param class-string $attributeClass
+     * Checks whether the given property is marked with the specified attribute class.
+     *
+     * @param ReflectionProperty $property       Property reflection inspected for attributes.
+     * @param class-string       $attributeClass Attribute class name to look for on the property.
+     *
+     * @return bool True when at least one matching attribute is present.
      */
     private function hasAttribute(ReflectionProperty $property, string $attributeClass): bool
     {
@@ -712,7 +754,10 @@ final readonly class JsonMapper
     /**
      * Normalizes the property name using annotations and converters.
      *
-     * @param array<string, string> $replacePropertyMap
+     * @param string|int            $propertyName       Property name taken from the source payload.
+     * @param array<string, string> $replacePropertyMap Map of alias names to their replacement counterparts.
+     *
+     * @return string|int Normalized property name to use for mapping.
      */
     private function normalizePropertyName(string|int $propertyName, array $replacePropertyMap): string|int
     {
@@ -732,9 +777,9 @@ final readonly class JsonMapper
     /**
      * Converts arrays and objects into a plain array structure.
      *
-     * @param array<array-key, mixed>|object $json
+     * @param array<array-key, mixed>|object $json Source payload that may be an array, object, or traversable.
      *
-     * @return array<array-key, mixed>
+     * @return array<array-key, mixed> Normalised array representation of the provided payload.
      */
     private function toIterableArray(array|object $json): array
     {
@@ -752,7 +797,10 @@ final readonly class JsonMapper
     /**
      * Returns the specified reflection property.
      *
-     * @param class-string $className
+     * @param class-string $className    Fully qualified class containing the property definition.
+     * @param string       $propertyName Property name resolved on the reflected class.
+     *
+     * @return ReflectionProperty|null Reflection property instance when the property exists, null otherwise.
      */
     private function getReflectionProperty(string $className, string $propertyName): ?ReflectionProperty
     {
@@ -766,9 +814,9 @@ final readonly class JsonMapper
     /**
      * Returns the specified reflection class.
      *
-     * @param class-string $className
+     * @param class-string $className Fully qualified class name that should be reflected.
      *
-     * @return ReflectionClass<object>|null
+     * @return ReflectionClass<object>|null Reflection of the class when it exists, otherwise null.
      */
     private function getReflectionClass(string $className): ?ReflectionClass
     {
@@ -782,7 +830,10 @@ final readonly class JsonMapper
     /**
      * Returns the default value of a property.
      *
-     * @param class-string $className
+     * @param class-string $className    Fully qualified class that defines the property.
+     * @param string       $propertyName Property name whose default value should be retrieved.
+     *
+     * @return mixed Default value configured on the property, or null when none exists.
      */
     private function getDefaultValue(string $className, string $propertyName): mixed
     {
@@ -798,7 +849,9 @@ final readonly class JsonMapper
     /**
      * Returns TRUE if the given JSON contains integer property keys.
      *
-     * @param array<array-key, mixed>|object $json
+     * @param array<array-key, mixed>|object $json Source payload inspected for numeric keys.
+     *
+     * @return bool True when at least one numeric index is present.
      */
     private function isNumericIndexArray(array|object $json): bool
     {
@@ -893,9 +946,9 @@ final readonly class JsonMapper
     /**
      * Get all public properties for the specified class.
      *
-     * @param class-string $className
+     * @param class-string $className Fully qualified class whose property names should be extracted.
      *
-     * @return string[]
+     * @return string[] List of property names exposed by the configured extractor.
      */
     private function getProperties(string $className): array
     {
