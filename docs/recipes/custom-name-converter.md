@@ -27,23 +27,23 @@ declare(strict_types=1);
 require __DIR__ . '/vendor/autoload.php';
 
 use App\Converter\UpperSnakeCaseConverter;
-use MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter;
-use MagicSunday\JsonMapper\JsonMapper;
+use MagicSunday\JsonMapper;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
 
-// Collect metadata and choose the converter implementation.
+// Collect metadata and provide the custom converter.
 $propertyInfo = new PropertyInfoExtractor(
     listExtractors: [new ReflectionExtractor()],
     typeExtractors: [new PhpDocExtractor()],
 );
 $propertyAccessor = PropertyAccess::createPropertyAccessor();
-$converter = new CamelCasePropertyNameConverter();
-// or $converter = new UpperSnakeCaseConverter();
+$converter = new UpperSnakeCaseConverter();
 
 $mapper = new JsonMapper($propertyInfo, $propertyAccessor, $converter);
 ```
 
 Name converters are stateless and should be declared `final`. They are applied to every property access during mapping, so keep the implementation idempotent and efficient.
+
+Test coverage: `tests/JsonMapper/DocsCustomNameConverterTest.php`.
