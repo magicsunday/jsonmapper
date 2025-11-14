@@ -6,6 +6,11 @@ JsonMapper ships with attributes that can refine how JSON data is mapped to PHP 
 Use this attribute on properties that should fall back to their default value when the JSON payload explicitly contains `null`.
 
 ```php
+<?php
+declare(strict_types=1);
+
+namespace App\Dto;
+
 use MagicSunday\JsonMapper\Attribute\ReplaceNullWithDefaultValue;
 
 final class User
@@ -21,6 +26,11 @@ When a payload contains `{ "roles": null }`, the mapper keeps the default empty 
 Apply this attribute at class level to redirect one or more incoming property names to a different target property.
 
 ```php
+<?php
+declare(strict_types=1);
+
+namespace App\Dto;
+
 use MagicSunday\JsonMapper\Attribute\ReplaceProperty;
 
 #[ReplaceProperty('fullName', replaces: ['first_name', 'name'])]
