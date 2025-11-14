@@ -23,9 +23,9 @@ interface PropertyNameConverterInterface
     /**
      * Convert the specified JSON property name to its PHP property name.
      *
-     * @param string $name
+     * @param string $name Raw property name exactly as it appears in the JSON structure.
      *
-     * @return string
+     * @return string Normalised PHP property name that matches the target object's naming scheme.
      */
     public function convert(string $name): string;
 }

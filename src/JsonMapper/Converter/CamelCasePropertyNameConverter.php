@@ -25,11 +25,23 @@ final readonly class CamelCasePropertyNameConverter implements PropertyNameConve
 {
     private Inflector $inflector;
 
+    /**
+     * Creates the converter with the Doctrine inflector responsible for camel case transformations.
+     *
+     * The inflector dependency is initialised here so it can be reused for every conversion.
+     */
     public function __construct()
     {
         $this->inflector = InflectorFactory::create()->build();
     }
 
+    /**
+     * Converts a raw JSON property name to the camelCase variant expected by PHP properties.
+     *
+     * @param string $name Raw property name as provided by the JSON payload.
+     *
+     * @return string Normalised camelCase property name that matches PHP naming conventions.
+     */
     public function convert(string $name): string
     {
         return $this->inflector->camelize($name);
