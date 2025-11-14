@@ -27,7 +27,7 @@ final class JsonMapperFactoryTest extends TestCase
         $mapper = JsonMapper::createWithDefaults();
 
         $payload = (object) [
-            'id' => 42,
+            'id'   => 42,
             'name' => 'Example',
         ];
 

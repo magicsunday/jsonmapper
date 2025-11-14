@@ -373,11 +373,11 @@ final readonly class JsonMapper
     /**
      * Maps iterable payloads into the configured collection structure when applicable.
      *
-     * @param mixed                 $json                        Source payload that may represent a collection.
-     * @param class-string|null     $resolvedClassName           Fully qualified class name resolved for mapped elements.
-     * @param class-string|null     $resolvedCollectionClassName Fully qualified collection class wrapping the mapped elements.
-     * @param Type|null             $collectionValueType         Element type derived from the collection definition.
-     * @param MappingContext        $context                     Mapping context forwarded to nested mappings.
+     * @param mixed             $json                        Source payload that may represent a collection.
+     * @param class-string|null $resolvedClassName           Fully qualified class name resolved for mapped elements.
+     * @param class-string|null $resolvedCollectionClassName Fully qualified collection class wrapping the mapped elements.
+     * @param Type|null         $collectionValueType         Element type derived from the collection definition.
+     * @param MappingContext    $context                     Mapping context forwarded to nested mappings.
      *
      * @return mixed|null Returns the mapped collection when handled, null otherwise.
      */
@@ -388,7 +388,7 @@ final readonly class JsonMapper
         ?Type $collectionValueType,
         MappingContext $context,
     ): mixed {
-        $isGenericCollectionMapping = $resolvedClassName === null && $collectionValueType !== null;
+        $isGenericCollectionMapping = $resolvedClassName === null && $collectionValueType instanceof Type;
 
         if ($isGenericCollectionMapping) {
             if ($resolvedCollectionClassName === null) {
@@ -409,7 +409,6 @@ final readonly class JsonMapper
         }
 
         /** @var array<array-key, mixed>|object $json */
-
         $valueType = $collectionValueType ?? new ObjectType($resolvedClassName);
 
         if ($resolvedCollectionClassName !== null) {
@@ -428,7 +427,7 @@ final readonly class JsonMapper
     /**
      * Maps a single object or associative array onto the resolved class instance.
      *
-     * @param array<array-key, mixed>|object $json          Source payload representing the object to map.
+     * @param array<array-key, mixed>|object $json              Source payload representing the object to map.
      * @param class-string                   $resolvedClassName Fully qualified class name that receives the mapped values.
      * @param MappingContext                 $context           Mapping context forwarded to nested mappings.
      * @param JsonMapperConfiguration        $configuration     Effective configuration guiding the mapping process.
@@ -527,10 +526,10 @@ final readonly class JsonMapper
      * Validates the normalized property name and reports unknown properties when required.
      *
      * @param string                    $normalizedProperty Normalized property name derived from the payload.
-     * @param array<int|string, string> $properties          Declared properties available on the target class.
-     * @param JsonMapperConfiguration   $configuration       Effective configuration guiding the mapping process.
-     * @param MappingContext            $context             Mapping context scoped to the current property.
-     * @param class-string              $resolvedClassName   Fully qualified class name receiving the mapped values.
+     * @param array<int|string, string> $properties         Declared properties available on the target class.
+     * @param JsonMapperConfiguration   $configuration      Effective configuration guiding the mapping process.
+     * @param MappingContext            $context            Mapping context scoped to the current property.
+     * @param class-string              $resolvedClassName  Fully qualified class name receiving the mapped values.
      *
      * @return string|null Returns the validated property name or null when the property should be skipped.
      */
