@@ -97,12 +97,19 @@ final class ClassResolver
     }
 
     /**
-     * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $resolver
+     * Executes a resolver callback while adapting the invocation to its declared arity.
+     *
+     * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $resolver User-provided resolver that determines the concrete class; the parameter list defines whether the mapping context can be injected.
+     * @param mixed $json JSON fragment forwarded to the resolver so it can inspect discriminator values.
+     * @param MappingContext $context Context object passed when supported to supply additional mapping metadata.
+     *
+     * @return mixed Raw resolver result that will subsequently be validated as a class-string.
      */
     private function invokeResolver(Closure $resolver, mixed $json, MappingContext $context): mixed
     {
         $reflection = new ReflectionFunction($resolver);
 
+        // Inspect the closure signature to decide whether to pass the mapping context argument.
         if ($reflection->getNumberOfParameters() >= 2) {
             return $resolver($json, $context);
         }
@@ -111,11 +118,13 @@ final class ClassResolver
     }
 
     /**
-     * Validates the configured class map entries eagerly.
+     * Validates the configured class map entries eagerly to fail fast on invalid definitions.
      *
-     * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
+     * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap Map of discriminated base classes to either target classes or resolver closures; each entry is asserted for existence.
      *
-     * @return array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string>
+     * @return array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> Sanitised map ready for runtime lookups.
+     *
+     * @throws DomainException When a class key or mapped class name is empty or cannot be autoloaded.
      */
     private function validateClassMap(array $classMap): array
     {
@@ -133,9 +142,13 @@ final class ClassResolver
     }
 
     /**
-     * @return class-string
+     * Ensures the provided class reference is non-empty and refers to a loadable class or interface.
      *
-     * @throws DomainException
+     * @param string $className Candidate class-string; invalid or unknown names trigger a DomainException.
+     *
+     * @return class-string Validated class or interface name safe to return to callers.
+     *
+     * @throws DomainException When the name is empty or cannot be resolved by the autoloader.
      */
     private function assertClassString(string $className): string
     {

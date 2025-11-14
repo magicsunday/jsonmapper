@@ -73,6 +73,13 @@ final class TypeResolver
         return $resolved;
     }
 
+    /**
+     * Normalizes Symfony Type instances to collapse nested unions and propagate nullability.
+     *
+     * @param Type $type Type extracted from metadata; union instances trigger recursive normalization.
+     *
+     * @return Type Provided type or its normalized equivalent when unions are involved.
+     */
     private function normalizeType(Type $type): Type
     {
         if ($type instanceof UnionType) {
@@ -147,7 +154,12 @@ final class TypeResolver
     }
 
     /**
-     * @param class-string $className
+     * Falls back to native reflection when PropertyInfo does not expose metadata for a property.
+     *
+     * @param class-string $className Declaring class inspected via reflection; invalid classes yield null.
+     * @param string $propertyName Name of the property to inspect; missing properties short-circuit to null.
+     *
+     * @return Type|null Type derived from the reflected signature, including nullability, or null when no type hint exists.
      */
     private function resolveFromReflection(string $className, string $propertyName): ?Type
     {
@@ -201,6 +213,14 @@ final class TypeResolver
         return null;
     }
 
+    /**
+     * Translates a reflected named type into the internal Type representation while preserving nullability.
+     *
+     * @param ReflectionNamedType $type Native type declaration; builtin names map to builtin identifiers, class names to object types.
+     * @param bool|null $nullable Overrides the reflection nullability flag when provided; null defers to the reflection metadata.
+     *
+     * @return Type|null Resolved Type instance or null when the builtin name is unsupported.
+     */
     private function createTypeFromNamedReflection(ReflectionNamedType $type, ?bool $nullable = null): ?Type
     {
         $name = $type->getName();
@@ -227,7 +247,11 @@ final class TypeResolver
     }
 
     /**
-     * @param UnionType<Type> $type
+     * Consolidates union members and ensures nullability is represented via Type::nullable when required.
+     *
+     * @param UnionType<Type> $type Union derived from metadata; its members are recursively normalized and inspected for null.
+     *
+     * @return Type Normalized union instance or nullable default when only null remains.
      */
     private function normalizeUnionType(UnionType $type): Type
     {
@@ -257,6 +281,13 @@ final class TypeResolver
         return $union;
     }
 
+    /**
+     * Determines whether a type entry represents the null literal within a union.
+     *
+     * @param Type $type Candidate inspected while normalizing unions; controls whether nullable wrappers are applied.
+     *
+     * @return bool True when the type corresponds to the null builtin identifier.
+     */
     private function isNullType(Type $type): bool
     {
         return $type instanceof BuiltinType && $type->getTypeIdentifier() === TypeIdentifier::NULL;
