@@ -156,8 +156,8 @@ final class TypeResolver
     /**
      * Falls back to native reflection when PropertyInfo does not expose metadata for a property.
      *
-     * @param class-string $className Declaring class inspected via reflection; invalid classes yield null.
-     * @param string $propertyName Name of the property to inspect; missing properties short-circuit to null.
+     * @param class-string $className    Declaring class inspected via reflection; invalid classes yield null.
+     * @param string       $propertyName Name of the property to inspect; missing properties short-circuit to null.
      *
      * @return Type|null Type derived from the reflected signature, including nullability, or null when no type hint exists.
      */
@@ -216,8 +216,8 @@ final class TypeResolver
     /**
      * Translates a reflected named type into the internal Type representation while preserving nullability.
      *
-     * @param ReflectionNamedType $type Native type declaration; builtin names map to builtin identifiers, class names to object types.
-     * @param bool|null $nullable Overrides the reflection nullability flag when provided; null defers to the reflection metadata.
+     * @param ReflectionNamedType $type     Native type declaration; builtin names map to builtin identifiers, class names to object types.
+     * @param bool|null           $nullable Overrides the reflection nullability flag when provided; null defers to the reflection metadata.
      *
      * @return Type|null Resolved Type instance or null when the builtin name is unsupported.
      */

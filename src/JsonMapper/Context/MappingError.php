@@ -19,9 +19,9 @@ use MagicSunday\JsonMapper\Exception\MappingException;
 final readonly class MappingError
 {
     /**
-     * @param string                 $path       JSON path pointing to the failing property
-     * @param string                 $message    Human-readable description of the failure
-     * @param MappingException|null  $exception  Exception that triggered the error, when available
+     * @param string                $path      JSON path pointing to the failing property
+     * @param string                $message   Human-readable description of the failure
+     * @param MappingException|null $exception Exception that triggered the error, when available
      */
     public function __construct(
         private string $path,

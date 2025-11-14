@@ -25,30 +25,39 @@ final class InMemoryCachePool implements CacheItemPoolInterface
 
     private int $hitCount = 0;
 
+    /**
+     * @return InMemoryCacheItem
+     */
     public function getItem(string $key): CacheItemInterface
     {
         if (isset($this->items[$key])) {
             $item = $this->items[$key];
 
             if ($item->isHit()) {
-                $this->hitCount++;
+                ++$this->hitCount;
             }
 
             return $item;
         }
 
-        $item = new InMemoryCacheItem($key);
+        $item              = new InMemoryCacheItem($key);
         $this->items[$key] = $item;
 
         return $item;
     }
 
+    /**
+     * @param array<string> $keys
+     *
+     * @return iterable<string, InMemoryCacheItem>
+     */
     public function getItems(array $keys = []): iterable
     {
         if ($keys === []) {
             return $this->items;
         }
 
+        /** @var array<string, InMemoryCacheItem> $result */
         $result = [];
 
         foreach ($keys as $key) {
@@ -98,7 +107,7 @@ final class InMemoryCachePool implements CacheItemPoolInterface
             ? $item
             : new InMemoryCacheItem($item->getKey(), $item->get(), $item->isHit());
 
-        $this->saveCalls++;
+        ++$this->saveCalls;
 
         return true;
     }

@@ -108,8 +108,8 @@ final class MappingContext
     /**
      * Stores the error message for later consumption.
      *
-     * @param string                 $message   Human-readable description of the failure
-     * @param MappingException|null  $exception Optional exception associated with the failure
+     * @param string                $message   Human-readable description of the failure
+     * @param MappingException|null $exception Optional exception associated with the failure
      *
      * @return void
      */

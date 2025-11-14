@@ -39,23 +39,36 @@ final class DocsNestedCollectionsTest extends TestCase
 
         self::assertInstanceOf(ArticleCollection::class, $articles);
         self::assertCount(1, $articles);
-        self::assertContainsOnlyInstancesOf(Article::class, $articles);
+        self::assertTrue($articles->offsetExists(0));
 
         $article = $articles[0];
-        self::assertInstanceOf(NestedTagCollection::class, $article->tags);
-        self::assertCount(2, $article->tags);
-        self::assertContainsOnlyInstancesOf(TagCollection::class, $article->tags);
+        self::assertInstanceOf(Article::class, $article);
 
-        $firstRow = $article->tags[0];
+        /** @var NestedTagCollection<int, TagCollection<int, Tag>> $tags */
+        $tags = $article->tags;
+        self::assertCount(2, $tags);
+        self::assertContainsOnlyInstancesOf(TagCollection::class, $tags);
+
+        self::assertTrue($tags->offsetExists(0));
+        $firstRow = $tags[0];
         self::assertInstanceOf(TagCollection::class, $firstRow);
         self::assertCount(1, $firstRow);
         self::assertContainsOnlyInstancesOf(Tag::class, $firstRow);
-        self::assertSame('php', $firstRow[0]->name);
+        self::assertTrue($firstRow->offsetExists(0));
 
-        $secondRow = $article->tags[1];
+        $firstTag = $firstRow[0];
+        self::assertInstanceOf(Tag::class, $firstTag);
+        self::assertSame('php', $firstTag->name);
+
+        self::assertTrue($tags->offsetExists(1));
+        $secondRow = $tags[1];
         self::assertInstanceOf(TagCollection::class, $secondRow);
         self::assertCount(1, $secondRow);
         self::assertContainsOnlyInstancesOf(Tag::class, $secondRow);
-        self::assertSame('json', $secondRow[0]->name);
+        self::assertTrue($secondRow->offsetExists(0));
+
+        $secondTag = $secondRow[0];
+        self::assertInstanceOf(Tag::class, $secondTag);
+        self::assertSame('json', $secondTag->name);
     }
 }

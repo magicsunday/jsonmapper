@@ -37,9 +37,9 @@ final class CollectionDocBlockTypeResolver
     private DocBlockFactoryInterface $docBlockFactory;
 
     /**
-     * @param DocBlockFactoryInterface|null $docBlockFactory Optional docblock factory used to parse collection annotations.
-     * @param ContextFactory $contextFactory Factory for building type resolution contexts for reflected classes.
-     * @param PhpDocTypeHelper $phpDocTypeHelper Helper translating DocBlock types into Symfony TypeInfo representations.
+     * @param DocBlockFactoryInterface|null $docBlockFactory  Optional docblock factory used to parse collection annotations.
+     * @param ContextFactory                $contextFactory   Factory for building type resolution contexts for reflected classes.
+     * @param PhpDocTypeHelper              $phpDocTypeHelper Helper translating DocBlock types into Symfony TypeInfo representations.
      */
     public function __construct(
         ?DocBlockFactoryInterface $docBlockFactory = null,

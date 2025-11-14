@@ -36,8 +36,8 @@ final readonly class CollectionValueConversionStrategy implements ValueConversio
     /**
      * Determines whether the supplied type represents a collection.
      *
-     * @param mixed $value Raw value coming from the input payload.
-     * @param Type $type Type metadata describing the target property.
+     * @param mixed          $value   Raw value coming from the input payload.
+     * @param Type           $type    Type metadata describing the target property.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return bool TRUE when the target type is a collection type.
@@ -50,8 +50,8 @@ final readonly class CollectionValueConversionStrategy implements ValueConversio
     /**
      * Converts the JSON value into a collection instance.
      *
-     * @param mixed $value Raw value coming from the input payload.
-     * @param Type $type Type metadata describing the target property.
+     * @param mixed          $value   Raw value coming from the input payload.
+     * @param Type           $type    Type metadata describing the target property.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return mixed Collection created by the factory based on the type metadata.

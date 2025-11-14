@@ -44,9 +44,9 @@ trait ObjectTypeConversionGuardTrait
     /**
      * Ensures null values comply with the target object's nullability.
      *
-     * @param mixed $value Raw value coming from the input payload.
-     * @param ObjectType<class-string> $type Object type metadata describing the target property.
-     * @param MappingContext $context Mapping context providing configuration such as strict mode.
+     * @param mixed                    $value   Raw value coming from the input payload.
+     * @param ObjectType<class-string> $type    Object type metadata describing the target property.
+     * @param MappingContext           $context Mapping context providing configuration such as strict mode.
      *
      * @return void
      */
@@ -66,9 +66,9 @@ trait ObjectTypeConversionGuardTrait
     /**
      * Executes the provided converter when a valid object type is available.
      *
-     * @param Type $type Type metadata describing the target property.
-     * @param MappingContext $context Mapping context providing configuration such as strict mode.
-     * @param mixed $value Raw value coming from the input payload.
+     * @param Type                           $type      Type metadata describing the target property.
+     * @param MappingContext                 $context   Mapping context providing configuration such as strict mode.
+     * @param mixed                          $value     Raw value coming from the input payload.
      * @param callable(string, mixed): mixed $converter Callback that performs the actual conversion when a class-string is available.
      *
      * @return mixed Result from the converter or the original value when no object type was detected.

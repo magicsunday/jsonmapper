@@ -24,13 +24,13 @@ final class JsonMapperConfiguration
     /**
      * Creates a new configuration instance with optional overrides.
      *
-     * @param bool   $strictMode                   Whether unknown/missing properties should trigger errors
-     * @param bool   $collectErrors                Whether encountered mapping errors should be collected
-     * @param bool   $emptyStringIsNull            Whether empty strings are converted to null
-     * @param bool   $ignoreUnknownProperties      Whether properties missing in the destination type are ignored
-     * @param bool   $treatNullAsEmptyCollection   Whether null collections are replaced with empty collections
-     * @param string $defaultDateFormat            Default `DateTimeInterface` format used for serialization/deserialization
-     * @param bool   $allowScalarToObjectCasting   Whether scalars can be coerced into objects when supported
+     * @param bool   $strictMode                 Whether unknown/missing properties should trigger errors
+     * @param bool   $collectErrors              Whether encountered mapping errors should be collected
+     * @param bool   $emptyStringIsNull          Whether empty strings are converted to null
+     * @param bool   $ignoreUnknownProperties    Whether properties missing in the destination type are ignored
+     * @param bool   $treatNullAsEmptyCollection Whether null collections are replaced with empty collections
+     * @param string $defaultDateFormat          Default `DateTimeInterface` format used for serialization/deserialization
+     * @param bool   $allowScalarToObjectCasting Whether scalars can be coerced into objects when supported
      */
     public function __construct(
         private bool $strictMode = false,

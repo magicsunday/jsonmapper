@@ -25,27 +25,48 @@ final class DocsQuickStartTest extends TestCase
     {
         $mapper = $this->getJsonMapper();
 
-        $single = $this->getJsonAsObject('{"title":"Hello world","comments":[{"message":"First!"}]}');
+        $single  = $this->getJsonAsObject('{"title":"Hello world","comments":[{"message":"First!"}]}');
         $article = $mapper->map($single, Article::class);
 
         self::assertInstanceOf(Article::class, $article);
         self::assertSame('Hello world', $article->title);
-        self::assertInstanceOf(CommentCollection::class, $article->comments);
-        self::assertCount(1, $article->comments);
-        self::assertContainsOnlyInstancesOf(Comment::class, $article->comments);
-        self::assertSame('First!', $article->comments[0]->message);
 
-        $list = $this->getJsonAsObject('[{"title":"Hello world","comments":[{"message":"First!"}]},{"title":"Second","comments":[]}]');
+        /** @var CommentCollection<int, Comment> $comments */
+        $comments = $article->comments;
+        self::assertCount(1, $comments);
+        self::assertTrue($comments->offsetExists(0));
+
+        $firstComment = $comments[0];
+        self::assertInstanceOf(Comment::class, $firstComment);
+        self::assertSame('First!', $firstComment->message);
+
+        $list     = $this->getJsonAsObject('[{"title":"Hello world","comments":[{"message":"First!"}]},{"title":"Second","comments":[]}]');
         $articles = $mapper->map($list, Article::class, ArticleCollection::class);
 
         self::assertInstanceOf(ArticleCollection::class, $articles);
         self::assertCount(2, $articles);
-        self::assertContainsOnlyInstancesOf(Article::class, $articles);
-        self::assertSame('Hello world', $articles[0]->title);
-        self::assertSame('Second', $articles[1]->title);
-        self::assertInstanceOf(CommentCollection::class, $articles[0]->comments);
-        self::assertCount(1, $articles[0]->comments);
-        self::assertInstanceOf(CommentCollection::class, $articles[1]->comments);
-        self::assertCount(0, $articles[1]->comments);
+        self::assertTrue($articles->offsetExists(0));
+        self::assertTrue($articles->offsetExists(1));
+
+        $firstArticle = $articles[0];
+        self::assertInstanceOf(Article::class, $firstArticle);
+        self::assertSame('Hello world', $firstArticle->title);
+
+        /** @var CommentCollection<int, Comment> $firstArticleComments */
+        $firstArticleComments = $firstArticle->comments;
+        self::assertCount(1, $firstArticleComments);
+        self::assertTrue($firstArticleComments->offsetExists(0));
+
+        $firstArticleComment = $firstArticleComments[0];
+        self::assertInstanceOf(Comment::class, $firstArticleComment);
+        self::assertSame('First!', $firstArticleComment->message);
+
+        $secondArticle = $articles[1];
+        self::assertInstanceOf(Article::class, $secondArticle);
+        self::assertSame('Second', $secondArticle->title);
+
+        /** @var CommentCollection<int, Comment> $secondArticleComments */
+        $secondArticleComments = $secondArticle->comments;
+        self::assertCount(0, $secondArticleComments);
     }
 }

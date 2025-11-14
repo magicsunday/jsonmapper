@@ -33,8 +33,8 @@ final readonly class CustomTypeValueConversionStrategy implements ValueConversio
     /**
      * Determines whether the registry can handle the provided type.
      *
-     * @param mixed $value Raw value coming from the input payload.
-     * @param Type $type Type metadata describing the target property.
+     * @param mixed          $value   Raw value coming from the input payload.
+     * @param Type           $type    Type metadata describing the target property.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return bool TRUE when the registry has a matching custom handler.
@@ -47,8 +47,8 @@ final readonly class CustomTypeValueConversionStrategy implements ValueConversio
     /**
      * Converts the value using the registered handler.
      *
-     * @param mixed $value Raw value coming from the input payload.
-     * @param Type $type Type metadata describing the target property.
+     * @param mixed          $value   Raw value coming from the input payload.
+     * @param Type           $type    Type metadata describing the target property.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return mixed Value produced by the registered custom handler.

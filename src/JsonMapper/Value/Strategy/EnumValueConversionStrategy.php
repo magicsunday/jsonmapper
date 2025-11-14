@@ -34,8 +34,8 @@ final class EnumValueConversionStrategy implements ValueConversionStrategyInterf
     /**
      * Determines whether the provided type is a backed enum.
      *
-     * @param mixed $value Raw value coming from the input payload.
-     * @param Type $type Type metadata describing the target property.
+     * @param mixed          $value   Raw value coming from the input payload.
+     * @param Type           $type    Type metadata describing the target property.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return bool TRUE when the target type resolves to a backed enum.
@@ -60,8 +60,8 @@ final class EnumValueConversionStrategy implements ValueConversionStrategyInterf
     /**
      * Converts the JSON scalar into the matching enum case.
      *
-     * @param mixed $value Raw value coming from the input payload.
-     * @param Type $type Type metadata describing the target property.
+     * @param mixed          $value   Raw value coming from the input payload.
+     * @param Type           $type    Type metadata describing the target property.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return mixed Backed enum instance returned by the case factory method.

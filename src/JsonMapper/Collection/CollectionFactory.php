@@ -54,9 +54,9 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
     /**
      * Converts the provided iterable JSON structure to a PHP array.
      *
-     * @param mixed $json Raw JSON data representing the collection to hydrate.
-     * @param Type $valueType Type descriptor for individual collection entries.
-     * @param MappingContext $context Active mapping context providing path and strictness information.
+     * @param mixed          $json      Raw JSON data representing the collection to hydrate.
+     * @param Type           $valueType Type descriptor for individual collection entries.
+     * @param MappingContext $context   Active mapping context providing path and strictness information.
      *
      * @return array<array-key, mixed>|null Normalised collection data or null when conversion fails.
      */
@@ -100,9 +100,9 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
     /**
      * Builds a collection based on the specified collection type description.
      *
-     * @param CollectionType<CollectionWrappedType|GenericType<CollectionWrappedType>> $type Resolved collection metadata from docblocks or attributes.
-     * @param mixed $json Raw JSON payload containing the collection values.
-     * @param MappingContext $context Mapping context controlling strict mode and error tracking.
+     * @param CollectionType<CollectionWrappedType|GenericType<CollectionWrappedType>> $type    Resolved collection metadata from docblocks or attributes.
+     * @param mixed                                                                    $json    Raw JSON payload containing the collection values.
+     * @param MappingContext                                                           $context Mapping context controlling strict mode and error tracking.
      *
      * @return object|array<array-key, mixed>|null Instantiated collection wrapper or the normalised array values.
      */
