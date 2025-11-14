@@ -36,7 +36,7 @@ final class ClassResolver
     private array $classMap;
 
     /**
-     * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
+     * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap Map of base class names to explicit targets or resolver callbacks.
      *
      * @phpstan-param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
      */
@@ -48,8 +48,8 @@ final class ClassResolver
     /**
      * Adds a custom resolution rule.
      *
-     * @param class-string                                                            $className
-     * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $resolver
+     * @param class-string $className Base class or interface the resolver handles.
+     * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $resolver Callback returning a concrete class based on the JSON payload and optional mapping context.
      *
      * @phpstan-param class-string $className
      * @phpstan-param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $resolver
@@ -63,11 +63,11 @@ final class ClassResolver
     /**
      * Resolves the class name for the provided JSON payload.
      *
-     * @param class-string   $className
-     * @param mixed          $json
-     * @param MappingContext $context
+     * @param class-string $className Base class name configured in the resolver map.
+     * @param mixed $json Raw JSON fragment inspected to determine the target class.
+     * @param MappingContext $context Mapping context passed to resolution callbacks when required.
      *
-     * @return class-string
+     * @return class-string Fully-qualified class name that should be instantiated for the payload.
      */
     public function resolve(string $className, mixed $json, MappingContext $context): string
     {

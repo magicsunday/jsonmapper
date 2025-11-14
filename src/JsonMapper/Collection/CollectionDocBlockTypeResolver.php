@@ -36,6 +36,11 @@ final class CollectionDocBlockTypeResolver
 {
     private DocBlockFactoryInterface $docBlockFactory;
 
+    /**
+     * @param DocBlockFactoryInterface|null $docBlockFactory Optional docblock factory used to parse collection annotations.
+     * @param ContextFactory $contextFactory Factory for building type resolution contexts for reflected classes.
+     * @param PhpDocTypeHelper $phpDocTypeHelper Helper translating DocBlock types into Symfony TypeInfo representations.
+     */
     public function __construct(
         ?DocBlockFactoryInterface $docBlockFactory = null,
         private readonly ContextFactory $contextFactory = new ContextFactory(),
@@ -56,9 +61,9 @@ final class CollectionDocBlockTypeResolver
     /**
      * Attempts to resolve a {@see CollectionType} from the collection class PHPDoc.
      *
-     * @param class-string $collectionClassName
+     * @param class-string $collectionClassName Fully qualified class name of the collection wrapper to inspect.
      *
-     * @return CollectionType<CollectionWrappedType|GenericType<CollectionWrappedType>>|null
+     * @return CollectionType<CollectionWrappedType|GenericType<CollectionWrappedType>>|null Resolved collection metadata or null when no matching PHPDoc is available.
      */
     public function resolve(string $collectionClassName): ?CollectionType
     {

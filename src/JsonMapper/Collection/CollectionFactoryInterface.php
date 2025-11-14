@@ -32,18 +32,22 @@ interface CollectionFactoryInterface
     /**
      * Converts the provided iterable JSON structure to a PHP array.
      *
-     * @param Type $valueType The type description for the collection values.
+     * @param mixed $json Raw JSON data representing the iterable input to normalise.
+     * @param Type $valueType Type description for the collection values.
+     * @param MappingContext $context Active mapping context carrying strictness and error reporting configuration.
      *
-     * @return array<TKey, TValue>|null
+     * @return array<TKey, TValue>|null Normalised array representation or null when conversion fails.
      */
     public function mapIterable(mixed $json, Type $valueType, MappingContext $context): ?array;
 
     /**
      * Builds a collection based on the specified collection type description.
      *
-     * @param CollectionType<CollectionWrappedType|GenericType<CollectionWrappedType>> $type The collection type metadata extracted from PHPStan/Psalm annotations.
+     * @param CollectionType<CollectionWrappedType|GenericType<CollectionWrappedType>> $type Resolved collection metadata from PHPDoc or attributes.
+     * @param mixed $json Raw JSON payload containing the collection values.
+     * @param MappingContext $context Mapping context controlling strict mode and error recording.
      *
-     * @return array<TKey, TValue>|object|null
+     * @return array<TKey, TValue>|object|null Instantiated collection wrapper or the normalised array values.
      */
     public function fromCollectionType(CollectionType $type, mixed $json, MappingContext $context): mixed;
 }
