@@ -1,5 +1,8 @@
 ## Unreleased
 
+### Added
+- Introduced `JsonMapper::createWithDefaults()` to bootstrap the mapper with Symfony reflection, PhpDoc extractors, and a default property accessor.
+
 ### Changed
 - Marked `MagicSunday\\JsonMapper\\JsonMapper` as `final` and promoted constructor dependencies to `readonly` properties for consistent visibility.
 - Declared `MagicSunday\\JsonMapper\\Converter\\CamelCasePropertyNameConverter` as `final` and immutable.
