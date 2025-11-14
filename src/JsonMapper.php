@@ -270,7 +270,6 @@ final readonly class JsonMapper
             $configuration = JsonMapperConfiguration::fromContext($context);
         }
 
-        // Resolve the target class and optional collection from the configured resolvers.
         $resolvedClassName = $className === null
             ? null
             : $this->classResolver->resolve($className, $json, $context);
@@ -281,38 +280,116 @@ final readonly class JsonMapper
 
         $this->assertClassesExists($resolvedClassName, $resolvedCollectionClassName);
 
-        /** @var Type|null $collectionValueType */
-        $collectionValueType = null;
+        $collectionValueType = $this->extractCollectionType($resolvedClassName, $resolvedCollectionClassName);
 
-        // Determine the element type when the mapping targets a collection.
-        if ($resolvedCollectionClassName !== null) {
-            if ($resolvedClassName !== null) {
-                $collectionValueType = new ObjectType($resolvedClassName);
-            } else {
-                $docBlockCollectionType = $this->collectionDocBlockTypeResolver->resolve($resolvedCollectionClassName);
+        $collectionResult = $this->mapCollection(
+            $json,
+            $resolvedClassName,
+            $resolvedCollectionClassName,
+            $collectionValueType,
+            $context,
+        );
 
-                if (!$docBlockCollectionType instanceof CollectionType) {
-                    throw new InvalidArgumentException(sprintf(
-                        'Unable to resolve the element type for collection [%s]. Define an "@extends" annotation such as "@extends %s<YourClass>".',
-                        $resolvedCollectionClassName,
-                        $resolvedCollectionClassName,
-                    ));
-                }
-
-                $collectionValueType = $docBlockCollectionType->getCollectionValueType();
-
-                if ($collectionValueType instanceof TemplateType) {
-                    throw new InvalidArgumentException(sprintf(
-                        'Unable to resolve the element type for collection [%s]. Please provide a concrete class in the "@extends" annotation.',
-                        $resolvedCollectionClassName,
-                    ));
-                }
-            }
+        if ($collectionResult !== null) {
+            return $collectionResult;
         }
 
+        if ($resolvedClassName === null) {
+            return $json;
+        }
+
+        if (!is_array($json) && !is_object($json)) {
+            return $this->makeInstance($resolvedClassName);
+        }
+
+        return $this->mapSingleObject($json, $resolvedClassName, $context, $configuration);
+    }
+
+    /**
+     * Maps the JSON structure and returns a detailed mapping report.
+     *
+     * @param mixed                        $json                Source data to map into PHP objects.
+     * @param class-string|null            $className           Fully qualified class name that should be instantiated for mapped objects.
+     * @param class-string|null            $collectionClassName Collection class that should wrap the mapped objects when required.
+     * @param JsonMapperConfiguration|null $configuration       Optional configuration that overrides the default mapper settings.
+     *
+     * @return MappingResult Mapping result containing the mapped value and a detailed report.
+     */
+    public function mapWithReport(
+        mixed $json,
+        ?string $className = null,
+        ?string $collectionClassName = null,
+        ?JsonMapperConfiguration $configuration = null,
+    ): MappingResult {
+        $configuration = ($configuration ?? $this->createDefaultConfiguration())->withErrorCollection(true);
+        $context       = new MappingContext($json, $configuration->toOptions());
+        $value         = $this->map($json, $className, $collectionClassName, $context, $configuration);
+
+        return new MappingResult($value, new MappingReport($context->getErrorRecords()));
+    }
+
+    /**
+     * Extracts the collection element type based on the resolved class information.
+     *
+     * @param class-string|null $resolvedClassName           Fully qualified class name resolved for the mapped elements.
+     * @param class-string|null $resolvedCollectionClassName Fully qualified collection class wrapping the mapped elements.
+     *
+     * @return Type|null Element type derived from the collection definition when available.
+     */
+    private function extractCollectionType(
+        ?string $resolvedClassName,
+        ?string $resolvedCollectionClassName,
+    ): ?Type {
+        if ($resolvedCollectionClassName === null) {
+            return null;
+        }
+
+        if ($resolvedClassName !== null) {
+            return new ObjectType($resolvedClassName);
+        }
+
+        $docBlockCollectionType = $this->collectionDocBlockTypeResolver->resolve($resolvedCollectionClassName);
+
+        if (!$docBlockCollectionType instanceof CollectionType) {
+            throw new InvalidArgumentException(sprintf(
+                'Unable to resolve the element type for collection [%s]. Define an "@extends" annotation such as "@extends %s<YourClass>".',
+                $resolvedCollectionClassName,
+                $resolvedCollectionClassName,
+            ));
+        }
+
+        $collectionValueType = $docBlockCollectionType->getCollectionValueType();
+
+        if ($collectionValueType instanceof TemplateType) {
+            throw new InvalidArgumentException(sprintf(
+                'Unable to resolve the element type for collection [%s]. Please provide a concrete class in the "@extends" annotation.',
+                $resolvedCollectionClassName,
+            ));
+        }
+
+        return $collectionValueType;
+    }
+
+    /**
+     * Maps iterable payloads into the configured collection structure when applicable.
+     *
+     * @param mixed                 $json                        Source payload that may represent a collection.
+     * @param class-string|null     $resolvedClassName           Fully qualified class name resolved for mapped elements.
+     * @param class-string|null     $resolvedCollectionClassName Fully qualified collection class wrapping the mapped elements.
+     * @param Type|null             $collectionValueType         Element type derived from the collection definition.
+     * @param MappingContext        $context                     Mapping context forwarded to nested mappings.
+     *
+     * @return mixed|null Returns the mapped collection when handled, null otherwise.
+     */
+    private function mapCollection(
+        mixed $json,
+        ?string $resolvedClassName,
+        ?string $resolvedCollectionClassName,
+        ?Type $collectionValueType,
+        MappingContext $context,
+    ): mixed {
         $isGenericCollectionMapping = $resolvedClassName === null && $collectionValueType !== null;
 
-        // Map into a standalone collection when the element class is derived from the collection definition.
         if ($isGenericCollectionMapping) {
             if ($resolvedCollectionClassName === null) {
                 throw new InvalidArgumentException('A collection class name must be provided when mapping without an element class.');
@@ -324,31 +401,46 @@ final readonly class JsonMapper
         }
 
         if ($resolvedClassName === null) {
-            return $json;
+            return null;
         }
 
-        if (!is_array($json) && !is_object($json)) {
-            return $this->makeInstance($resolvedClassName);
+        if (!$this->isIterableWithArraysOrObjects($json)) {
+            return null;
         }
 
-        // Map array or object sources into the configured collection type when requested.
-        if (
-            ($resolvedCollectionClassName !== null)
-            && $this->isIterableWithArraysOrObjects($json)
-        ) {
-            $collection = $this->collectionFactory->mapIterable($json, $collectionValueType ?? new ObjectType($resolvedClassName), $context);
+        /** @var array<array-key, mixed>|object $json */
+
+        $valueType = $collectionValueType ?? new ObjectType($resolvedClassName);
+
+        if ($resolvedCollectionClassName !== null) {
+            $collection = $this->collectionFactory->mapIterable($json, $valueType, $context);
 
             return $this->makeInstance($resolvedCollectionClassName, $collection);
         }
 
-        // Handle sequential arrays by mapping them into a native collection of resolved objects.
-        if (
-            $this->isIterableWithArraysOrObjects($json)
-            && $this->isNumericIndexArray($json)
-        ) {
-            return $this->collectionFactory->mapIterable($json, new ObjectType($resolvedClassName), $context);
+        if ($this->isNumericIndexArray($json)) {
+            return $this->collectionFactory->mapIterable($json, $valueType, $context);
         }
 
+        return null;
+    }
+
+    /**
+     * Maps a single object or associative array onto the resolved class instance.
+     *
+     * @param array<array-key, mixed>|object $json          Source payload representing the object to map.
+     * @param class-string                   $resolvedClassName Fully qualified class name that receives the mapped values.
+     * @param MappingContext                 $context           Mapping context forwarded to nested mappings.
+     * @param JsonMapperConfiguration        $configuration     Effective configuration guiding the mapping process.
+     *
+     * @return object Instantiated and populated object that represents the mapped payload.
+     */
+    private function mapSingleObject(
+        array|object $json,
+        string $resolvedClassName,
+        MappingContext $context,
+        JsonMapperConfiguration $configuration,
+    ): object {
         $entity = $this->makeInstance($resolvedClassName);
         $source = $this->toIterableArray($json);
 
@@ -356,7 +448,6 @@ final readonly class JsonMapper
         $replacePropertyMap = $this->buildReplacePropertyMap($resolvedClassName);
         $mappedProperties   = [];
 
-        // Iterate over the source data and map each property onto the target entity.
         foreach ($source as $propertyName => $propertyValue) {
             $normalizedProperty = $this->normalizePropertyName($propertyName, $replacePropertyMap);
             $pathSegment        = is_string($normalizedProperty) ? $normalizedProperty : (string) $propertyName;
@@ -374,23 +465,21 @@ final readonly class JsonMapper
                     return;
                 }
 
-                if (!in_array($normalizedProperty, $properties, true)) {
-                    if ($configuration->shouldIgnoreUnknownProperties()) {
-                        return;
-                    }
+                $validatedProperty = $this->validateAndNormalize(
+                    $normalizedProperty,
+                    $properties,
+                    $configuration,
+                    $propertyContext,
+                    $resolvedClassName,
+                );
 
-                    $this->handleMappingException(
-                        new UnknownPropertyException($propertyContext->getPath(), $normalizedProperty, $resolvedClassName),
-                        $propertyContext,
-                        $configuration,
-                    );
-
+                if ($validatedProperty === null) {
                     return;
                 }
 
-                $mappedProperties[] = $normalizedProperty;
+                $mappedProperties[] = $validatedProperty;
 
-                $type = $this->typeResolver->resolve($resolvedClassName, $normalizedProperty);
+                $type = $this->typeResolver->resolve($resolvedClassName, $validatedProperty);
 
                 try {
                     $value = $this->convertValue($propertyValue, $type, $propertyContext);
@@ -402,13 +491,13 @@ final readonly class JsonMapper
 
                 if (
                     ($value === null)
-                    && $this->isReplaceNullWithDefaultValueAnnotation($resolvedClassName, $normalizedProperty)
+                    && $this->isReplaceNullWithDefaultValueAnnotation($resolvedClassName, $validatedProperty)
                 ) {
-                    $value = $this->getDefaultValue($resolvedClassName, $normalizedProperty);
+                    $value = $this->getDefaultValue($resolvedClassName, $validatedProperty);
                 }
 
                 try {
-                    $this->setProperty($entity, $normalizedProperty, $value, $propertyContext);
+                    $this->setProperty($entity, $validatedProperty, $value, $propertyContext);
                 } catch (ReadonlyPropertyException $exception) {
                     $this->handleMappingException($exception, $propertyContext, $configuration);
                 }
@@ -435,26 +524,38 @@ final readonly class JsonMapper
     }
 
     /**
-     * Maps the JSON structure and returns a detailed mapping report.
+     * Validates the normalized property name and reports unknown properties when required.
      *
-     * @param mixed                        $json                Source data to map into PHP objects.
-     * @param class-string|null            $className           Fully qualified class name that should be instantiated for mapped objects.
-     * @param class-string|null            $collectionClassName Collection class that should wrap the mapped objects when required.
-     * @param JsonMapperConfiguration|null $configuration       Optional configuration that overrides the default mapper settings.
+     * @param string                    $normalizedProperty Normalized property name derived from the payload.
+     * @param array<int|string, string> $properties          Declared properties available on the target class.
+     * @param JsonMapperConfiguration   $configuration       Effective configuration guiding the mapping process.
+     * @param MappingContext            $context             Mapping context scoped to the current property.
+     * @param class-string              $resolvedClassName   Fully qualified class name receiving the mapped values.
      *
-     * @return MappingResult Mapping result containing the mapped value and a detailed report.
+     * @return string|null Returns the validated property name or null when the property should be skipped.
      */
-    public function mapWithReport(
-        mixed $json,
-        ?string $className = null,
-        ?string $collectionClassName = null,
-        ?JsonMapperConfiguration $configuration = null,
-    ): MappingResult {
-        $configuration = ($configuration ?? $this->createDefaultConfiguration())->withErrorCollection(true);
-        $context       = new MappingContext($json, $configuration->toOptions());
-        $value         = $this->map($json, $className, $collectionClassName, $context, $configuration);
+    private function validateAndNormalize(
+        string $normalizedProperty,
+        array $properties,
+        JsonMapperConfiguration $configuration,
+        MappingContext $context,
+        string $resolvedClassName,
+    ): ?string {
+        if (!in_array($normalizedProperty, $properties, true)) {
+            if ($configuration->shouldIgnoreUnknownProperties()) {
+                return null;
+            }
 
-        return new MappingResult($value, new MappingReport($context->getErrorRecords()));
+            $this->handleMappingException(
+                new UnknownPropertyException($context->getPath(), $normalizedProperty, $resolvedClassName),
+                $context,
+                $configuration,
+            );
+
+            return null;
+        }
+
+        return $normalizedProperty;
     }
 
     /**
