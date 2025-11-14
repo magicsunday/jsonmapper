@@ -30,7 +30,7 @@ final class CustomTypeRegistry
     /**
      * Registers the converter for the provided class name.
      *
-     * @param string $className Fully-qualified class name handled by the converter.
+     * @param non-empty-string $className Fully-qualified type alias handled by the converter.
      * @param callable(mixed):mixed|callable(mixed, MappingContext):mixed $converter Callback responsible for creating the destination value.
      *
      * @return void
