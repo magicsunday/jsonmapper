@@ -23,6 +23,14 @@ final class JsonMapperConfiguration
 {
     /**
      * Creates a new configuration instance with optional overrides.
+     *
+     * @param bool   $strictMode                   Whether unknown/missing properties should trigger errors
+     * @param bool   $collectErrors                Whether encountered mapping errors should be collected
+     * @param bool   $emptyStringIsNull            Whether empty strings are converted to null
+     * @param bool   $ignoreUnknownProperties      Whether properties missing in the destination type are ignored
+     * @param bool   $treatNullAsEmptyCollection   Whether null collections are replaced with empty collections
+     * @param string $defaultDateFormat            Default `DateTimeInterface` format used for serialization/deserialization
+     * @param bool   $allowScalarToObjectCasting   Whether scalars can be coerced into objects when supported
      */
     public function __construct(
         private bool $strictMode = false,
@@ -37,6 +45,8 @@ final class JsonMapperConfiguration
 
     /**
      * Returns a lenient configuration with default settings.
+     *
+     * @return self Configuration tuned for permissive mappings
      */
     public static function lenient(): self
     {
@@ -45,6 +55,8 @@ final class JsonMapperConfiguration
 
     /**
      * Returns a strict configuration that reports unknown and missing properties.
+     *
+     * @return self Configuration tuned for strict validation
      */
     public static function strict(): self
     {
@@ -55,6 +67,8 @@ final class JsonMapperConfiguration
      * Restores a configuration instance from the provided array.
      *
      * @param array<string, mixed> $data Configuration values indexed by property name
+     *
+     * @return self Configuration populated with the provided overrides
      */
     public static function fromArray(array $data): self
     {
@@ -77,6 +91,8 @@ final class JsonMapperConfiguration
 
     /**
      * Restores a configuration instance based on the provided mapping context.
+     *
+     * @return self Configuration aligned with the supplied context options
      */
     public static function fromContext(MappingContext $context): self
     {
@@ -94,7 +110,7 @@ final class JsonMapperConfiguration
     /**
      * Serializes the configuration into an array representation.
      *
-     * @return array<string, bool|string>
+     * @return array<string, bool|string> Scalar configuration flags indexed by option name
      */
     public function toArray(): array
     {
@@ -112,7 +128,7 @@ final class JsonMapperConfiguration
     /**
      * Converts the configuration to mapping context options.
      *
-     * @return array<string, bool|string>
+     * @return array<string, bool|string> Mapping context option bag compatible with {@see MappingContext}
      */
     public function toOptions(): array
     {
@@ -129,6 +145,8 @@ final class JsonMapperConfiguration
 
     /**
      * Indicates whether strict mode is enabled.
+     *
+     * @return bool True when unknown or missing properties are treated as failures
      */
     public function isStrictMode(): bool
     {
@@ -137,6 +155,8 @@ final class JsonMapperConfiguration
 
     /**
      * Indicates whether errors should be collected during mapping.
+     *
+     * @return bool True when mapper should aggregate errors instead of failing fast
      */
     public function shouldCollectErrors(): bool
     {
@@ -145,6 +165,8 @@ final class JsonMapperConfiguration
 
     /**
      * Indicates whether empty strings should be treated as null values.
+     *
+     * @return bool True when empty string values are mapped to null
      */
     public function shouldTreatEmptyStringAsNull(): bool
     {
@@ -153,6 +175,8 @@ final class JsonMapperConfiguration
 
     /**
      * Indicates whether unknown properties should be ignored.
+     *
+     * @return bool True when incoming properties without a target counterpart are skipped
      */
     public function shouldIgnoreUnknownProperties(): bool
     {
@@ -161,6 +185,8 @@ final class JsonMapperConfiguration
 
     /**
      * Indicates whether null collections should be converted to empty collections.
+     *
+     * @return bool True when null collection values are normalised to empty collections
      */
     public function shouldTreatNullAsEmptyCollection(): bool
     {
@@ -169,6 +195,8 @@ final class JsonMapperConfiguration
 
     /**
      * Returns the default date format used for date conversions.
+     *
+     * @return string Date format string compatible with {@see DateTimeInterface::format()}
      */
     public function getDefaultDateFormat(): string
     {
@@ -177,6 +205,8 @@ final class JsonMapperConfiguration
 
     /**
      * Indicates whether scalar values may be cast to objects.
+     *
+     * @return bool True when scalar-to-object coercion should be attempted
      */
     public function shouldAllowScalarToObjectCasting(): bool
     {
@@ -185,6 +215,10 @@ final class JsonMapperConfiguration
 
     /**
      * Returns a copy with the strict mode flag toggled.
+     *
+     * @param bool $enabled Whether strict mode should be enabled for the clone
+     *
+     * @return self Cloned configuration reflecting the requested strictness
      */
     public function withStrictMode(bool $enabled): self
     {
@@ -196,6 +230,10 @@ final class JsonMapperConfiguration
 
     /**
      * Returns a copy with the error collection flag toggled.
+     *
+     * @param bool $collect Whether errors should be aggregated in the clone
+     *
+     * @return self Cloned configuration applying the collection behaviour
      */
     public function withErrorCollection(bool $collect): self
     {
@@ -207,6 +245,10 @@ final class JsonMapperConfiguration
 
     /**
      * Returns a copy with the empty-string-as-null flag toggled.
+     *
+     * @param bool $enabled Whether empty strings should become null for the clone
+     *
+     * @return self Cloned configuration applying the string handling behaviour
      */
     public function withEmptyStringAsNull(bool $enabled): self
     {
@@ -218,6 +260,10 @@ final class JsonMapperConfiguration
 
     /**
      * Returns a copy with the ignore-unknown-properties flag toggled.
+     *
+     * @param bool $enabled Whether unknown properties should be ignored in the clone
+     *
+     * @return self Cloned configuration reflecting the requested behaviour
      */
     public function withIgnoreUnknownProperties(bool $enabled): self
     {
@@ -229,6 +275,10 @@ final class JsonMapperConfiguration
 
     /**
      * Returns a copy with the treat-null-as-empty-collection flag toggled.
+     *
+     * @param bool $enabled Whether null collections should be normalised for the clone
+     *
+     * @return self Cloned configuration applying the collection normalisation behaviour
      */
     public function withTreatNullAsEmptyCollection(bool $enabled): self
     {
@@ -240,6 +290,10 @@ final class JsonMapperConfiguration
 
     /**
      * Returns a copy with a different default date format.
+     *
+     * @param string $format Desired default format compatible with {@see DateTimeInterface::format()}
+     *
+     * @return self Cloned configuration containing the new date format
      */
     public function withDefaultDateFormat(string $format): self
     {
@@ -251,6 +305,10 @@ final class JsonMapperConfiguration
 
     /**
      * Returns a copy with the scalar-to-object casting flag toggled.
+     *
+     * @param bool $enabled Whether scalar values should be coerced to objects in the clone
+     *
+     * @return self Cloned configuration defining the scalar coercion behaviour
      */
     public function withScalarToObjectCasting(bool $enabled): self
     {
