@@ -20,16 +20,39 @@ use Symfony\Component\TypeInfo\Type;
  */
 final readonly class CustomTypeValueConversionStrategy implements ValueConversionStrategyInterface
 {
+    /**
+     * Creates the strategy backed by the custom type registry.
+     *
+     * @param CustomTypeRegistry $registry Registry containing the custom handlers.
+     */
     public function __construct(
         private CustomTypeRegistry $registry,
     ) {
     }
 
+    /**
+     * Determines whether the registry can handle the provided type.
+     *
+     * @param mixed $value Raw value coming from the input payload.
+     * @param Type $type Type metadata describing the target property.
+     * @param MappingContext $context Mapping context providing configuration such as strict mode.
+     *
+     * @return bool TRUE when the registry has a matching custom handler.
+     */
     public function supports(mixed $value, Type $type, MappingContext $context): bool
     {
         return $this->registry->supports($type, $value);
     }
 
+    /**
+     * Converts the value using the registered handler.
+     *
+     * @param mixed $value Raw value coming from the input payload.
+     * @param Type $type Type metadata describing the target property.
+     * @param MappingContext $context Mapping context providing configuration such as strict mode.
+     *
+     * @return mixed Value produced by the registered custom handler.
+     */
     public function convert(mixed $value, Type $type, MappingContext $context): mixed
     {
         return $this->registry->convert($type, $value, $context);

@@ -40,11 +40,29 @@ use const FILTER_VALIDATE_INT;
  */
 final class BuiltinValueConversionStrategy implements ValueConversionStrategyInterface
 {
+    /**
+     * Determines whether the provided type represents a builtin PHP value.
+     *
+     * @param mixed $value Raw value coming from the input payload.
+     * @param Type $type Type metadata describing the target property.
+     * @param MappingContext $context Mapping context providing configuration such as strict mode.
+     *
+     * @return bool TRUE when the target type is a builtin PHP type.
+     */
     public function supports(mixed $value, Type $type, MappingContext $context): bool
     {
         return $type instanceof BuiltinType;
     }
 
+    /**
+     * Converts the provided value to the builtin type defined by the metadata.
+     *
+     * @param mixed $value Raw value coming from the input payload.
+     * @param Type $type Type metadata describing the target property.
+     * @param MappingContext $context Mapping context providing configuration such as strict mode.
+     *
+     * @return mixed Value cast to the requested builtin type when possible.
+     */
     public function convert(mixed $value, Type $type, MappingContext $context): mixed
     {
         assert($type instanceof BuiltinType);
@@ -64,7 +82,12 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
     }
 
     /**
-     * @param BuiltinType<TypeIdentifier> $type
+     * Normalizes common scalar representations before the conversion happens.
+     *
+     * @param mixed $value Raw value coming from the input payload.
+     * @param BuiltinType<TypeIdentifier> $type Type metadata describing the target property.
+     *
+     * @return mixed Normalized value that is compatible with the builtin type conversion.
      */
     private function normalizeValue(mixed $value, BuiltinType $type): mixed
     {
@@ -126,7 +149,13 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
     }
 
     /**
-     * @param BuiltinType<TypeIdentifier> $type
+     * Validates that the value matches the builtin type or records a mismatch.
+     *
+     * @param mixed $value Normalized value used during conversion.
+     * @param BuiltinType<TypeIdentifier> $type Type metadata describing the target property.
+     * @param MappingContext $context Mapping context providing configuration such as strict mode.
+     *
+     * @return void
      */
     private function guardCompatibility(mixed $value, BuiltinType $type, MappingContext $context): void
     {
@@ -160,13 +189,25 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
     }
 
     /**
-     * @param BuiltinType<TypeIdentifier> $type
+     * Determines whether the builtin type allows null values.
+     *
+     * @param BuiltinType<TypeIdentifier> $type Type metadata describing the target property.
+     *
+     * @return bool TRUE when the builtin type can be null.
      */
     private function allowsNull(BuiltinType $type): bool
     {
         return $type->isNullable();
     }
 
+    /**
+     * Checks whether the value matches the builtin type identifier.
+     *
+     * @param mixed $value Normalized value used during conversion.
+     * @param TypeIdentifier $identifier Identifier of the builtin type to check against.
+     *
+     * @return bool TRUE when the value matches the identifier requirements.
+     */
     private function isCompatibleValue(mixed $value, TypeIdentifier $identifier): bool
     {
         return match ($identifier->value) {

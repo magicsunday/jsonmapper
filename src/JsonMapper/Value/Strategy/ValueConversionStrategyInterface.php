@@ -19,7 +19,25 @@ use Symfony\Component\TypeInfo\Type;
  */
 interface ValueConversionStrategyInterface
 {
+    /**
+     * Determines whether the strategy can convert the provided value for the requested type.
+     *
+     * @param mixed $value Raw value coming from the input payload.
+     * @param Type $type Type metadata describing the target property.
+     * @param MappingContext $context Mapping context providing configuration such as strict mode.
+     *
+     * @return bool TRUE when the strategy should perform the conversion.
+     */
     public function supports(mixed $value, Type $type, MappingContext $context): bool;
 
+    /**
+     * Converts the value into a representation compatible with the requested type.
+     *
+     * @param mixed $value Raw value coming from the input payload.
+     * @param Type $type Type metadata describing the target property.
+     * @param MappingContext $context Mapping context providing configuration such as strict mode.
+     *
+     * @return mixed Result of the conversion when the strategy supports the value.
+     */
     public function convert(mixed $value, Type $type, MappingContext $context): mixed;
 }

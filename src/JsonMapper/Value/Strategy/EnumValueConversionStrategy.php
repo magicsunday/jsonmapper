@@ -31,6 +31,15 @@ final class EnumValueConversionStrategy implements ValueConversionStrategyInterf
 {
     use ObjectTypeConversionGuardTrait;
 
+    /**
+     * Determines whether the provided type is a backed enum.
+     *
+     * @param mixed $value Raw value coming from the input payload.
+     * @param Type $type Type metadata describing the target property.
+     * @param MappingContext $context Mapping context providing configuration such as strict mode.
+     *
+     * @return bool TRUE when the target type resolves to a backed enum.
+     */
     public function supports(mixed $value, Type $type, MappingContext $context): bool
     {
         $objectType = $this->extractObjectType($type);
@@ -48,6 +57,15 @@ final class EnumValueConversionStrategy implements ValueConversionStrategyInterf
         return is_a($className, BackedEnum::class, true);
     }
 
+    /**
+     * Converts the JSON scalar into the matching enum case.
+     *
+     * @param mixed $value Raw value coming from the input payload.
+     * @param Type $type Type metadata describing the target property.
+     * @param MappingContext $context Mapping context providing configuration such as strict mode.
+     *
+     * @return mixed Backed enum instance returned by the case factory method.
+     */
     public function convert(mixed $value, Type $type, MappingContext $context): mixed
     {
         return $this->convertObjectValue(
