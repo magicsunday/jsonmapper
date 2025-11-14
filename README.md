@@ -1,5 +1,5 @@
 [![Latest version](https://img.shields.io/github/v/release/magicsunday/jsonmapper?sort=semver)](https://github.com/magicsunday/jsonmapper/releases/latest)
-[![License](https://img.shields.io/github/license/magicsunday/jsonmapper)](https://github.com/magicsunday/jsonmapper/blob/main/LICENSE)
+[![License](https://img.shields.io/github/license/magicsunday/jsonmapper)](https://github.com/magicsunday/jsonmapper/blob/master/LICENSE)
 [![CI](https://github.com/magicsunday/jsonmapper/actions/workflows/ci.yml/badge.svg)](https://github.com/magicsunday/jsonmapper/actions/workflows/ci.yml)
 
 # JsonMapper
