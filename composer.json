@@ -14,7 +14,7 @@
         "issues": "https://github.com/magicsunday/jsonmapper/issues"
     },
     "require": {
-        "php": ">=8.3.0 <8.5.0",
+        "php": ">=8.3.0 <8.6.0",
         "ext-json": "*",
         "symfony/property-info": "^7.3",
         "symfony/property-access": "^7.3",
@@ -83,9 +83,6 @@
         ],
         "ci:test:php:unit:coverage": [
             "XDEBUG_MODE=coverage phpunit --configuration phpunit.xml --coverage-html .build/coverage/"
-        ],
-        "ci:compliance": [
-            "php scripts/analyze-exif-compliance.php 50"
         ],
         "ci:test": [
             "@ci:test:php:lint",
