@@ -249,7 +249,7 @@ final class StubPropertyTypeExtractor implements PropertyTypeExtractorInterface
     /**
      * @param array<array-key, mixed> $context
      */
-    public function getTypes(string $class, string $property, array $context = []): ?array
+    public function getTypes(string $class, string $property, array $context = []): null
     {
         return null;
     }
