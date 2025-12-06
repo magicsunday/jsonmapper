@@ -66,7 +66,6 @@ final class ClassResolverTest extends TestCase
         $resolver = new ClassResolver();
 
         $classMap = new ReflectionProperty(ClassResolver::class, 'classMap');
-        $classMap->setAccessible(true);
         $classMap->setValue($resolver, [
             DummyBaseClass::class => static fn (): int => 123,
         ]);
