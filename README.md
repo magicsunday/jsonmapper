@@ -162,4 +162,4 @@ composer ci:test
 
 See `CONTRIBUTING.md` for contributor workflow and minimal setup.
 
-If contributions are prepared or modified by an LLM/agent, follow `AGENTS.md` (and `tests/AGENTS.md` for test-only scope).
+If contributions are prepared or modified by an LLM/agent, follow `AGENTS.md`.

@@ -32,7 +32,7 @@ $propertyAccessor = PropertyAccess::createPropertyAccessor();
 $mapper = new JsonMapper($propertyInfo, $propertyAccessor);
 
 // Enable strict validation and collect every encountered error.
-$config = JsonMapperConfiguration::strict()->withCollectErrors(true);
+$config = JsonMapperConfiguration::strict()->withErrorCollection(true);
 
 // Map while receiving a result object that contains the mapped DTO and issues.
 $result = $mapper->mapWithReport($payload, Article::class, configuration: $config);

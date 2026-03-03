@@ -10,7 +10,7 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
 
 **Project objective:** Stable JSON → PHP data mapping (DTOs, value objects, attributes) backed by Symfony PropertyInfo/PropertyAccess.
 
-* Target PHP version: **PHP 8.3/8.4** — `declare(strict_types=1);`, PSR-12, Rector-ready.
+* Target PHP version: **PHP 8.3/8.4/8.5** — `declare(strict_types=1);`, PSR-12, Rector-ready.
 * Keep the public API **compact**; no breaking changes without README/CHANGELOG/PR notes.
 * Avoid magic strings in type resolvers. Prefer dedicated value objects/enums for strategies, converters, and handlers.
 * The mapper operates in-memory; do **not** add I/O or network calls.
@@ -48,7 +48,7 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
 
 ## 3) Standard tooling & commands
 
-* **Runtime:** PHP 8.3/8.4
+* **Runtime:** PHP 8.3/8.4/8.5
 * **Composer scripts:**
     * `composer ci:cgl`
     * `composer ci:rector`
@@ -58,7 +58,6 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
     * `composer ci:test:php:cpd`
     * `composer ci:test:php:unit`
     * `composer ci:test:php:unit:coverage`
-    * `composer ci:compliance`
 * **Node tooling:** `npx jscpd --config .jscpd.json` (executed by the composer scripts; `npm install` runs via `post-update-cmd`).
 
 **Git flow (no ad-hoc diffs):**
@@ -118,7 +117,7 @@ Always build the PR body from `.github/pull_request_template.md` (default branch
 
 ```
 Role: Implementer. Complete issue “<TITLE>”.
-Context: PHP 8.3/8.4, strict_types=1, PSR-12, JsonMapper library.
+Context: PHP 8.3/8.4/8.5, strict_types=1, PSR-12, JsonMapper library.
 File scope: <list of authorised files>
 Guards: Stable public API, safe reflection, no dynamic properties, no I/O.
 Documentation: Maintain PHPDocs (English), expressive identifiers, inline comments for complex logic only.

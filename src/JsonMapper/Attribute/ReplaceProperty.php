@@ -20,8 +20,8 @@ use Attribute;
 final readonly class ReplaceProperty
 {
     /**
-     * @param string $value    Name of the incoming JSON field that should be renamed.
-     * @param string $replaces Target property name that receives the value.
+     * @param string $value    Target property name that receives the value.
+     * @param string $replaces Name of the incoming JSON field that should be renamed.
      */
     public function __construct(
         public string $value,

@@ -47,7 +47,6 @@ composer ci:test
 This repository has explicit agent rules. Do not duplicate or reinterpret them in PRs.
 
 - Repository-wide agent rules: `AGENTS.md`
-- Test-scope agent rules: `tests/AGENTS.md`
 
 If a contribution is prepared or modified by an LLM/agent, it must comply with those files.
 Where agent rules define a different workflow, the AGENTS files take precedence.
