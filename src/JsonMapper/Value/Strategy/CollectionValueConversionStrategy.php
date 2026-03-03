@@ -36,13 +36,13 @@ final readonly class CollectionValueConversionStrategy implements ValueConversio
     /**
      * Determines whether the supplied type represents a collection.
      *
-     * @param mixed          $value   Raw value coming from the input payload.
      * @param Type           $type    Type metadata describing the target property.
+     * @param mixed          $value   Raw value coming from the input payload.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return bool TRUE when the target type is a collection type.
      */
-    public function supports(mixed $value, Type $type, MappingContext $context): bool
+    public function supports(Type $type, mixed $value, MappingContext $context): bool
     {
         return $type instanceof CollectionType;
     }
@@ -50,13 +50,13 @@ final readonly class CollectionValueConversionStrategy implements ValueConversio
     /**
      * Converts the JSON value into a collection instance.
      *
-     * @param mixed          $value   Raw value coming from the input payload.
      * @param Type           $type    Type metadata describing the target property.
+     * @param mixed          $value   Raw value coming from the input payload.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return mixed Collection created by the factory based on the type metadata.
      */
-    public function convert(mixed $value, Type $type, MappingContext $context): mixed
+    public function convert(Type $type, mixed $value, MappingContext $context): mixed
     {
         assert($type instanceof CollectionType);
 

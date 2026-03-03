@@ -33,13 +33,13 @@ final readonly class CustomTypeValueConversionStrategy implements ValueConversio
     /**
      * Determines whether the registry can handle the provided type.
      *
-     * @param mixed          $value   Raw value coming from the input payload.
      * @param Type           $type    Type metadata describing the target property.
+     * @param mixed          $value   Raw value coming from the input payload.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return bool TRUE when the registry has a matching custom handler.
      */
-    public function supports(mixed $value, Type $type, MappingContext $context): bool
+    public function supports(Type $type, mixed $value, MappingContext $context): bool
     {
         return $this->registry->supports($type, $value);
     }
@@ -47,13 +47,13 @@ final readonly class CustomTypeValueConversionStrategy implements ValueConversio
     /**
      * Converts the value using the registered handler.
      *
-     * @param mixed          $value   Raw value coming from the input payload.
      * @param Type           $type    Type metadata describing the target property.
+     * @param mixed          $value   Raw value coming from the input payload.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return mixed Value produced by the registered custom handler.
      */
-    public function convert(mixed $value, Type $type, MappingContext $context): mixed
+    public function convert(Type $type, mixed $value, MappingContext $context): mixed
     {
         return $this->registry->convert($type, $value, $context);
     }

@@ -22,13 +22,13 @@ final class PassthroughValueConversionStrategy implements ValueConversionStrateg
     /**
      * Always supports conversion and acts as the terminal strategy.
      *
-     * @param mixed          $value   Raw value coming from the input payload.
      * @param Type           $type    Type metadata describing the target property.
+     * @param mixed          $value   Raw value coming from the input payload.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return bool Always TRUE so the strategy can act as the final fallback.
      */
-    public function supports(mixed $value, Type $type, MappingContext $context): bool
+    public function supports(Type $type, mixed $value, MappingContext $context): bool
     {
         return true;
     }
@@ -36,13 +36,13 @@ final class PassthroughValueConversionStrategy implements ValueConversionStrateg
     /**
      * Returns the original value without modification.
      *
-     * @param mixed          $value   Raw value coming from the input payload.
      * @param Type           $type    Type metadata describing the target property.
+     * @param mixed          $value   Raw value coming from the input payload.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return mixed Unmodified value passed through from the input.
      */
-    public function convert(mixed $value, Type $type, MappingContext $context): mixed
+    public function convert(Type $type, mixed $value, MappingContext $context): mixed
     {
         return $value;
     }

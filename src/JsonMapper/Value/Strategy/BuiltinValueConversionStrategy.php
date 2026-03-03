@@ -43,13 +43,13 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
     /**
      * Determines whether the provided type represents a builtin PHP value.
      *
-     * @param mixed          $value   Raw value coming from the input payload.
      * @param Type           $type    Type metadata describing the target property.
+     * @param mixed          $value   Raw value coming from the input payload.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return bool TRUE when the target type is a builtin PHP type.
      */
-    public function supports(mixed $value, Type $type, MappingContext $context): bool
+    public function supports(Type $type, mixed $value, MappingContext $context): bool
     {
         return $type instanceof BuiltinType;
     }
@@ -57,13 +57,13 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
     /**
      * Converts the provided value to the builtin type defined by the metadata.
      *
-     * @param mixed          $value   Raw value coming from the input payload.
      * @param Type           $type    Type metadata describing the target property.
+     * @param mixed          $value   Raw value coming from the input payload.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return mixed Value cast to the requested builtin type when possible.
      */
-    public function convert(mixed $value, Type $type, MappingContext $context): mixed
+    public function convert(Type $type, mixed $value, MappingContext $context): mixed
     {
         assert($type instanceof BuiltinType);
 

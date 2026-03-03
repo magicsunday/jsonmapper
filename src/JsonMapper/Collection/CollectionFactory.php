@@ -91,7 +91,7 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
         $collection = [];
 
         foreach ($source as $key => $value) {
-            $collection[$key] = $context->withPathSegment((string) $key, fn (MappingContext $childContext): mixed => $this->valueConverter->convert($value, $valueType, $childContext));
+            $collection[$key] = $context->withPathSegment((string) $key, fn (MappingContext $childContext): mixed => $this->valueConverter->convert($valueType, $value, $childContext));
         }
 
         return $collection;

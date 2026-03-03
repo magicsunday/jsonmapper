@@ -698,7 +698,7 @@ final readonly class JsonMapper
             return null;
         }
 
-        return $this->valueConverter->convert($json, $type, $context);
+        return $this->valueConverter->convert($type, $json, $context);
     }
 
     /**

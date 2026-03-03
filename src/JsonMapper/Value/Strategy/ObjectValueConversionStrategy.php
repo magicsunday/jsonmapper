@@ -43,13 +43,13 @@ final readonly class ObjectValueConversionStrategy implements ValueConversionStr
     /**
      * Determines whether the metadata describes an object type.
      *
-     * @param mixed          $value   Raw value coming from the input payload.
      * @param Type           $type    Type metadata describing the target property.
+     * @param mixed          $value   Raw value coming from the input payload.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return bool TRUE when the target type represents an object.
      */
-    public function supports(mixed $value, Type $type, MappingContext $context): bool
+    public function supports(Type $type, mixed $value, MappingContext $context): bool
     {
         return $type instanceof ObjectType;
     }
@@ -57,14 +57,15 @@ final readonly class ObjectValueConversionStrategy implements ValueConversionStr
     /**
      * Delegates conversion to the mapper for the resolved class.
      *
-     * @param mixed          $value   Raw value coming from the input payload.
      * @param Type           $type    Type metadata describing the target property.
+     * @param mixed          $value   Raw value coming from the input payload.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return mixed Value returned by the mapper callback.
+     *
      * @throws LogicException
      */
-    public function convert(mixed $value, Type $type, MappingContext $context): mixed
+    public function convert(Type $type, mixed $value, MappingContext $context): mixed
     {
         if (!$type instanceof ObjectType) {
             throw new LogicException('ObjectValueConversionStrategy requires an object type.');
@@ -93,6 +94,7 @@ final readonly class ObjectValueConversionStrategy implements ValueConversionStr
      * @param ObjectType<class-string> $type Object type metadata describing the target property.
      *
      * @return class-string Concrete class name extracted from the metadata.
+     *
      * @throws LogicException
      */
     private function resolveClassName(ObjectType $type): string
