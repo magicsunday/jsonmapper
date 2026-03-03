@@ -30,7 +30,7 @@ trait ObjectTypeConversionGuardTrait
      */
     private function extractObjectType(Type $type): ?ObjectType
     {
-        if (!($type instanceof ObjectType)) {
+        if (!$type instanceof ObjectType) {
             return null;
         }
 

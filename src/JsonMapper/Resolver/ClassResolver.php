@@ -77,7 +77,7 @@ final class ClassResolver
 
         $mapped = $this->classMap[$className];
 
-        if (!($mapped instanceof Closure)) {
+        if (!$mapped instanceof Closure) {
             return $this->assertClassString($mapped);
         }
 

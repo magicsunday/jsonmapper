@@ -65,7 +65,7 @@ final readonly class ObjectValueConversionStrategy implements ValueConversionStr
      */
     public function convert(mixed $value, Type $type, MappingContext $context): mixed
     {
-        if (!($type instanceof ObjectType)) {
+        if (!$type instanceof ObjectType) {
             throw new LogicException('ObjectValueConversionStrategy requires an object type.');
         }
 

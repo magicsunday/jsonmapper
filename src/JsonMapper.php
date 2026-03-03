@@ -623,7 +623,7 @@ final readonly class JsonMapper
     {
         $reflectionProperty = $this->getReflectionProperty($className, $propertyName);
 
-        if (!($reflectionProperty instanceof ReflectionProperty)) {
+        if (!$reflectionProperty instanceof ReflectionProperty) {
             return false;
         }
 
@@ -872,7 +872,7 @@ final readonly class JsonMapper
     {
         $reflectionProperty = $this->getReflectionProperty($className, $propertyName);
 
-        if (!($reflectionProperty instanceof ReflectionProperty)) {
+        if (!$reflectionProperty instanceof ReflectionProperty) {
             return false;
         }
 
@@ -890,7 +890,7 @@ final readonly class JsonMapper
     {
         $reflectionClass = $this->getReflectionClass($className);
 
-        if (!($reflectionClass instanceof ReflectionClass)) {
+        if (!$reflectionClass instanceof ReflectionClass) {
             return [];
         }
 
@@ -1013,7 +1013,7 @@ final readonly class JsonMapper
     {
         $reflectionProperty = $this->getReflectionProperty($className, $propertyName);
 
-        if (!($reflectionProperty instanceof ReflectionProperty)) {
+        if (!$reflectionProperty instanceof ReflectionProperty) {
             return null;
         }
 

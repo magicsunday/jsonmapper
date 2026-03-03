@@ -62,7 +62,7 @@ final class TypeResolver
 
         $type = $this->extractor->getType($className, $propertyName);
 
-        if (!($type instanceof Type)) {
+        if (!$type instanceof Type) {
             $type = $this->resolveFromReflection($className, $propertyName);
         }
 
