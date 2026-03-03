@@ -56,11 +56,11 @@ jobs:
                 run: |
                     composer ci:test:php:lint
 
-            -   id: cgl
-                name: CGL
+            -   id: tests_unit
+                name: Unit Tests
                 if: ${{ always() && steps.install.conclusion == 'success' }}
                 run: |
-                    composer ci:cgl -- --dry-run
+                    composer ci:test:php:unit
 
             -   id: phpstan
                 name: PHPStan
@@ -74,8 +74,8 @@ jobs:
                 run: |
                     composer ci:test:php:rector
 
-            -   id: tests_unit
-                name: Unit Tests
+            -   id: cgl
+                name: CGL
                 if: ${{ always() && steps.install.conclusion == 'success' }}
                 run: |
-                    composer ci:test:php:unit
+                    composer ci:cgl -- --dry-run

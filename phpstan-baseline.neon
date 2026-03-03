@@ -11,3 +11,156 @@ parameters:
 			identifier: foreach.nonIterable
 			count: 2
 			path: src/JsonMapper.php
+
+		-
+			message: '''
+				#^Call to deprecated method getTypes\(\) of interface Symfony\\Component\\PropertyInfo\\PropertyTypeExtractorInterface\:
+				since Symfony 7\.3, use "getType" instead$#
+			'''
+			identifier: method.deprecated
+			count: 1
+			path: src/JsonMapper.php
+
+		-
+			message: '''
+				#^Call to method __construct\(\) of deprecated class Symfony\\Component\\PropertyInfo\\Type\:
+				since Symfony 7\.3, use "Symfony\\Component\\TypeInfo\\Type" class from "symfony/type\-info" instead$#
+			'''
+			identifier: method.deprecatedClass
+			count: 3
+			path: src/JsonMapper.php
+
+		-
+			message: '''
+				#^Call to method getBuiltinType\(\) of deprecated class Symfony\\Component\\PropertyInfo\\Type\:
+				since Symfony 7\.3, use "Symfony\\Component\\TypeInfo\\Type" class from "symfony/type\-info" instead$#
+			'''
+			identifier: method.deprecatedClass
+			count: 2
+			path: src/JsonMapper.php
+
+		-
+			message: '''
+				#^Call to method getClassName\(\) of deprecated class Symfony\\Component\\PropertyInfo\\Type\:
+				since Symfony 7\.3, use "Symfony\\Component\\TypeInfo\\Type" class from "symfony/type\-info" instead$#
+			'''
+			identifier: method.deprecatedClass
+			count: 1
+			path: src/JsonMapper.php
+
+		-
+			message: '''
+				#^Call to method getCollectionValueTypes\(\) of deprecated class Symfony\\Component\\PropertyInfo\\Type\:
+				since Symfony 7\.3, use "Symfony\\Component\\TypeInfo\\Type" class from "symfony/type\-info" instead$#
+			'''
+			identifier: method.deprecatedClass
+			count: 1
+			path: src/JsonMapper.php
+
+		-
+			message: '''
+				#^Call to method isCollection\(\) of deprecated class Symfony\\Component\\PropertyInfo\\Type\:
+				since Symfony 7\.3, use "Symfony\\Component\\TypeInfo\\Type" class from "symfony/type\-info" instead$#
+			'''
+			identifier: method.deprecatedClass
+			count: 1
+			path: src/JsonMapper.php
+
+		-
+			message: '''
+				#^Fetching class constant BUILTIN_TYPE_OBJECT of deprecated class Symfony\\Component\\PropertyInfo\\Type\:
+				since Symfony 7\.3, use "Symfony\\Component\\TypeInfo\\Type" class from "symfony/type\-info" instead$#
+			'''
+			identifier: classConstant.deprecatedClass
+			count: 4
+			path: src/JsonMapper.php
+
+		-
+			message: '''
+				#^Fetching class constant BUILTIN_TYPE_STRING of deprecated class Symfony\\Component\\PropertyInfo\\Type\:
+				since Symfony 7\.3, use "Symfony\\Component\\TypeInfo\\Type" class from "symfony/type\-info" instead$#
+			'''
+			identifier: classConstant.deprecatedClass
+			count: 1
+			path: src/JsonMapper.php
+
+		-
+			message: '''
+				#^Instantiation of deprecated class Symfony\\Component\\PropertyInfo\\Type\:
+				since Symfony 7\.3, use "Symfony\\Component\\TypeInfo\\Type" class from "symfony/type\-info" instead$#
+			'''
+			identifier: new.deprecatedClass
+			count: 3
+			path: src/JsonMapper.php
+
+		-
+			message: '''
+				#^Parameter \$type of method MagicSunday\\JsonMapper\:\:asCollection\(\) has typehint with deprecated class Symfony\\Component\\PropertyInfo\\Type\:
+				since Symfony 7\.3, use "Symfony\\Component\\TypeInfo\\Type" class from "symfony/type\-info" instead$#
+			'''
+			identifier: parameter.deprecatedClass
+			count: 2
+			path: src/JsonMapper.php
+
+		-
+			message: '''
+				#^Parameter \$type of method MagicSunday\\JsonMapper\:\:asObject\(\) has typehint with deprecated class Symfony\\Component\\PropertyInfo\\Type\:
+				since Symfony 7\.3, use "Symfony\\Component\\TypeInfo\\Type" class from "symfony/type\-info" instead$#
+			'''
+			identifier: parameter.deprecatedClass
+			count: 2
+			path: src/JsonMapper.php
+
+		-
+			message: '''
+				#^Parameter \$type of method MagicSunday\\JsonMapper\:\:getClassName\(\) has typehint with deprecated class Symfony\\Component\\PropertyInfo\\Type\:
+				since Symfony 7\.3, use "Symfony\\Component\\TypeInfo\\Type" class from "symfony/type\-info" instead$#
+			'''
+			identifier: parameter.deprecatedClass
+			count: 2
+			path: src/JsonMapper.php
+
+		-
+			message: '''
+				#^Parameter \$type of method MagicSunday\\JsonMapper\:\:getClassNameFromType\(\) has typehint with deprecated class Symfony\\Component\\PropertyInfo\\Type\:
+				since Symfony 7\.3, use "Symfony\\Component\\TypeInfo\\Type" class from "symfony/type\-info" instead$#
+			'''
+			identifier: parameter.deprecatedClass
+			count: 2
+			path: src/JsonMapper.php
+
+		-
+			message: '''
+				#^Parameter \$type of method MagicSunday\\JsonMapper\:\:getCollectionValueType\(\) has typehint with deprecated class Symfony\\Component\\PropertyInfo\\Type\:
+				since Symfony 7\.3, use "Symfony\\Component\\TypeInfo\\Type" class from "symfony/type\-info" instead$#
+			'''
+			identifier: parameter.deprecatedClass
+			count: 2
+			path: src/JsonMapper.php
+
+		-
+			message: '''
+				#^Parameter \$type of method MagicSunday\\JsonMapper\:\:getValue\(\) has typehint with deprecated class Symfony\\Component\\PropertyInfo\\Type\:
+				since Symfony 7\.3, use "Symfony\\Component\\TypeInfo\\Type" class from "symfony/type\-info" instead$#
+			'''
+			identifier: parameter.deprecatedClass
+			count: 2
+			path: src/JsonMapper.php
+
+		-
+			message: '''
+				#^Return type of method MagicSunday\\JsonMapper\:\:getCollectionValueType\(\) has typehint with deprecated class Symfony\\Component\\PropertyInfo\\Type\:
+				since Symfony 7\.3, use "Symfony\\Component\\TypeInfo\\Type" class from "symfony/type\-info" instead$#
+			'''
+			identifier: return.deprecatedClass
+			count: 2
+			path: src/JsonMapper.php
+
+		-
+			message: '''
+				#^Return type of method MagicSunday\\JsonMapper\:\:getType\(\) has typehint with deprecated class Symfony\\Component\\PropertyInfo\\Type\:
+				since Symfony 7\.3, use "Symfony\\Component\\TypeInfo\\Type" class from "symfony/type\-info" instead$#
+			'''
+			identifier: return.deprecatedClass
+			count: 2
+			path: src/JsonMapper.php

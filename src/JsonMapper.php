@@ -145,11 +145,11 @@ class JsonMapper
      * @param class-string<TEntityCollection>|null $collectionClassName The class name of a collection used to assign
      *                                                                  the initial elements
      *
+     * @return mixed|TEntityCollection|TEntity|null
+     *
      * @phpstan-return ($collectionClassName is class-string
      *                      ? TEntityCollection
      *                      : ($className is class-string ? TEntity : null|mixed))
-     *
-     * @return mixed|TEntityCollection|TEntity|null
      *
      * @throws DomainException
      * @throws InvalidArgumentException
@@ -428,7 +428,7 @@ class JsonMapper
     {
         $reflectionProperty = $this->getReflectionProperty($className, $propertyName);
 
-        if (!($reflectionProperty instanceof ReflectionProperty)) {
+        if (!$reflectionProperty instanceof ReflectionProperty) {
             return null;
         }
 
@@ -662,7 +662,7 @@ class JsonMapper
         if (array_key_exists($className, $this->classMap)) {
             $classNameOrClosure = $this->classMap[$className];
 
-            if (!($classNameOrClosure instanceof Closure)) {
+            if (!$classNameOrClosure instanceof Closure) {
                 /** @var class-string $classNameOrClosure */
                 return $classNameOrClosure;
             }

@@ -80,9 +80,9 @@
         ],
         "ci:test": [
             "@ci:test:php:lint",
+            "@ci:test:php:unit",
             "@ci:test:php:phpstan",
             "@ci:test:php:rector",
-            "@ci:test:php:unit",
             "@ci:test:php:cgl"
         ]
     }
