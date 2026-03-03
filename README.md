@@ -1,26 +1,57 @@
-[![Latest version](https://img.shields.io/github/v/release/magicsunday/jsonmapper?sort=semver)](https://github.com/magicsunday/jsonmapper/releases/latest)
-[![License](https://img.shields.io/github/license/magicsunday/jsonmapper)](https://github.com/magicsunday/jsonmapper/blob/master/LICENSE)
-[![CI](https://github.com/magicsunday/jsonmapper/actions/workflows/ci.yml/badge.svg)](https://github.com/magicsunday/jsonmapper/actions/workflows/ci.yml)
+<h1 align="center">JsonMapper: JSON to PHP Object Mapping</h1>
 
-# JsonMapper
-This module provides a mapper to map JSON to PHP classes utilizing Symfony's property info and access packages.
+<p align="center">
+  Map JSON data to strongly-typed PHP classes using Symfony's PropertyInfo and PropertyAccess components.
+</p>
 
-## Installation
+<!-- Row 1: CI / Quality badges -->
+<p align="center">
+  <a href="https://github.com/magicsunday/jsonmapper/actions/workflows/ci.yml"><img src="https://github.com/magicsunday/jsonmapper/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+</p>
 
-### Using Composer
-To install using [composer](https://getcomposer.org/), just run the following command from the command line.
+<!-- Row 2: Standards / Tooling badges -->
+<p align="center">
+  <a href="https://phpstan.org/"><img src="https://img.shields.io/badge/PHPStan-max%20level-brightgreen.svg" alt="PHPStan Max Level"></a>
+  <a href="https://phpunit.de/"><img src="https://img.shields.io/badge/PHPUnit-12-blue.svg" alt="PHPUnit 12"></a>
+  <a href="https://getrector.com/"><img src="https://img.shields.io/badge/Rector-2.0-orange.svg" alt="Rector 2.0"></a>
+  <a href="https://www.php-fig.org/psr/psr-12/"><img src="https://img.shields.io/badge/Code%20Style-PSR--12-blue.svg" alt="PSR-12"></a>
+</p>
+
+<!-- Row 3: Compatibility badges -->
+<p align="center">
+  <a href="composer.json"><img src="https://img.shields.io/badge/php-8.3|8.4|8.5-blue" alt="PHP Version"></a>
+</p>
+
+<!-- Row 4: Project badges -->
+<p align="center">
+  <a href="https://github.com/magicsunday/jsonmapper/releases/latest"><img src="https://img.shields.io/github/v/release/magicsunday/jsonmapper?sort=semver" alt="Latest version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/magicsunday/jsonmapper" alt="License"></a>
+</p>
+
+---
+
+## 📌 Overview
+JsonMapper is a PHP library that maps JSON data to strongly-typed PHP classes (DTOs, value objects, entities) using reflection and PHPDoc annotations. It leverages Symfony's PropertyInfo and PropertyAccess components to provide flexible, extensible JSON-to-PHP object mapping.
+
+| Key      | Value                                              |
+|----------|----------------------------------------------------|
+| Package  | `magicsunday/jsonmapper`                           |
+| PHP      | `^8.3`                                             |
+| Main API | `MagicSunday\JsonMapper`                           |
+| Output   | Mapped PHP objects + optional `MappingReport`      |
+
+## ❓ What is this?
+JsonMapper takes decoded JSON (via `json_decode`) and hydrates typed PHP objects, including nested objects, collections, enums, DateTime values, and custom types. It supports both lenient and strict mapping modes with detailed error reporting.
+
+## 🎯 Why does this exist?
+Mapping API responses or configuration payloads to typed PHP classes is a common task that involves repetitive boilerplate. JsonMapper automates this with a clean, extensible architecture based on Symfony components, supporting advanced scenarios like polymorphic APIs, custom name conversion, and recursive collection handling.
+
+## 🚀 Usage
 
 ```bash
 composer require magicsunday/jsonmapper
 ```
 
-To remove the module run:
-```bash
-composer remove magicsunday/jsonmapper
-```
-
-
-## Usage
 ### Quick start
 A minimal mapping run consists of two parts: a set of DTOs annotated with collection metadata and the mapper bootstrap code.
 
@@ -104,12 +135,99 @@ For example:
 ```
 
 
-#### Custom attributes
+### Mapping collections
+Convert a JSON string into a JSON array/object using PHPs built in method `json_decode`
+```php
+// Decode the JSON document while propagating parser errors.
+$json = json_decode('{"title":"Sample"}', associative: false, flags: JSON_THROW_ON_ERROR);
+
+// Inspect the decoded representation.
+var_dump($json);
+```
+
+Call method `map` to do the actual mapping of the JSON object/array into PHP classes. Pass the initial class name
+and optional the name of a collection class to the method.
+```php
+require __DIR__ . '/vendor/autoload.php';
+
+use ArrayObject;
+use MagicSunday\JsonMapper;
+use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
+use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
+use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
+
+final class FooCollection extends ArrayObject
+{
+}
+
+final class Foo
+{
+    public string $name;
+}
+
+// Decode a JSON array into objects and throw on malformed payloads.
+$json = json_decode('[{"name":"alpha"},{"name":"beta"}]', associative: false, flags: JSON_THROW_ON_ERROR);
+
+// Configure JsonMapper with reflection and PHPDoc metadata.
+$propertyInfo = new PropertyInfoExtractor(
+    listExtractors: [new ReflectionExtractor()],
+    typeExtractors: [new PhpDocExtractor()],
+);
+$propertyAccessor = PropertyAccess::createPropertyAccessor();
+
+$mapper = new JsonMapper($propertyInfo, $propertyAccessor);
+
+// Map the collection into Foo instances stored inside FooCollection.
+$mappedResult = $mapper->map($json, Foo::class, FooCollection::class);
+
+var_dump($mappedResult);
+```
+
+### Complete set-up
+A complete set-up may look like this:
+
+```php
+require __DIR__ . '/vendor/autoload.php';
+
+use MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter;
+use MagicSunday\JsonMapper;
+use Symfony\Component\PropertyAccess\PropertyAccess;
+use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
+use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
+use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
+
+/**
+ * Bootstrap a JsonMapper instance with Symfony extractors and optional class-map overrides.
+ *
+ * @param array<class-string, class-string> $classMap Override source classes with DTO replacements.
+ */
+function createJsonMapper(array $classMap = []): JsonMapper
+{
+    // Cache property metadata to avoid repeated reflection work.
+    $propertyInfo = new PropertyInfoExtractor(
+        listExtractors: [new ReflectionExtractor()],
+        typeExtractors: [new PhpDocExtractor()],
+    );
+
+    // Return a mapper configured with a camelCase converter and optional overrides.
+    return new JsonMapper(
+        $propertyInfo,
+        PropertyAccess::createPropertyAccessor(),
+        new CamelCasePropertyNameConverter(),
+        $classMap,
+    );
+}
+
+$mapper = createJsonMapper();
+```
+
+## 🧩 Custom attributes
 Sometimes its may be required to circumvent the limitations of a poorly designed API. Together with custom
 attributes it becomes possible to fix some API design issues (e.g. mismatch between documentation and webservice
 response), to create a clean SDK.
 
-##### #[MagicSunday\JsonMapper\Attribute\ReplaceNullWithDefaultValue]
+### #[ReplaceNullWithDefaultValue]
 This attribute is used to inform the JsonMapper that an existing default value should be used when
 setting a property, if the value derived from the JSON is a NULL value instead of the expected property type.
 
@@ -134,7 +252,7 @@ final class AttributeExample
 
 If the mapping tries to assign NULL to the property, the default value will be used, as annotated.
 
-##### #[MagicSunday\JsonMapper\Attribute\ReplaceProperty]
+### #[ReplaceProperty]
 This attribute is used to inform the JsonMapper to replace one or more properties with another one. It's
 used in class context.
 
@@ -152,14 +270,14 @@ final class FooClass
 ```
 
 
-### Instantiation
+## ⚙️ Instantiation
 
 In order to create an instance of the JsonMapper you are required to pass some arguments to the constructor. The
 constructor requires an instance of `\Symfony\Component\PropertyInfo\PropertyInfoExtractor` and an instance of
 `\Symfony\Component\PropertyAccess\PropertyAccessor`. The other arguments are optional.
 
-So first create instances of Symfony's property info extractors. Each list of extractors could contain any number of 
-available extractors. You could also create your own extractors to adjust the process of extracting property info to 
+So first create instances of Symfony's property info extractors. Each list of extractors could contain any number of
+available extractors. You could also create your own extractors to adjust the process of extracting property info to
 your needs.
 
 To use the `PhpDocExtractor` extractor you need to install the `phpdocumentor/reflection-docblock` library too.
@@ -207,6 +325,8 @@ $mapper = new JsonMapper(
     $classMap,
 );
 ```
+
+## 🔧 Type converters and custom class maps
 
 To handle custom or special types of objects, add them to the mapper. For instance to perform
 special treatment if an object of type Bar should be mapped:
@@ -277,94 +397,6 @@ $result = $mapper->map($payload, Wrapper::class);
 var_dump($result);
 ```
 
-Convert a JSON string into a JSON array/object using PHPs built in method `json_decode`
-```php
-// Decode the JSON document while propagating parser errors.
-$json = json_decode('{"title":"Sample"}', associative: false, flags: JSON_THROW_ON_ERROR);
-
-// Inspect the decoded representation.
-var_dump($json);
-```
-
-Call method `map` to do the actual mapping of the JSON object/array into PHP classes. Pass the initial class name
-and optional the name of a collection class to the method.
-```php
-require __DIR__ . '/vendor/autoload.php';
-
-use ArrayObject;
-use MagicSunday\JsonMapper;
-use Symfony\Component\PropertyAccess\PropertyAccess;
-use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
-use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
-use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
-
-final class FooCollection extends ArrayObject
-{
-}
-
-final class Foo
-{
-    public string $name;
-}
-
-// Decode a JSON array into objects and throw on malformed payloads.
-$json = json_decode('[{"name":"alpha"},{"name":"beta"}]', associative: false, flags: JSON_THROW_ON_ERROR);
-
-// Configure JsonMapper with reflection and PHPDoc metadata.
-$propertyInfo = new PropertyInfoExtractor(
-    listExtractors: [new ReflectionExtractor()],
-    typeExtractors: [new PhpDocExtractor()],
-);
-$propertyAccessor = PropertyAccess::createPropertyAccessor();
-
-$mapper = new JsonMapper($propertyInfo, $propertyAccessor);
-
-// Map the collection into Foo instances stored inside FooCollection.
-$mappedResult = $mapper->map($json, Foo::class, FooCollection::class);
-
-var_dump($mappedResult);
-```
-
-A complete set-up may look like this:
-
-```php
-require __DIR__ . '/vendor/autoload.php';
-
-use MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter;
-use MagicSunday\JsonMapper;
-use Symfony\Component\PropertyAccess\PropertyAccess;
-use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
-use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
-use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
-
-/**
- * Bootstrap a JsonMapper instance with Symfony extractors and optional class-map overrides.
- *
- * @param array<class-string, class-string> $classMap Override source classes with DTO replacements.
- */
-function createJsonMapper(array $classMap = []): JsonMapper
-{
-    // Cache property metadata to avoid repeated reflection work.
-    $propertyInfo = new PropertyInfoExtractor(
-        listExtractors: [new ReflectionExtractor()],
-        typeExtractors: [new PhpDocExtractor()],
-    );
-
-    // Return a mapper configured with a camelCase converter and optional overrides.
-    return new JsonMapper(
-        $propertyInfo,
-        PropertyAccess::createPropertyAccessor(),
-        new CamelCasePropertyNameConverter(),
-        $classMap,
-    );
-}
-
-$mapper = createJsonMapper();
-```
-
-### Type converters and custom class maps
-Custom types should implement `MagicSunday\\JsonMapper\\Value\\TypeHandlerInterface` and can be registered once via `JsonMapper::addTypeHandler()`. For lightweight overrides you may still use `addType()` with a closure, but new code should prefer dedicated handler classes.
-
 Use `JsonMapper::addCustomClassMapEntry()` when the target class depends on runtime data. The resolver receives the decoded JSON payload and may inspect a `MappingContext` when you need additional state.
 
 ```php
@@ -404,7 +436,7 @@ $mapper->addCustomClassMapEntry(SdkFoo::class, static function (array $payload):
 });
 ```
 
-### Error handling strategies
+## 🛡️ Error handling strategies
 The mapper operates in a lenient mode by default. Switch to strict mapping when every property must be validated:
 
 ```php
@@ -445,7 +477,7 @@ var_dump($result->getMappedValue());
 
 For tolerant APIs combine `JsonMapperConfiguration::lenient()` with `->withIgnoreUnknownProperties(true)` or `->withTreatNullAsEmptyCollection(true)` to absorb schema drifts.
 
-### Performance hints
+## ⚡ Performance hints
 Type resolution is the most expensive part of a mapping run. Provide a PSR-6 cache pool to the constructor to reuse computed `Type` metadata:
 
 ```php
@@ -472,7 +504,7 @@ $mapper = new JsonMapper($propertyInfo, $propertyAccessor, nameConverter: null, 
 
 Reuse a single `JsonMapper` instance across requests to share the cached metadata and registered handlers.
 
-## Additional documentation
+## 📚 Documentation
 * [API reference](docs/API.md)
 * Recipes
   * [Mapping JSON to PHP enums](docs/recipes/mapping-with-enums.md)
@@ -480,16 +512,36 @@ Reuse a single `JsonMapper` instance across requests to share the cached metadat
   * [Mapping nested collections](docs/recipes/nested-collections.md)
   * [Using a custom name converter](docs/recipes/custom-name-converter.md)
 
-## Development
+## 🛠️ Development
 
-### Testing
+Prerequisites:
+
+- PHP `^8.3`
+- Extensions: `json`
+
+Install dependencies:
+
 ```bash
-composer update
-composer ci:cgl
-composer ci:test
-composer ci:test:php:phplint
-composer ci:test:php:phpstan
-composer ci:test:php:rector
-composer ci:test:php:cpd
-composer ci:test:php:unit
+composer install
 ```
+
+Run the mandatory quality gate:
+
+```bash
+composer ci:test
+```
+
+`ci:test` includes:
+
+- Linting (`phplint`)
+- Unit tests (`phpunit`)
+- Static analysis (`phpstan`)
+- Refactoring dry-run (`rector --dry-run`)
+- Coding standards dry-run (`php-cs-fixer --dry-run`)
+- Copy/paste detection (`jscpd`)
+
+## 🤝 Contributing
+
+See `CONTRIBUTING.md` for contributor workflow and minimal setup.
+
+If contributions are prepared or modified by an LLM/agent, follow `AGENTS.md` (and `tests/AGENTS.md` for test-only scope).
