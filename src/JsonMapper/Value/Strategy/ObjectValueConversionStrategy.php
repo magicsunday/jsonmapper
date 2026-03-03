@@ -62,6 +62,7 @@ final readonly class ObjectValueConversionStrategy implements ValueConversionStr
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return mixed Value returned by the mapper callback.
+     * @throws LogicException
      */
     public function convert(mixed $value, Type $type, MappingContext $context): mixed
     {
@@ -92,6 +93,7 @@ final readonly class ObjectValueConversionStrategy implements ValueConversionStr
      * @param ObjectType<class-string> $type Object type metadata describing the target property.
      *
      * @return class-string Concrete class name extracted from the metadata.
+     * @throws LogicException
      */
     private function resolveClassName(ObjectType $type): string
     {

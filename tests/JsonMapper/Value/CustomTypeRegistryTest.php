@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\Test\JsonMapper\Value;
 
 use InvalidArgumentException;
+use LogicException;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Value\CustomTypeRegistry;
 use MagicSunday\JsonMapper\Value\TypeHandlerInterface;
@@ -84,5 +85,15 @@ final class CustomTypeRegistryTest extends TestCase
         self::assertTrue($registry->supports($type, 'value'));
         self::assertSame('handled-value', $registry->convert($type, 'value', $context));
         self::assertSame(['converted'], $context->getErrors());
+    }
+
+    #[Test]
+    public function itThrowsWhenNoHandlerSupportsType(): void
+    {
+        $registry = new CustomTypeRegistry();
+        $context  = new MappingContext([]);
+
+        $this->expectException(LogicException::class);
+        $registry->convert(new ObjectType('Foo'), 'value', $context);
     }
 }
