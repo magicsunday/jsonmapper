@@ -43,30 +43,29 @@ jobs:
                     composer install --prefer-dist --no-interaction --no-progress
 
             -   name: Lint
-                if: ${{ success() }}
                 run: |
                     composer ci:test:php:lint
 
-            -   name: CGL
-                if: ${{ success() }}
+            -   name: Unit Tests
+                if: ${{ !cancelled() }}
                 run: |
-                    composer ci:test:php:cgl
+                    composer ci:test:php:unit
 
             -   name: PHPStan
-                if: ${{ success() }}
+                if: ${{ !cancelled() }}
                 run: |
                     composer ci:test:php:phpstan -- --error-format=github
 
             -   name: Rector
-                if: ${{ success() }}
+                if: ${{ !cancelled() }}
                 run: |
                     composer ci:test:php:rector
 
-            -   name: Unit Tests
-                if: ${{ success() }}
+            -   name: CGL
+                if: ${{ !cancelled() }}
                 run: |
-                    composer ci:test:php:unit
+                    composer ci:test:php:cgl
 
             -   name: CPD
-                if: ${{ success() }}
+                if: ${{ !cancelled() }}
                 run: composer ci:test:php:cpd
