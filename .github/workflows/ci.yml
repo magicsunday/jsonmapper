@@ -14,63 +14,63 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                php: [ '8.3', '8.4', '8.5' ]
+                php: ['8.3', '8.4', '8.5']
 
         steps:
-            -   name: Set up PHP version ${{ matrix.php }}
-                uses: shivammathur/setup-php@7c071dfe9dc99bdf297fa79cb49ea005b9fcadbc # v2
-                with:
-                    php-version: ${{ matrix.php }}
-                    tools: composer:v2, php-cs-fixer
+            - name: Set up PHP version ${{ matrix.php }}
+              uses: shivammathur/setup-php@7c071dfe9dc99bdf297fa79cb49ea005b9fcadbc # v2
+              with:
+                  php-version: ${{ matrix.php }}
+                  tools: composer:v2, php-cs-fixer
 
-            -   name: Checkout repository
-                uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-                with:
-                    persist-credentials: false
+            - name: Checkout repository
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+              with:
+                  persist-credentials: false
 
-            -   name: Validate composer.json and composer.lock
-                run: composer validate
+            - name: Validate composer.json and composer.lock
+              run: composer validate
 
-            -   name: Get composer cache directory
-                id: composer-cache
-                run: |
-                    echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
-            -   name: Cache Composer dependencies
-                uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
-                with:
-                    path: ${{ steps.composer-cache.outputs.dir }}
-                    key: ${{ runner.os }}-${{ matrix.php }}-composer-${{ hashFiles('**/composer.json') }}
-                    restore-keys: |
-                        ${{ runner.os }}-${{ matrix.php }}-composer-
+            - name: Get composer cache directory
+              id: composer-cache
+              run: |
+                  echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+            - name: Cache Composer dependencies
+              uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+              with:
+                  path: ${{ steps.composer-cache.outputs.dir }}
+                  key: ${{ runner.os }}-${{ matrix.php }}-composer-${{ hashFiles('**/composer.json') }}
+                  restore-keys: |
+                      ${{ runner.os }}-${{ matrix.php }}-composer-
 
-            -   name: Install dependencies
-                run: |
-                    composer install --prefer-dist --no-interaction --no-progress
+            - name: Install dependencies
+              run: |
+                  composer install --prefer-dist --no-interaction --no-progress
 
-            -   name: Lint
-                run: |
-                    composer ci:test:php:lint
+            - name: Lint
+              run: |
+                  composer ci:test:php:lint
 
-            -   name: Unit Tests
-                if: ${{ !cancelled() }}
-                run: |
-                    composer ci:test:php:unit
+            - name: Unit Tests
+              if: ${{ !cancelled() }}
+              run: |
+                  composer ci:test:php:unit
 
-            -   name: PHPStan
-                if: ${{ !cancelled() }}
-                run: |
-                    composer ci:test:php:phpstan -- --error-format=github
+            - name: PHPStan
+              if: ${{ !cancelled() }}
+              run: |
+                  composer ci:test:php:phpstan -- --error-format=github
 
-            -   name: Rector
-                if: ${{ !cancelled() }}
-                run: |
-                    composer ci:test:php:rector
+            - name: Rector
+              if: ${{ !cancelled() }}
+              run: |
+                  composer ci:test:php:rector
 
-            -   name: CGL
-                if: ${{ !cancelled() }}
-                run: |
-                    composer ci:test:php:cgl
+            - name: CGL
+              if: ${{ !cancelled() }}
+              run: |
+                  composer ci:test:php:cgl
 
-            -   name: CPD
-                if: ${{ !cancelled() }}
-                run: composer ci:test:php:cpd
+            - name: CPD
+              if: ${{ !cancelled() }}
+              run: composer ci:test:php:cpd
