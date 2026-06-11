@@ -73,7 +73,7 @@
             "@ci:rector --dry-run"
         ],
         "ci:test:php:cpd": [
-            "npx jscpd --config .jscpd.json"
+            "npx jscpd@^4.2.5 --config .jscpd.json"
         ],
         "ci:test:php:unit": [
             "phpunit --configuration phpunit.xml"
@@ -90,7 +90,7 @@
             "@ci:test:php:cpd"
         ],
         "post-update-cmd": [
-            "npm install jscpd"
+            "npm install jscpd@^4.2.5"
         ]
     }
 }
