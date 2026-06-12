@@ -11,7 +11,7 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
 **Project objective:** Stable JSON → PHP data mapping (DTOs, value objects, attributes) backed by Symfony PropertyInfo/PropertyAccess.
 
 * Target PHP version: **PHP 8.3/8.4/8.5** — `declare(strict_types=1);`, PSR-12, Rector-ready.
-* Keep the public API **compact**; no breaking changes without README/CHANGELOG/PR notes.
+* Keep the public API **compact**; no breaking changes without README/docs/PR notes.
 * Avoid magic strings in type resolvers. Prefer dedicated value objects/enums for strategies, converters, and handlers.
 * The mapper operates in-memory; do **not** add I/O or network calls.
 * Forbid `mixed`, `empty()`, nested ternaries, and sprawling public APIs. Use expressive constants/enums instead.
@@ -41,7 +41,7 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
 | **Static/QA**   | Run PHPStan, Rector, CS fixer; address findings with minimal semantic changes.                            | In: tooling output • Out: cleanup commits             |
 | **Security**    | Review mapping/deserialisation surface: no unsafe reflection, no unchecked class names.                   | In: PR diff • Out: review notes/mini-commits          |
 | **Reviewer**    | Check for minimality, readability, API stability, acceptance-criteria coverage, and attribute handling.   | In: PR • Out: review comments/mini-commits            |
-| **Release**     | Prepare PR description, changelog entry, labels/milestone, "Closes #…", and tagging.                      | In: final PR • Out: release artefacts                 |
+| **Release**     | Prepare PR description, labels/milestone, "Closes #…", and tagging.                                       | In: final PR • Out: release artefacts                 |
 
 > Roles act as **checklists**; one person may assume several roles.
 ---
@@ -105,7 +105,7 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
 4. **Implementer (GREEN)** — apply the minimal code change that satisfies the tests; refresh PHPDocs/enums/attributes where required.
 5. **Static/QA** — run Rector/CS fixer/PHPStan/CPD and commit fixes.
 6. **Security** — ensure no unsafe reflection, unchecked class instantiation, or deserialisation risks were introduced.
-7. **Reviewer & Release** — review for minimality/AC coverage; draft the PR text, update changelog, and link the issue.
+7. **Reviewer & Release** — review for minimality/AC coverage; draft the PR text and link the issue.
 
 Always build the PR body from `.github/pull_request_template.md` (default branch) and insert the section “M# Sweep — Verify compliance for this milestone” **above** the template content before submission.
 
@@ -144,7 +144,7 @@ Apply the minimal code change within the allowed file scope to fix the failures;
 **PR text**
 
 ```
-Role: Release. Draft the PR description (overview, details, tests, risks, changelog, “Closes #…”).
+Role: Release. Draft the PR description (overview, details, tests, risks, “Closes #…”).
 List changed API surfaces and relevant attributes/converters in the “References” section.
 ```
 
@@ -171,7 +171,7 @@ List changed API surfaces and relevant attributes/converters in the “Reference
 * ✅ Rector & CS fixer clean; commit formatting changes.
 * ✅ **CPD** detects no relevant duplicates.
 * ✅ Scope stays minimal and within the authorised files.
-* ✅ Acceptance criteria met; README/CHANGELOG/docs updated when behaviour or API changes.
+* ✅ Acceptance criteria met; README/docs updated when behaviour or API changes.
 * ✅ Public API documented (PHPDoc + README where applicable).
 * ✅ Type handlers/attributes documented and tested.
 * ✅ Issue/milestone linked; PR uses **Conventional Commits** and includes “Closes #…”.
@@ -199,7 +199,7 @@ List changed API surfaces and relevant attributes/converters in the “Reference
 * **Magic strings** → Prefer converter/handler constants or enums.
 * **Missing null checks** → Add tests and handling logic.
 * **Ignoring Rector/CS findings** → Run the scripts and commit their fixes.
-* **Forgetting README/CHANGELOG updates** → Mandatory when behaviour or API changes.
+* **Forgetting README/docs updates** → Mandatory when behaviour or API changes.
 
 ---
 
