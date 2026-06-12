@@ -19,7 +19,7 @@
 
 <!-- Row 3: Compatibility badges -->
 <p align="center">
-  <a href="composer.json"><img src="https://img.shields.io/badge/php-8.3|8.4|8.5-blue" alt="PHP Version"></a>
+  <a href="composer.json"><img src="https://img.shields.io/badge/php-8.3%20%7C%208.4%20%7C%208.5-blue" alt="PHP Version"></a>
 </p>
 
 <!-- Row 4: Project badges -->
