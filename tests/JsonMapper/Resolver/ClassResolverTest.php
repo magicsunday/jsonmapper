@@ -73,7 +73,7 @@ final class ClassResolverTest extends TestCase
         $context = new MappingContext([]);
 
         $this->expectException(DomainException::class);
-        $this->expectExceptionMessage('Class resolver for ' . DummyBaseClass::class . ' must return a class-string, int given.');
+        $this->expectExceptionMessageMatches('/' . preg_quote('Class resolver for ' . DummyBaseClass::class . ' must return a class-string, int given.', '/') . '/');
 
         $resolver->resolve(DummyBaseClass::class, ['json'], $context);
     }

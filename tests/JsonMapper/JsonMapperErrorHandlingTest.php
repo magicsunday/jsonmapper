@@ -203,7 +203,7 @@ final class JsonMapperErrorHandlingTest extends TestCase
     public function itThrowsOnInvalidNestedCollectionEntriesInStrictMode(): void
     {
         $this->expectException(TypeMismatchException::class);
-        $this->expectExceptionMessage('Type mismatch at $.simpleArray.1.int: expected int, got string.');
+        $this->expectExceptionMessageMatches('/' . preg_quote('Type mismatch at $.simpleArray.1.int: expected int, got string.', '/') . '/');
 
         $this->getJsonMapper()
             ->map(
@@ -224,7 +224,7 @@ final class JsonMapperErrorHandlingTest extends TestCase
     public function itThrowsWhenRequiredPropertyIsNullInStrictMode(): void
     {
         $this->expectException(InvalidTypeException::class);
-        $this->expectExceptionMessage('Expected argument of type "string", "null" given at property path "name".');
+        $this->expectExceptionMessageMatches('/' . preg_quote('Expected argument of type "string", "null" given at property path "name".', '/') . '/');
 
         $this->getJsonMapper()
             ->map(
