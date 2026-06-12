@@ -136,6 +136,7 @@ Prerequisites:
 
 - PHP `^8.3`
 - Extensions: `json`
+- Node.js (for the copy-paste detection gate, run via `npx`)
 
 Install dependencies:
 
