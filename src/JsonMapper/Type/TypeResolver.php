@@ -94,8 +94,6 @@ final class TypeResolver
      *
      * @param class-string $className
      * @param string       $propertyName
-     *
-     * @return Type|null
      */
     private function getCachedType(string $className, string $propertyName): ?Type
     {
