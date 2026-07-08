@@ -1,10 +1,10 @@
 {
-    "languages": [
+    "format": [
         "php"
     ],
     "threshold": 0,
     "reporters": [
-        "consoleFull"
+        "console-full"
     ],
     "minTokens": 70,
     "minLines": 5,
@@ -13,5 +13,5 @@
     ],
     "ignore": [
     ],
-    "exitCode": true
+    "exitCode": 1
 }
