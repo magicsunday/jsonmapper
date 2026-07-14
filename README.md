@@ -117,6 +117,35 @@ Annotate all properties with the requested type. For collections, use the phpDoc
 /** @var Collection\\SomeCollection<App\\Entity\\SomeEntity> $entities */
 ```
 
+#### Immutable / `final readonly` classes
+
+Classes whose constructor declares promoted or otherwise required parameters are hydrated
+**through their constructor** — the mapped values are passed as constructor arguments — instead of
+being assigned after an argument-less instantiation. This makes `final readonly` value objects
+first-class mapping targets:
+
+```php
+final readonly class Money
+{
+    public function __construct(
+        public int $amount,
+        public string $currency,
+    ) {
+    }
+}
+
+$money = $mapper->map(['amount' => 500, 'currency' => 'EUR'], Money::class);
+```
+
+Every payload value is converted exactly once, through the same pipeline as a property (nested
+objects, collections, enums, DateTime, custom types, name conversion, `ReplaceProperty` and
+`ReplaceNullWithDefaultValue` all apply); the constructor parameters are then filled from those
+converted values and any remaining property is assigned afterwards, so a class that mixes promoted
+constructor parameters with additional settable properties loses nothing. A missing argument falls
+back to its constructor default, then to `null` for a nullable parameter; a missing required,
+non-nullable argument raises a `MissingConstructorArgumentException`. Plain mutable classes keep the
+existing property-assignment behaviour unchanged.
+
 ## 📚 Documentation
 
 * [API reference](docs/API.md)

@@ -22,6 +22,7 @@ use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Converter\PropertyNameConverterInterface;
 use MagicSunday\JsonMapper\Exception\MappingException;
+use MagicSunday\JsonMapper\Exception\MissingConstructorArgumentException;
 use MagicSunday\JsonMapper\Exception\MissingPropertyException;
 use MagicSunday\JsonMapper\Exception\ReadonlyPropertyException;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
@@ -48,6 +49,7 @@ use ReflectionClass;
 use ReflectionException;
 use ReflectionMethod;
 use ReflectionNamedType;
+use ReflectionParameter;
 use ReflectionProperty;
 use ReflectionUnionType;
 use Symfony\Component\PropertyAccess\PropertyAccess;
@@ -462,12 +464,16 @@ final readonly class JsonMapper
         MappingContext $context,
         JsonMapperConfiguration $configuration,
     ): object {
-        $entity = $this->makeInstance($resolvedClassName);
         $source = $this->toIterableArray($json);
 
         $properties         = $this->getProperties($resolvedClassName);
         $replacePropertyMap = $this->buildReplacePropertyMap($resolvedClassName);
         $mappedProperties   = [];
+
+        // Convert every payload value once, collecting the results by property name. Whether a
+        // value ends up as a constructor argument or is assigned afterwards, it goes through the
+        // exact same conversion, replace-property, replace-null and error-handling pipeline.
+        $convertedValues = [];
 
         foreach ($source as $propertyName => $propertyValue) {
             $normalizedProperty = $this->normalizePropertyName($propertyName, $replacePropertyMap);
@@ -477,8 +483,8 @@ final readonly class JsonMapper
                 $resolvedClassName,
                 $normalizedProperty,
                 $propertyValue,
-                $entity,
                 &$mappedProperties,
+                &$convertedValues,
                 $properties,
                 $configuration,
             ): void {
@@ -517,11 +523,7 @@ final readonly class JsonMapper
                     $value = $this->getDefaultValue($resolvedClassName, $validatedProperty);
                 }
 
-                try {
-                    $this->setProperty($entity, $validatedProperty, $value, $propertyContext);
-                } catch (ReadonlyPropertyException $exception) {
-                    $this->handleMappingException($exception, $propertyContext, $configuration);
-                }
+                $convertedValues[$validatedProperty] = $value;
             });
         }
 
@@ -539,6 +541,43 @@ final readonly class JsonMapper
                     );
                 });
             }
+        }
+
+        // Build the object through its constructor when it declares promoted or required
+        // parameters (an immutable value object cannot be populated afterwards); otherwise fall
+        // back to an argument-less instantiation. Either way, any collected value that is not a
+        // constructor argument is assigned afterwards, so mixed classes lose nothing.
+        $constructor = $this->constructorForHydration($resolvedClassName);
+        $consumed    = [];
+
+        if ($constructor instanceof ReflectionMethod) {
+            [$entity, $consumed] = $this->instantiateViaConstructor(
+                $resolvedClassName,
+                $constructor,
+                $convertedValues,
+                $context,
+            );
+        } else {
+            $entity = $this->makeInstance($resolvedClassName);
+        }
+
+        foreach ($convertedValues as $property => $value) {
+            if (isset($consumed[$property])) {
+                continue;
+            }
+
+            $context->withPathSegment($property, function (MappingContext $propertyContext) use (
+                $entity,
+                $property,
+                $value,
+                $configuration,
+            ): void {
+                try {
+                    $this->setProperty($entity, $property, $value, $propertyContext);
+                } catch (ReadonlyPropertyException $exception) {
+                    $this->handleMappingException($exception, $propertyContext, $configuration);
+                }
+            });
         }
 
         return $entity;
@@ -628,6 +667,14 @@ final readonly class JsonMapper
         }
 
         if ($reflectionProperty->hasDefaultValue()) {
+            return false;
+        }
+
+        // A promoted property's default lives on the constructor parameter, so a promoted
+        // parameter with a default is not required even though the property has none.
+        $parameter = $this->constructorParameter($className, $propertyName);
+
+        if (($parameter instanceof ReflectionParameter) && $parameter->isDefaultValueAvailable()) {
             return false;
         }
 
@@ -848,6 +895,105 @@ final readonly class JsonMapper
     }
 
     /**
+     * Returns the constructor a class must be hydrated through, or NULL when the class can be
+     * populated by property assignment after an argument-less instantiation.
+     *
+     * A class must be built through its constructor when the constructor has a promoted parameter
+     * (the immutable `final readonly` shape, whose properties cannot be written after
+     * construction) or any required parameter (which an argument-less instantiation could not
+     * satisfy). Plain mutable classes keep the property-assignment path unchanged.
+     *
+     * @param class-string $className Fully qualified class name to inspect.
+     *
+     * @return ReflectionMethod|null The constructor to hydrate through, or NULL.
+     */
+    private function constructorForHydration(string $className): ?ReflectionMethod
+    {
+        $constructor = (new ReflectionClass($className))->getConstructor();
+
+        if (!$constructor instanceof ReflectionMethod) {
+            return null;
+        }
+
+        foreach ($constructor->getParameters() as $parameter) {
+            // Promoted (immutable shape), required (an argument-less call could not satisfy it),
+            // or variadic (its values must be spread through the constructor) parameters all
+            // force construction through the constructor.
+            if ($parameter->isPromoted() || !$parameter->isOptional() || $parameter->isVariadic()) {
+                return $constructor;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Instantiates a class through its constructor, drawing each argument from the already
+     * converted values by parameter name and returning both the object and the set of property
+     * names consumed as constructor arguments (so the caller assigns only the remaining ones).
+     *
+     * @param class-string         $className       Fully qualified class name to construct.
+     * @param ReflectionMethod     $constructor     The constructor to build through.
+     * @param array<string, mixed> $convertedValues The already converted values, keyed by property name.
+     * @param MappingContext       $context         Mapping context, used for the error path.
+     *
+     * @return array{0: object, 1: array<string, true>} The constructed object and the consumed argument names.
+     *
+     * @throws MissingConstructorArgumentException When a required, non-nullable argument has no value and no default.
+     */
+    private function instantiateViaConstructor(
+        string $className,
+        ReflectionMethod $constructor,
+        array $convertedValues,
+        MappingContext $context,
+    ): array {
+        $arguments = [];
+        $consumed  = [];
+
+        foreach ($constructor->getParameters() as $parameter) {
+            $name = $parameter->getName();
+
+            if (array_key_exists($name, $convertedValues)) {
+                $consumed[$name] = true;
+                $value           = $convertedValues[$name];
+
+                // A variadic parameter spreads a collected list into the tail arguments.
+                if ($parameter->isVariadic() && is_array($value)) {
+                    foreach ($value as $variadicValue) {
+                        $arguments[] = $variadicValue;
+                    }
+
+                    continue;
+                }
+
+                $arguments[] = $value;
+
+                continue;
+            }
+
+            if ($parameter->isVariadic()) {
+                continue;
+            }
+
+            if ($parameter->isDefaultValueAvailable()) {
+                $arguments[] = $parameter->getDefaultValue();
+
+                continue;
+            }
+
+            if ($parameter->allowsNull()) {
+                $arguments[] = null;
+
+                continue;
+            }
+
+            throw new MissingConstructorArgumentException($context->getPath(), $name, $className);
+        }
+
+        return [$this->makeInstance($className, ...$arguments), $consumed];
+    }
+
+    /**
      * Creates an instance of the given class name.
      *
      * @param string $className               Fully qualified class name to instantiate.
@@ -1017,7 +1163,46 @@ final readonly class JsonMapper
             return null;
         }
 
+        if ($reflectionProperty->hasDefaultValue()) {
+            return $reflectionProperty->getDefaultValue();
+        }
+
+        // A promoted property carries no property-level default; its default lives on the
+        // constructor parameter of the same name.
+        $parameter = $this->constructorParameter($className, $propertyName);
+
+        if (($parameter instanceof ReflectionParameter) && $parameter->isDefaultValueAvailable()) {
+            return $parameter->getDefaultValue();
+        }
+
         return $reflectionProperty->getDefaultValue();
+    }
+
+    /**
+     * Returns the constructor parameter of the given class that shares the property's name, or
+     * NULL. Used to read a promoted property's default and required-ness, which live on the
+     * parameter rather than the property.
+     *
+     * @param class-string $className    Fully qualified class name to inspect.
+     * @param string       $propertyName Property (and promoted parameter) name to look up.
+     *
+     * @return ReflectionParameter|null The matching constructor parameter, or NULL.
+     */
+    private function constructorParameter(string $className, string $propertyName): ?ReflectionParameter
+    {
+        $constructor = (new ReflectionClass($className))->getConstructor();
+
+        if (!$constructor instanceof ReflectionMethod) {
+            return null;
+        }
+
+        foreach ($constructor->getParameters() as $parameter) {
+            if ($parameter->getName() === $propertyName) {
+                return $parameter;
+            }
+        }
+
+        return null;
     }
 
     /**
