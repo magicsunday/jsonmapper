@@ -21,7 +21,7 @@ use MagicSunday\Test\Classes\Base;
 use MagicSunday\Test\Classes\DateTimeHolder;
 use MagicSunday\Test\Classes\EnumHolder;
 use MagicSunday\Test\Classes\Person;
-use MagicSunday\Test\Classes\ReadonlyEntity;
+use MagicSunday\Test\Classes\ReadonlyPropertyHolder;
 use MagicSunday\Test\Classes\Simple;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\Test;
@@ -183,20 +183,24 @@ final class JsonMapperErrorHandlingTest extends TestCase
     #[Test]
     public function itReportsReadonlyPropertyViolations(): void
     {
+        // A readonly property that is NOT a constructor parameter cannot be built through the
+        // constructor, so mapping it still surfaces a readonly-write violation. (A readonly
+        // property that IS a promoted constructor parameter is hydrated via the constructor
+        // instead — see ConstructorHydrationTest.)
         $result = $this->getJsonMapper()
             ->mapWithReport([
                 'id' => 'changed',
-            ], ReadonlyEntity::class);
+            ], ReadonlyPropertyHolder::class);
 
         $entity = $result->getValue();
 
-        self::assertInstanceOf(ReadonlyEntity::class, $entity);
-        self::assertSame('initial', $entity->id);
+        self::assertInstanceOf(ReadonlyPropertyHolder::class, $entity);
+        self::assertSame('initial', $entity->id, 'the readonly value is unchanged when it cannot be written');
 
         $errors = $result->getReport()->getErrors();
         self::assertCount(1, $errors);
         self::assertInstanceOf(ReadonlyPropertyException::class, $errors[0]->getException());
-        self::assertSame('Readonly property ' . ReadonlyEntity::class . '::id cannot be written at $.id.', $errors[0]->getMessage());
+        self::assertSame('Readonly property ' . ReadonlyPropertyHolder::class . '::id cannot be written at $.id.', $errors[0]->getMessage());
     }
 
     #[Test]
