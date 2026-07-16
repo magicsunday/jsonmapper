@@ -88,6 +88,7 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
 * Support PHP attributes and legacy DocBlock annotations side by side for backwards compatibility.
 * Introduce new attributes only with documentation and dedicated tests.
 * `ReplaceProperty` must not recurse infinitely; ensure termination.
+* `UnknownPropertyCollector` marks at most one property per class; it captures only keys that match no declared property (never its own key), and assigns the raw `array<string, mixed>` without running the per-value conversion pipeline.
 
 **Error handling**
 

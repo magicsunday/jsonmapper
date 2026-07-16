@@ -154,7 +154,7 @@ existing property-assignment behaviour unchanged.
   * [Type converters and custom class maps](docs/recipes/type-converters.md) — custom type handlers, runtime class resolution
   * [Error handling strategies](docs/recipes/error-handling.md) — strict vs. lenient mode, error collection
   * [Performance hints](docs/recipes/performance.md) — PSR-6 type caching
-  * [Using mapper attributes](docs/recipes/using-attributes.md) — ReplaceProperty, ReplaceNullWithDefaultValue
+  * [Using mapper attributes](docs/recipes/using-attributes.md) — ReplaceProperty, ReplaceNullWithDefaultValue, UnknownPropertyCollector
   * [Mapping JSON to PHP enums](docs/recipes/mapping-with-enums.md)
   * [Mapping nested collections](docs/recipes/nested-collections.md)
   * [Using a custom name converter](docs/recipes/custom-name-converter.md)
