@@ -52,6 +52,7 @@ use ReflectionMethod;
 use ReflectionNamedType;
 use ReflectionParameter;
 use ReflectionProperty;
+use ReflectionType;
 use ReflectionUnionType;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
@@ -71,6 +72,7 @@ use Traversable;
 use function array_diff;
 use function array_filter;
 use function array_key_exists;
+use function array_merge;
 use function array_unique;
 use function array_values;
 use function call_user_func_array;
@@ -552,10 +554,17 @@ final readonly class JsonMapper
         // Hand the gathered unknown keys to the nominated collector as the raw associative array of
         // normalized name to unconverted value, bypassing the per-value conversion pipeline (its
         // element type is deliberately open). Left untouched when nothing was gathered, so the
-        // property keeps its constructor default. The consumer interprets the raw map itself.
+        // property keeps its constructor default. The consumer interprets the raw map itself. Any
+        // explicitly mapped value for the same property is merged in rather than overwritten, so a
+        // payload that carries both the collector key and unknown keys loses neither.
         if (($collectorProperty !== null) && ($collectedUnknown !== [])) {
-            $mappedProperties[]                  = $collectorProperty;
-            $convertedValues[$collectorProperty] = $collectedUnknown;
+            $mappedProperties[] = $collectorProperty;
+            $existingValue      = $convertedValues[$collectorProperty] ?? [];
+
+            $convertedValues[$collectorProperty] = array_merge(
+                is_array($existingValue) ? $existingValue : [],
+                $collectedUnknown,
+            );
         }
 
         if ($configuration->isStrictMode()) {
@@ -1102,11 +1111,9 @@ final readonly class JsonMapper
                 ));
             }
 
-            $type = $property->getType();
-
             // The raw collected map is assigned without conversion, so a non-array collector would
             // fail late as a native TypeError; reject the declaration up front with a clear message.
-            if (!$type instanceof ReflectionNamedType || ($type->getName() !== 'array')) {
+            if (!$this->isArrayType($property->getType())) {
                 throw new InvalidArgumentException(sprintf(
                     'The property "%s::$%s" marked with #[UnknownPropertyCollector] must be array-typed.',
                     $className,
@@ -1118,6 +1125,32 @@ final readonly class JsonMapper
         }
 
         return $cache[$className] = $collector;
+    }
+
+    /**
+     * Determines whether the given declared type accepts an array — a plain `array`, a nullable
+     * `?array`, or a union that includes `array` (such as `array|null`) — so a collector declared
+     * with any of these standard forms is honoured.
+     *
+     * @param ReflectionType|null $type The property's declared type, or NULL when untyped.
+     *
+     * @return bool True when the type accepts an array.
+     */
+    private function isArrayType(?ReflectionType $type): bool
+    {
+        if ($type instanceof ReflectionNamedType) {
+            return $type->getName() === 'array';
+        }
+
+        if ($type instanceof ReflectionUnionType) {
+            foreach ($type->getTypes() as $member) {
+                if (($member instanceof ReflectionNamedType) && ($member->getName() === 'array')) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

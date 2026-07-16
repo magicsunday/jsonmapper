@@ -17,6 +17,7 @@ use MagicSunday\Test\Classes\UnknownPropertyCollectorEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorInvalidEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorParent;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorTypedEntity;
+use MagicSunday\Test\Classes\UnknownPropertyCollectorUnionEntity;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -124,6 +125,38 @@ final class UnknownPropertyCollectorTest extends TestCase
         self::assertInstanceOf(UnknownPropertyCollectorTypedEntity::class, $result);
         // Mapped as the declared property; a self-diversion would instead yield ['extra' => ['x' => '1']].
         self::assertSame(['x' => '1'], $result->extra);
+    }
+
+    /**
+     * A collector declared with the union type `array|null` (rather than `?array`) is honoured, not
+     * rejected as non-array — the union member `array` satisfies the type requirement.
+     */
+    #[Test]
+    public function acceptsAUnionTypedArrayCollector(): void
+    {
+        $result = $this->getJsonMapper()->map(
+            ['name' => 'Ada', 'age' => '36'],
+            UnknownPropertyCollectorUnionEntity::class,
+        );
+
+        self::assertInstanceOf(UnknownPropertyCollectorUnionEntity::class, $result);
+        self::assertSame(['age' => '36'], $result->extra);
+    }
+
+    /**
+     * When the payload carries both an explicit value for the collector property and other unknown
+     * keys, the two are merged rather than the explicit value being overwritten and lost.
+     */
+    #[Test]
+    public function mergesAnExplicitCollectorValueWithCollectedUnknownKeys(): void
+    {
+        $result = $this->getJsonMapper()->map(
+            ['name' => 'Ada', 'extra' => ['explicit' => 'kept'], 'unknownKey' => 'collected'],
+            UnknownPropertyCollectorTypedEntity::class,
+        );
+
+        self::assertInstanceOf(UnknownPropertyCollectorTypedEntity::class, $result);
+        self::assertSame(['explicit' => 'kept', 'unknownKey' => 'collected'], $result->extra);
     }
 
     /**
