@@ -14,6 +14,7 @@ namespace MagicSunday\Test\Attribute;
 use InvalidArgumentException;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorDuplicateEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorEntity;
+use MagicSunday\Test\Classes\UnknownPropertyCollectorHiddenEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorInvalidEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorParent;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorTypedEntity;
@@ -128,6 +129,24 @@ final class UnknownPropertyCollectorTest extends TestCase
     }
 
     /**
+     * Even when the collector property is invisible to the extractor (a private promoted property),
+     * a source key matching its name is not diverted into the collector — the explicit guard, not
+     * the membership check, prevents the self-nesting here. The other unknown key is still collected.
+     */
+    #[Test]
+    public function doesNotDivertTheCollectorsOwnKeyEvenWhenItIsNotAnExposedProperty(): void
+    {
+        $result = $this->getJsonMapper()->map(
+            ['name' => 'Ada', 'extra' => ['self' => 'x'], 'unknownKey' => 'y'],
+            UnknownPropertyCollectorHiddenEntity::class,
+        );
+
+        self::assertInstanceOf(UnknownPropertyCollectorHiddenEntity::class, $result);
+        // Without the explicit guard, 'extra' would nest into itself: ['extra' => ['self' => 'x'], ...].
+        self::assertSame(['unknownKey' => 'y'], $result->extra());
+    }
+
+    /**
      * A collector declared with a union that includes a non-array, non-null member (`array|int`) is
      * rejected: it could hold a scalar, which would be silently dropped when merging an explicit
      * value with the collected keys. A valid `array|null` reduces to `?array` and is accepted.
@@ -146,18 +165,20 @@ final class UnknownPropertyCollectorTest extends TestCase
 
     /**
      * When the payload carries both an explicit value for the collector property and other unknown
-     * keys, the two are merged rather than the explicit value being overwritten and lost.
+     * keys, the two are merged rather than the explicit value being overwritten and lost. The
+     * explicit value carries an integer key, which is preserved (not re-indexed) — proving the merge
+     * uses `array_replace` rather than `array_merge`.
      */
     #[Test]
     public function mergesAnExplicitCollectorValueWithCollectedUnknownKeys(): void
     {
         $result = $this->getJsonMapper()->map(
-            ['name' => 'Ada', 'extra' => ['explicit' => 'kept'], 'unknownKey' => 'collected'],
+            ['name' => 'Ada', 'extra' => ['5' => 'kept'], 'unknownKey' => 'collected'],
             UnknownPropertyCollectorTypedEntity::class,
         );
 
         self::assertInstanceOf(UnknownPropertyCollectorTypedEntity::class, $result);
-        self::assertSame(['explicit' => 'kept', 'unknownKey' => 'collected'], $result->extra);
+        self::assertSame([5 => 'kept', 'unknownKey' => 'collected'], $result->extra);
     }
 
     /**

@@ -1131,11 +1131,12 @@ final readonly class JsonMapper
     }
 
     /**
-     * Determines whether the given declared type is a valid collector type: a plain `array`, a
-     * nullable `?array`, or a union whose members are only `array` and `null` (such as `array|null`).
-     * A union with any other member (e.g. `array|int`) is rejected, since the collector holds an
-     * array map and must not also permit a non-array scalar — which would otherwise be silently
-     * dropped when merging an explicit value with the collected keys.
+     * Determines whether the given declared type is a valid collector type. A plain `array` and a
+     * nullable collector — written either `?array` or `array|null` — both reflect as a nullable
+     * {@see ReflectionNamedType} named `array`, so the named check is exhaustive: any genuine
+     * multi-type union (e.g. `array|int`), an intersection type or an untyped property is a
+     * {@see ReflectionUnionType}/{@see ReflectionIntersectionType}/`null` and is rejected, since the
+     * collector holds an array map and must not permit a non-array value.
      *
      * @param ReflectionType|null $type The property's declared type, or NULL when untyped.
      *
@@ -1143,31 +1144,7 @@ final readonly class JsonMapper
      */
     private function isArrayType(?ReflectionType $type): bool
     {
-        if ($type instanceof ReflectionNamedType) {
-            return $type->getName() === 'array';
-        }
-
-        if ($type instanceof ReflectionUnionType) {
-            $acceptsArray = false;
-
-            foreach ($type->getTypes() as $member) {
-                if (!$member instanceof ReflectionNamedType) {
-                    return false;
-                }
-
-                $memberName = $member->getName();
-
-                if ($memberName === 'array') {
-                    $acceptsArray = true;
-                } elseif ($memberName !== 'null') {
-                    return false;
-                }
-            }
-
-            return $acceptsArray;
-        }
-
-        return false;
+        return ($type instanceof ReflectionNamedType) && ($type->getName() === 'array');
     }
 
     /**
