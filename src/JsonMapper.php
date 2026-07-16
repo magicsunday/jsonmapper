@@ -72,7 +72,7 @@ use Traversable;
 use function array_diff;
 use function array_filter;
 use function array_key_exists;
-use function array_merge;
+use function array_replace;
 use function array_unique;
 use function array_values;
 use function call_user_func_array;
@@ -556,12 +556,13 @@ final readonly class JsonMapper
         // element type is deliberately open). Left untouched when nothing was gathered, so the
         // property keeps its constructor default. The consumer interprets the raw map itself. Any
         // explicitly mapped value for the same property is merged in rather than overwritten, so a
-        // payload that carries both the collector key and unknown keys loses neither.
+        // payload that carries both the collector key and unknown keys loses neither. array_replace
+        // (not array_merge) preserves numeric keys instead of re-indexing them.
         if (($collectorProperty !== null) && ($collectedUnknown !== [])) {
             $mappedProperties[] = $collectorProperty;
             $existingValue      = $convertedValues[$collectorProperty] ?? [];
 
-            $convertedValues[$collectorProperty] = array_merge(
+            $convertedValues[$collectorProperty] = array_replace(
                 is_array($existingValue) ? $existingValue : [],
                 $collectedUnknown,
             );
