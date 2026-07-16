@@ -505,10 +505,12 @@ final readonly class JsonMapper
                 }
 
                 // Divert a key that matches no declared property to the nominated collector rather
-                // than dropping or reporting it. The collector is itself a declared property, so the
-                // membership check already excludes its own key from being collected into itself.
+                // than dropping or reporting it. The collector's own key is excluded explicitly (as
+                // well as through the membership check) so it is never collected into itself even
+                // when an extractor is configured not to expose the collector property.
                 if (
                     ($collectorProperty !== null)
+                    && ($normalizedProperty !== $collectorProperty)
                     && !in_array($normalizedProperty, $properties, true)
                 ) {
                     $collectedUnknown[$normalizedProperty] = $propertyValue;
