@@ -1128,13 +1128,15 @@ final readonly class JsonMapper
     }
 
     /**
-     * Determines whether the given declared type accepts an array — a plain `array`, a nullable
-     * `?array`, or a union that includes `array` (such as `array|null`) — so a collector declared
-     * with any of these standard forms is honoured.
+     * Determines whether the given declared type is a valid collector type: a plain `array`, a
+     * nullable `?array`, or a union whose members are only `array` and `null` (such as `array|null`).
+     * A union with any other member (e.g. `array|int`) is rejected, since the collector holds an
+     * array map and must not also permit a non-array scalar — which would otherwise be silently
+     * dropped when merging an explicit value with the collected keys.
      *
      * @param ReflectionType|null $type The property's declared type, or NULL when untyped.
      *
-     * @return bool True when the type accepts an array.
+     * @return bool True when the type only ever holds an array (or null).
      */
     private function isArrayType(?ReflectionType $type): bool
     {
@@ -1143,11 +1145,23 @@ final readonly class JsonMapper
         }
 
         if ($type instanceof ReflectionUnionType) {
+            $acceptsArray = false;
+
             foreach ($type->getTypes() as $member) {
-                if (($member instanceof ReflectionNamedType) && ($member->getName() === 'array')) {
-                    return true;
+                if (!$member instanceof ReflectionNamedType) {
+                    return false;
+                }
+
+                $memberName = $member->getName();
+
+                if ($memberName === 'array') {
+                    $acceptsArray = true;
+                } elseif ($memberName !== 'null') {
+                    return false;
                 }
             }
+
+            return $acceptsArray;
         }
 
         return false;

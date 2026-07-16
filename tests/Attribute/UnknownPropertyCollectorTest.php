@@ -128,19 +128,20 @@ final class UnknownPropertyCollectorTest extends TestCase
     }
 
     /**
-     * A collector declared with the union type `array|null` (rather than `?array`) is honoured, not
-     * rejected as non-array — the union member `array` satisfies the type requirement.
+     * A collector declared with a union that includes a non-array, non-null member (`array|int`) is
+     * rejected: it could hold a scalar, which would be silently dropped when merging an explicit
+     * value with the collected keys. A valid `array|null` reduces to `?array` and is accepted.
      */
     #[Test]
-    public function acceptsAUnionTypedArrayCollector(): void
+    public function rejectsAUnionCollectorWithANonArrayMember(): void
     {
-        $result = $this->getJsonMapper()->map(
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/must be array-typed/');
+
+        $this->getJsonMapper()->map(
             ['name' => 'Ada', 'age' => '36'],
             UnknownPropertyCollectorUnionEntity::class,
         );
-
-        self::assertInstanceOf(UnknownPropertyCollectorUnionEntity::class, $result);
-        self::assertSame(['age' => '36'], $result->extra);
     }
 
     /**
