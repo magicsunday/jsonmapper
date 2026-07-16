@@ -1077,8 +1077,9 @@ final readonly class JsonMapper
      * @return string|null The collector property name, or NULL.
      *
      * @throws InvalidArgumentException When the class marks more than one collector, or the marked
-     *                                  property is not array-typed (the raw collected map is assigned
-     *                                  to it without conversion).
+     *                                  property is static or not array-typed (the raw collected map
+     *                                  is assigned to a per-instance array property without
+     *                                  conversion).
      */
     private function unknownPropertyCollector(string $className): ?string
     {
@@ -1103,6 +1104,16 @@ final readonly class JsonMapper
         foreach ($reflectionClass->getProperties() as $property) {
             if (!$this->hasAttribute($property, UnknownPropertyCollector::class)) {
                 continue;
+            }
+
+            // A static property is shared, not a per-instance sink, and cannot be hydrated as one;
+            // reject the declaration rather than silently ignoring the marker.
+            if ($property->isStatic()) {
+                throw new InvalidArgumentException(sprintf(
+                    'The property "%s::$%s" marked with #[UnknownPropertyCollector] must not be static.',
+                    $className,
+                    $property->getName(),
+                ));
             }
 
             // A class nominates at most one collector; a second marked property is a declaration

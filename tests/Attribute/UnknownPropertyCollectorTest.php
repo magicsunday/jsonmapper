@@ -17,6 +17,7 @@ use MagicSunday\Test\Classes\UnknownPropertyCollectorEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorHiddenEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorInvalidEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorParent;
+use MagicSunday\Test\Classes\UnknownPropertyCollectorStaticEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorTypedEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorUnionEntity;
 use MagicSunday\Test\TestCase;
@@ -210,6 +211,22 @@ final class UnknownPropertyCollectorTest extends TestCase
         $this->getJsonMapper()->map(
             ['unknownKey' => 'value'],
             UnknownPropertyCollectorDuplicateEntity::class,
+        );
+    }
+
+    /**
+     * A collector marked on a static property is rejected: a static property is shared, not a
+     * per-instance sink, so it cannot be hydrated as one.
+     */
+    #[Test]
+    public function rejectsAStaticCollectorProperty(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/must not be static/');
+
+        $this->getJsonMapper()->map(
+            ['name' => 'Ada', 'unknownKey' => 'value'],
+            UnknownPropertyCollectorStaticEntity::class,
         );
     }
 }
