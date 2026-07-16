@@ -1064,20 +1064,42 @@ final readonly class JsonMapper
      *
      * @return string|null The collector property name, or NULL.
      *
-     * @throws InvalidArgumentException When the marked property is not array-typed, since the raw
-     *                                  collected map is assigned to it without conversion.
+     * @throws InvalidArgumentException When the class marks more than one collector, or the marked
+     *                                  property is not array-typed (the raw collected map is assigned
+     *                                  to it without conversion).
      */
     private function unknownPropertyCollector(string $className): ?string
     {
+        // The collector for a class is fixed by its declaration, so memoize it per class: the lookup
+        // runs on every mapSingleObject() call and would otherwise re-reflect for every element of a
+        // large collection. A misdeclared class throws before it is ever cached.
+        /** @var array<class-string, string|null> $cache */
+        static $cache = [];
+
+        if (array_key_exists($className, $cache)) {
+            return $cache[$className];
+        }
+
         $reflectionClass = $this->getReflectionClass($className);
 
         if (!$reflectionClass instanceof ReflectionClass) {
             return null;
         }
 
+        $collector = null;
+
         foreach ($reflectionClass->getProperties() as $property) {
             if (!$this->hasAttribute($property, UnknownPropertyCollector::class)) {
                 continue;
+            }
+
+            // A class nominates at most one collector; a second marked property is a declaration
+            // error, so fail fast rather than silently ignoring it.
+            if ($collector !== null) {
+                throw new InvalidArgumentException(sprintf(
+                    'The class "%s" must not mark more than one property with #[UnknownPropertyCollector].',
+                    $className,
+                ));
             }
 
             $type = $property->getType();
@@ -1092,10 +1114,10 @@ final readonly class JsonMapper
                 ));
             }
 
-            return $property->getName();
+            $collector = $property->getName();
         }
 
-        return null;
+        return $cache[$className] = $collector;
     }
 
     /**

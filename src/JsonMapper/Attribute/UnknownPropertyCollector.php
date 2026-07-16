@@ -23,9 +23,10 @@ use Attribute;
  * the raw map itself. The value is only assigned when at least one unknown key is present, so the
  * property otherwise keeps its constructor default.
  *
- * The marked property must be array-typed; a class declares at most one, and it must not itself
- * appear as an explicit source key. As with ordinary mapping, two source keys that normalize to the
- * same name collide, and the last one wins.
+ * The marked property must be array-typed, and a class declares at most one (a second raises an
+ * error). A source key that matches the collector property's name is mapped as that declared
+ * property, not collected. As with ordinary mapping, two source keys that normalize to the same name
+ * collide, and the last one wins.
  */
 #[Attribute(Attribute::TARGET_PROPERTY | Attribute::TARGET_PARAMETER)]
 final class UnknownPropertyCollector

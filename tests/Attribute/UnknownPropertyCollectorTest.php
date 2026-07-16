@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\Test\Attribute;
 
 use InvalidArgumentException;
+use MagicSunday\Test\Classes\UnknownPropertyCollectorDuplicateEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorInvalidEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorParent;
@@ -138,6 +139,22 @@ final class UnknownPropertyCollectorTest extends TestCase
         $this->getJsonMapper()->map(
             ['name' => 'Ada', 'age' => '36'],
             UnknownPropertyCollectorInvalidEntity::class,
+        );
+    }
+
+    /**
+     * A class that marks more than one property as the collector is rejected up front rather than
+     * silently honouring only the first.
+     */
+    #[Test]
+    public function rejectsMoreThanOneCollectorPerClass(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/more than one property/');
+
+        $this->getJsonMapper()->map(
+            ['unknownKey' => 'value'],
+            UnknownPropertyCollectorDuplicateEntity::class,
         );
     }
 }

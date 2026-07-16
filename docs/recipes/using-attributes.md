@@ -79,7 +79,7 @@ Mapping `{ "name": "Ada", "age": "36", "city": "London" }` yields `$name = 'Ada'
 
 * The per-value conversion pipeline is bypassed, so the value is stored verbatim and the marked property's element type is deliberately open (`mixed`) — the consumer interprets the raw map itself.
 * The property is only assigned when at least one unknown key is present, so it otherwise keeps its constructor default.
-* The marked property must be array-typed. Declare at most one collector per class; it must not also appear as an explicit source key.
+* The marked property must be array-typed. Declare at most one collector per class (a second raises an error). A source key that matches the collector property's name is mapped as that declared property, not collected.
 * As with ordinary mapping, two source keys that normalize to the same name collide, and the last one wins.
 
 Test coverage: `tests/Attribute/UnknownPropertyCollectorTest.php`.
