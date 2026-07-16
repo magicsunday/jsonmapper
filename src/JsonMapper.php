@@ -15,6 +15,7 @@ use Closure;
 use InvalidArgumentException;
 use MagicSunday\JsonMapper\Attribute\ReplaceNullWithDefaultValue;
 use MagicSunday\JsonMapper\Attribute\ReplaceProperty;
+use MagicSunday\JsonMapper\Attribute\UnknownPropertyCollector;
 use MagicSunday\JsonMapper\Collection\CollectionDocBlockTypeResolver;
 use MagicSunday\JsonMapper\Collection\CollectionFactory;
 use MagicSunday\JsonMapper\Collection\CollectionFactoryInterface;
@@ -470,6 +471,13 @@ final readonly class JsonMapper
         $replacePropertyMap = $this->buildReplacePropertyMap($resolvedClassName);
         $mappedProperties   = [];
 
+        // A class may nominate one property (via the UnknownPropertyCollector attribute) as the sink
+        // for every source key that matches no declared property. Such keys are gathered here, by
+        // normalized name and raw value, and handed to that property after the main pass instead of
+        // being ignored or reported.
+        $collectorProperty = $this->unknownPropertyCollector($resolvedClassName);
+        $collectedUnknown  = [];
+
         // Convert every payload value once, collecting the results by property name. Whether a
         // value ends up as a constructor argument or is assigned afterwards, it goes through the
         // exact same conversion, replace-property, replace-null and error-handling pipeline.
@@ -485,10 +493,24 @@ final readonly class JsonMapper
                 $propertyValue,
                 &$mappedProperties,
                 &$convertedValues,
+                &$collectedUnknown,
+                $collectorProperty,
                 $properties,
                 $configuration,
             ): void {
                 if (!is_string($normalizedProperty)) {
+                    return;
+                }
+
+                // Divert a key that matches no declared property to the nominated collector rather
+                // than dropping or reporting it. The collector is itself a declared property, so the
+                // membership check already excludes its own key from being collected into itself.
+                if (
+                    ($collectorProperty !== null)
+                    && !in_array($normalizedProperty, $properties, true)
+                ) {
+                    $collectedUnknown[$normalizedProperty] = $propertyValue;
+
                     return;
                 }
 
@@ -525,6 +547,15 @@ final readonly class JsonMapper
 
                 $convertedValues[$validatedProperty] = $value;
             });
+        }
+
+        // Hand the gathered unknown keys to the nominated collector as the raw associative array of
+        // normalized name to unconverted value, bypassing the per-value conversion pipeline (its
+        // element type is deliberately open). Left untouched when nothing was gathered, so the
+        // property keeps its constructor default. The consumer interprets the raw map itself.
+        if (($collectorProperty !== null) && ($collectedUnknown !== [])) {
+            $mappedProperties[]                  = $collectorProperty;
+            $convertedValues[$collectorProperty] = $collectedUnknown;
         }
 
         if ($configuration->isStrictMode()) {
@@ -1023,6 +1054,48 @@ final readonly class JsonMapper
         }
 
         return $this->hasAttribute($reflectionProperty, ReplaceNullWithDefaultValue::class);
+    }
+
+    /**
+     * Returns the name of the property nominated as the unknown-key collector via the
+     * {@see UnknownPropertyCollector} attribute, or NULL when the class declares none.
+     *
+     * @param class-string $className Fully qualified class inspected for a collector property.
+     *
+     * @return string|null The collector property name, or NULL.
+     *
+     * @throws InvalidArgumentException When the marked property is not array-typed, since the raw
+     *                                  collected map is assigned to it without conversion.
+     */
+    private function unknownPropertyCollector(string $className): ?string
+    {
+        $reflectionClass = $this->getReflectionClass($className);
+
+        if (!$reflectionClass instanceof ReflectionClass) {
+            return null;
+        }
+
+        foreach ($reflectionClass->getProperties() as $property) {
+            if (!$this->hasAttribute($property, UnknownPropertyCollector::class)) {
+                continue;
+            }
+
+            $type = $property->getType();
+
+            // The raw collected map is assigned without conversion, so a non-array collector would
+            // fail late as a native TypeError; reject the declaration up front with a clear message.
+            if (!$type instanceof ReflectionNamedType || ($type->getName() !== 'array')) {
+                throw new InvalidArgumentException(sprintf(
+                    'The property "%s::$%s" marked with #[UnknownPropertyCollector] must be array-typed.',
+                    $className,
+                    $property->getName(),
+                ));
+            }
+
+            return $property->getName();
+        }
+
+        return null;
     }
 
     /**
