@@ -532,10 +532,26 @@ final readonly class JsonMapper
 
                 $mappedProperties[] = $validatedProperty;
 
+                $preparedValue = $this->normalizeEmptyStringToNull($propertyValue, $propertyContext);
+
+                // A null input on a property marked ReplaceNullWithDefaultValue keeps the declared
+                // default without running through the conversion pipeline, which would reject null
+                // for a non-nullable target. Without a declared default there is nothing to fall
+                // back to, so the value takes the regular pipeline and its null type guard.
+                if (
+                    ($preparedValue === null)
+                    && $this->isReplaceNullWithDefaultValueAnnotation($resolvedClassName, $validatedProperty)
+                    && $this->hasDefaultValue($resolvedClassName, $validatedProperty)
+                ) {
+                    $convertedValues[$validatedProperty] = $this->getDefaultValue($resolvedClassName, $validatedProperty);
+
+                    return;
+                }
+
                 $type = $this->typeResolver->resolve($resolvedClassName, $validatedProperty);
 
                 try {
-                    $value = $this->convertValue($propertyValue, $type, $propertyContext);
+                    $value = $this->convertValue($preparedValue, $type, $propertyContext);
                 } catch (MappingException $exception) {
                     $this->handleMappingException($exception, $propertyContext, $configuration);
 
@@ -762,21 +778,28 @@ final readonly class JsonMapper
 
     /**
      * Converts the provided JSON value using the registered strategies.
+     *
+     * @throws TypeMismatchException When a null value targets a non-nullable type.
      */
     private function convertValue(
         mixed $json,
         Type $type,
         MappingContext $context,
     ): mixed {
-        if (
-            is_string($json)
-            && ($json === '' || trim($json) === '')
-            && (bool) $context->getOption(MappingContext::OPTION_TREAT_EMPTY_STRING_AS_NULL, false)
-        ) {
-            $json = null;
-        }
+        $json = $this->normalizeEmptyStringToNull($json, $context);
 
         if ($type instanceof CollectionType) {
+            // A null payload is only acceptable for a collection when the configuration maps it
+            // to an empty collection. Otherwise it must surface as a type mismatch instead of
+            // being assigned to the (non-nullable) collection property later on.
+            if (
+                ($json === null)
+                && !$type->isNullable()
+                && !$context->shouldTreatNullAsEmptyCollection()
+            ) {
+                throw $this->createNullMismatchException($type, $context);
+            }
+
             return $this->collectionFactory->fromCollectionType($type, $json, $context);
         }
 
@@ -788,7 +811,55 @@ final readonly class JsonMapper
             return null;
         }
 
+        // Reject null for non-nullable targets before it reaches the strategy chain, where the
+        // null strategy would swallow it and the later property assignment would fail with a
+        // native (non-mapping) exception outside the error-collection contract.
+        if (
+            ($json === null)
+            && !$type->isNullable()
+        ) {
+            throw $this->createNullMismatchException($type, $context);
+        }
+
         return $this->valueConverter->convert($type, $json, $context);
+    }
+
+    /**
+     * Creates the type-mismatch exception raised when a null value targets a non-nullable type.
+     *
+     * @param Type           $type    Non-nullable target type the null value was rejected for.
+     * @param MappingContext $context Mapping context providing the current path.
+     *
+     * @return TypeMismatchException Exception describing the rejected null assignment.
+     */
+    private function createNullMismatchException(Type $type, MappingContext $context): TypeMismatchException
+    {
+        return new TypeMismatchException(
+            $context->getPath(),
+            $this->describeType($type),
+            'null',
+        );
+    }
+
+    /**
+     * Normalizes an empty or whitespace-only string to null when the corresponding option is set.
+     *
+     * @param mixed          $value   Raw value coming from the input payload.
+     * @param MappingContext $context Mapping context carrying the normalization option.
+     *
+     * @return mixed The unchanged value, or null when the normalization applies.
+     */
+    private function normalizeEmptyStringToNull(mixed $value, MappingContext $context): mixed
+    {
+        if (
+            is_string($value)
+            && (trim($value) === '')
+            && (bool) $context->getOption(MappingContext::OPTION_TREAT_EMPTY_STRING_AS_NULL, false)
+        ) {
+            return null;
+        }
+
+        return $value;
     }
 
     /**
@@ -809,10 +880,27 @@ final readonly class JsonMapper
             return null;
         }
 
+        if ($json === null) {
+            // A collection member of the union honours the treat-null-as-empty-collection
+            // option, mirroring the CollectionType branch in convertValue().
+            if ($context->shouldTreatNullAsEmptyCollection()) {
+                foreach ($type->getTypes() as $candidate) {
+                    if ($candidate instanceof CollectionType) {
+                        return $this->convertValue($json, $candidate, $context);
+                    }
+                }
+            }
+
+            // A null value on a union without a null member can never match a candidate. Reject
+            // it up front with the full union description instead of surfacing the misleading
+            // mismatch of whichever candidate happens to be tried last.
+            throw $this->createNullMismatchException($type, $context);
+        }
+
         $lastException = null;
 
         foreach ($type->getTypes() as $candidate) {
-            if (($json !== null) && $this->isNullType($candidate)) {
+            if ($this->isNullType($candidate)) {
                 continue;
             }
 
@@ -1278,6 +1366,32 @@ final readonly class JsonMapper
         }
 
         return new ReflectionClass($className);
+    }
+
+    /**
+     * Determines whether the property declares a default value, either on the property itself
+     * or on the promoted constructor parameter of the same name.
+     *
+     * @param class-string $className    Fully qualified class that defines the property.
+     * @param string       $propertyName Property name inspected for a declared default.
+     *
+     * @return bool True when a default value is available to fall back to.
+     */
+    private function hasDefaultValue(string $className, string $propertyName): bool
+    {
+        $reflectionProperty = $this->getReflectionProperty($className, $propertyName);
+
+        if (!$reflectionProperty instanceof ReflectionProperty) {
+            return false;
+        }
+
+        if ($reflectionProperty->hasDefaultValue()) {
+            return true;
+        }
+
+        $parameter = $this->constructorParameter($className, $propertyName);
+
+        return ($parameter instanceof ReflectionParameter) && $parameter->isDefaultValueAvailable();
     }
 
     /**

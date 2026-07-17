@@ -66,7 +66,10 @@ final class TypeResolver
             $type = $this->resolveFromReflection($className, $propertyName);
         }
 
-        $resolved = $type instanceof Type ? $this->normalizeType($type) : $this->defaultType;
+        // A property without any type metadata must accept null, so the synthetic fallback is
+        // nullable. A non-nullable fallback would fabricate type-mismatch errors for null values
+        // on properties that never declared a type.
+        $resolved = $type instanceof Type ? $this->normalizeType($type) : Type::nullable($this->defaultType);
 
         $this->storeCachedType($className, $propertyName, $resolved);
 

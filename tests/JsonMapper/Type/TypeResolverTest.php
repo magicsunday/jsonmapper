@@ -22,6 +22,7 @@ use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
 use Symfony\Component\PropertyInfo\PropertyTypeExtractorInterface;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\BuiltinType;
+use Symfony\Component\TypeInfo\Type\NullableType;
 use Symfony\Component\TypeInfo\Type\UnionType;
 use Symfony\Component\TypeInfo\TypeIdentifier;
 
@@ -70,7 +71,7 @@ final class TypeResolverTest extends TestCase
     }
 
     #[Test]
-    public function itFallsBackToStringType(): void
+    public function itFallsBackToNullableStringType(): void
     {
         $typeExtractor = new StubPropertyTypeExtractor(null);
         $extractor     = new PropertyInfoExtractor([], [$typeExtractor]);
@@ -78,8 +79,9 @@ final class TypeResolverTest extends TestCase
 
         $type = $resolver->resolve(TypeResolverFixture::class, 'name');
 
-        self::assertInstanceOf(BuiltinType::class, $type);
+        self::assertInstanceOf(NullableType::class, $type);
         self::assertTrue($type->isIdentifiedBy(TypeIdentifier::STRING));
+        self::assertTrue($type->isNullable());
         self::assertSame(1, $typeExtractor->callCount);
     }
 }
