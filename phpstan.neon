@@ -16,3 +16,18 @@ parameters:
 
     excludePaths:
         - %currentWorkingDirectory%/.build/
+
+    ignoreErrors:
+        # The missing type IS the fixture's purpose: it pins the type resolver's fallback for
+        # properties without any type metadata. Adding a type would delete the test case.
+        -
+            identifier: missingType.property
+            message: '#^Property MagicSunday\\Test\\Classes\\UntypedPropertyHolder\:\:\$anything has no type specified\.$#'
+            path: %currentWorkingDirectory%/tests/Classes/UntypedPropertyHolder.php
+
+        # The unused parameter IS the fixture's purpose: it pins that a non-promoted constructor
+        # parameter sharing a property name must not supply that property's default.
+        -
+            identifier: constructor.unusedParameter
+            message: '#^Constructor of class MagicSunday\\Test\\Classes\\SameNamedConstructorParameterHolder has an unused parameter \$count\.$#'
+            path: %currentWorkingDirectory%/tests/Classes/SameNamedConstructorParameterHolder.php

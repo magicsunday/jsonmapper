@@ -22,7 +22,7 @@ use MagicSunday\JsonMapper\Attribute\ReplaceNullWithDefaultValue;
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
  */
-class ReplaceNullWithoutDefaultHolder
+final class ReplaceNullWithoutDefaultHolder
 {
     #[ReplaceNullWithDefaultValue]
     public int $number;
