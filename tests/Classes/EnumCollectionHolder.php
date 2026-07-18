@@ -1,0 +1,34 @@
+<?php
+
+/**
+ * This file is part of the package magicsunday/jsonmapper.
+ *
+ * For the full copyright and license information, please read the
+ * LICENSE file that was distributed with this source code.
+ */
+
+declare(strict_types=1);
+
+namespace MagicSunday\Test\Classes;
+
+use MagicSunday\Test\Fixtures\Enum\SampleColor;
+
+/**
+ * Holds a list of pure enum cases. Collection elements reach the conversion strategies through a
+ * different caller than plain properties do, so the enum handling needs its own case there.
+ *
+ * The default is deliberately non-empty: an empty one would equal the value a rejection test
+ * asserts, so it could not tell an untouched property apart from one overwritten with an empty
+ * list.
+ *
+ * @author  Rico Sonntag <mail@ricosonntag.de>
+ * @license https://opensource.org/licenses/MIT
+ * @link    https://github.com/magicsunday/jsonmapper/
+ */
+final class EnumCollectionHolder
+{
+    /**
+     * @var list<SampleColor>
+     */
+    public array $colors = [SampleColor::Blue];
+}

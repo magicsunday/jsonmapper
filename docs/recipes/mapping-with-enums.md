@@ -1,6 +1,8 @@
 # Mapping JSON to PHP enums
 
-JsonMapper can map backed enums transparently when the target property is typed with the enum class. The built-in `EnumValueConversionStrategy` handles the conversion from scalars to enum cases.
+JsonMapper can map enums transparently when the target property is typed with the enum class. The built-in `EnumValueConversionStrategy` handles the conversion from scalars to enum cases.
+
+A **backed** enum is addressed by case value, a **pure** enum by case name - its cases carry no scalar value, so the name is the only thing a payload can refer to. The name comparison is exact, since a case name is an identifier rather than a value.
 
 ```php
 <?php
@@ -55,6 +57,27 @@ assert($article instanceof Article);
 assert($article->status === Status::Published);
 ```
 
-The mapper validates enum values. In strict mode (`JsonMapperConfiguration::strict()`), an invalid enum value results in a `TypeMismatchException` instead of populating the property.
+## Pure enums
 
-Test coverage: `tests/JsonMapperTest.php::mapBackedEnumFromString` and `tests/JsonMapper/JsonMapperErrorHandlingTest.php::itReportsInvalidEnumValuesInLenientMode`.
+```php
+enum Color
+{
+    case Red;
+    case Blue;
+}
+
+final class Shape
+{
+    public Color $color;
+}
+
+// {"color": "Red"} maps to Color::Red - "red" does not, the name must match exactly.
+```
+
+## Validation
+
+The mapper validates enum values. In strict mode (`JsonMapperConfiguration::strict()`), a value that names no case results in a `TypeMismatchException` instead of populating the property; in lenient mode it is recorded in the mapping report and the property keeps its previous value.
+
+That covers every rejection reason alike: a value outside the declared cases, a scalar that does not match a backed enum's backing type (a string for an int-backed enum, for instance), and a name that matches no case of a pure enum.
+
+Test coverage: `tests/JsonMapperTest.php::mapBackedEnumFromString`, `tests/JsonMapper/JsonMapperErrorHandlingTest.php::itReportsInvalidEnumValuesInLenientMode`, `tests/JsonMapper/Value/EnumValueConversionTest.php` and `tests/JsonMapper/Value/UnitEnumValueConversionTest.php`.
