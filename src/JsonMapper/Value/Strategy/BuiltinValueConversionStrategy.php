@@ -20,6 +20,7 @@ use Symfony\Component\TypeInfo\TypeIdentifier;
 use function assert;
 use function filter_var;
 use function get_debug_type;
+use function in_array;
 use function is_array;
 use function is_bool;
 use function is_callable;
@@ -40,6 +41,23 @@ use const FILTER_VALIDATE_INT;
  */
 final class BuiltinValueConversionStrategy implements ValueConversionStrategyInterface
 {
+    /**
+     * Type identifiers settype() understands. The remaining builtin identifiers - among them
+     * mixed, iterable and callable - have no cast equivalent; passing one to settype() raises a
+     * ValueError, so a value targeting such a type is kept as it is.
+     *
+     * @var list<TypeIdentifier>
+     */
+    private const array CASTABLE_IDENTIFIERS = [
+        TypeIdentifier::ARRAY,
+        TypeIdentifier::BOOL,
+        TypeIdentifier::FLOAT,
+        TypeIdentifier::INT,
+        TypeIdentifier::NULL,
+        TypeIdentifier::OBJECT,
+        TypeIdentifier::STRING,
+    ];
+
     /**
      * Determines whether the provided type represents a builtin PHP value.
      *
@@ -68,6 +86,27 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
         assert($type instanceof BuiltinType);
 
         $normalized = $this->normalizeValue($value, $type);
+        $identifier = $type->getTypeIdentifier();
+
+        if (
+            ($normalized !== null)
+            && !in_array($identifier, self::CASTABLE_IDENTIFIERS, true)
+        ) {
+            // Without a settype() equivalent there is no coercion left to try, so an incompatible
+            // value has to surface as a mapping exception. Returning it would hand an unassignable
+            // value to the property assignment, which fails with a native exception outside the
+            // error-collection contract. The throw is the recording path here - the caller records
+            // it once, which is why guardCompatibility() is deliberately not consulted.
+            if (!$this->isCompatibleValue($normalized, $identifier)) {
+                throw new TypeMismatchException(
+                    $context->getPath(),
+                    $identifier->value,
+                    get_debug_type($normalized),
+                );
+            }
+
+            return $normalized;
+        }
 
         $this->guardCompatibility($normalized, $type, $context);
 
@@ -76,7 +115,7 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
         }
 
         $converted = $normalized;
-        settype($converted, $type->getTypeIdentifier()->value);
+        settype($converted, $identifier->value);
 
         return $converted;
     }
@@ -219,6 +258,8 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
             'object'   => is_object($value),
             'callable' => is_callable($value),
             'iterable' => is_iterable($value),
+            'true'     => $value === true,
+            'false'    => $value === false,
             'null'     => $value === null,
             default    => true,
         };
