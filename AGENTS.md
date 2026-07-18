@@ -65,8 +65,11 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
     * `composer ci:test:php:rector`
     * `composer ci:test:php:cpd`
     * `composer ci:test:php:unit`
+    * `composer ci:test:php:cgl`
     * `composer ci:test:php:unit:coverage`
-* **Node tooling:** `npx jscpd --config .jscpd.json` (executed by the composer scripts; `npm install` runs via `post-update-cmd`).
+    * `composer ci:test` — the aggregate the README points contributors at; runs lint, unit,
+      PHPStan, Rector, CGL and CPD in that order
+* **Node tooling:** `npx jscpd --config .jscpd.json --skip-comments --no-tips` (executed by `ci:test:php:cpd`; `npm install jscpd@^5.0.11` runs via `post-update-cmd`).
 
 **Git flow (no ad-hoc diffs):**
 
@@ -141,7 +144,7 @@ File scope: <list of authorised files>
 Guards: Stable public API, safe reflection, no dynamic properties, no I/O.
 Documentation: Maintain PHPDocs (English), expressive identifiers, inline comments for complex logic only.
 Enums/value objects: Prefer them over magic strings for handler/converter configuration.
-Output: Conventional commits on a branch + pull request.
+Output: Commits on a `GH-<issue number>` branch + pull request.
 ```
 
 **Tests first**
@@ -175,8 +178,10 @@ List changed API surfaces and relevant attributes/converters in the “Reference
 * **Type handlers:** Implement `MagicSunday\JsonMapper\Value\TypeHandlerInterface`; handlers are stateless and must honour the `supports()`/`convert()` contract.
 * **Attributes:**
     * `ReplaceNullWithDefaultValue` — only applies when a default exists.
-    * `ReplaceProperty` — supports multiple alias names; ordering defines priority.
-* **Name converters:** `CamelCasePropertyNameConverter`, etc. — ensure round-trip behaviour in tests.
+    * `ReplaceProperty` — supports multiple alias names. They are collected into a map keyed by
+      the alias, so declaration order carries no meaning; two attributes naming the same alias are
+      a redeclaration in which the last wins.
+* **Name converters:** `CamelCasePropertyNameConverter` is the only implementation shipped — ensure round-trip behaviour in tests.
 * **Collections:** Combine legacy DocBlock annotations (`@var Collection<Type>`) with PHP 8.1+ `#[Type]` attributes.
 * **Security:** No `eval`, no unchecked dynamic class instantiation, no serialisation side effects.
 
@@ -203,11 +208,11 @@ List changed API surfaces and relevant attributes/converters in the “Reference
 * **File scope:**
     * `src/JsonMapper.php`
     * `src/JsonMapper/Attribute/ReplaceNullWithDefaultValue.php`
-    * `tests/JsonMapper/ReplaceNullWithDefaultValueTest.php`
+    * `tests/JsonMapperTest.php` (see `mapNullToDefaultValueUsingAttribute`)
 * **Guards:** No dynamic property creation; collection defaults remain immutable; throw clear exceptions for incompatible types.
 * **Expectation:** Collections are replaced with defaults when source data is `null`; log/raise errors for incompatible types.
 * **Documentation:** Update PHPDocs for the mapper; extend README section “Custom attributes”.
-* **Output:** Branch `feat/mapper-null-defaults`, RED → GREEN commit chain, PR with green CI.
+* **Output:** Branch `GH-<issue number>`, RED → GREEN commit chain, PR with green CI.
 
 ---
 
@@ -239,7 +244,7 @@ List changed API surfaces and relevant attributes/converters in the “Reference
 * [ ] Value objects/enums instead of magic strings.
 * [ ] Exceptions & error paths consistent.
 * [ ] README/docs refreshed if required.
-* [ ] Conventional commits; branch/PR workflow respected.
+* [ ] Commit subjects and branch name follow §3; branch/PR workflow respected.
 
 ---
 

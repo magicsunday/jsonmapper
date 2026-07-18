@@ -76,7 +76,9 @@ final class Shape
 
 ## Validation
 
-The mapper validates enum values. In strict mode (`JsonMapperConfiguration::strict()`), a value that names no case results in a `TypeMismatchException` instead of populating the property; in lenient mode it is recorded in the mapping report and the property keeps its previous value.
+The mapper validates enum values. In strict mode (`JsonMapperConfiguration::strict()`), a value that names no case results in a `TypeMismatchException` instead of populating the property; in lenient mode it is recorded in the mapping report and the property is left alone - keeping its default, or staying uninitialised if it never had one.
+
+Inside a collection only the offending element is dropped; the valid ones are still mapped.
 
 That covers every rejection reason alike: a value outside the declared cases, a scalar that does not match a backed enum's backing type (a string for an int-backed enum, for instance), and a name that matches no case of a pure enum.
 
