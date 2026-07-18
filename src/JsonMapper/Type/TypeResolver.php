@@ -30,7 +30,18 @@ use function count;
  */
 final class TypeResolver
 {
-    private const string CACHE_KEY_PREFIX = 'jsonmapper.property_type.';
+    /**
+     * Schema token of the cached type shape. Bump it whenever the resolution semantics change,
+     * so a persistent pool warmed by an earlier release stops serving entries that were resolved
+     * under the old rules instead of silently withholding the new behaviour.
+     */
+    private const string CACHE_SCHEMA_VERSION = 'v2';
+
+    /**
+     * Leading segment of every cache key, ending in a separating dot. The full key appends the
+     * fully qualified class name with its separators folded, another dot, and the property name.
+     */
+    private const string CACHE_KEY_PREFIX = 'jsonmapper.property_type.' . self::CACHE_SCHEMA_VERSION . '.';
 
     /**
      * @var BuiltinType<TypeIdentifier::STRING>
@@ -66,7 +77,10 @@ final class TypeResolver
             $type = $this->resolveFromReflection($className, $propertyName);
         }
 
-        $resolved = $type instanceof Type ? $this->normalizeType($type) : $this->defaultType;
+        // A property without any type metadata must accept null, so the synthetic fallback is
+        // nullable. A non-nullable fallback would fabricate type-mismatch errors for null values
+        // on properties that never declared a type.
+        $resolved = $type instanceof Type ? $this->normalizeType($type) : Type::nullable($this->defaultType);
 
         $this->storeCachedType($className, $propertyName, $resolved);
 

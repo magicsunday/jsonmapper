@@ -532,10 +532,30 @@ final readonly class JsonMapper
 
                 $mappedProperties[] = $validatedProperty;
 
+                $preparedValue = $this->normalizeEmptyStringToNull($propertyValue, $propertyContext);
+
+                // A null input on a property marked ReplaceNullWithDefaultValue keeps the declared
+                // default without running through the conversion pipeline, which would reject null
+                // for a non-nullable target. A default that is itself null cannot satisfy such a
+                // target either, and an untyped property reports an implicit null default through
+                // reflection, so both fall through to the regular pipeline and its null guard.
+                if (
+                    ($preparedValue === null)
+                    && $this->isReplaceNullWithDefaultValueAnnotation($resolvedClassName, $validatedProperty)
+                ) {
+                    $defaultValue = $this->getDefaultValue($resolvedClassName, $validatedProperty);
+
+                    if ($defaultValue !== null) {
+                        $convertedValues[$validatedProperty] = $defaultValue;
+
+                        return;
+                    }
+                }
+
                 $type = $this->typeResolver->resolve($resolvedClassName, $validatedProperty);
 
                 try {
-                    $value = $this->convertValue($propertyValue, $type, $propertyContext);
+                    $value = $this->convertValue($preparedValue, $type, $propertyContext);
                 } catch (MappingException $exception) {
                     $this->handleMappingException($exception, $propertyContext, $configuration);
 
@@ -762,21 +782,26 @@ final readonly class JsonMapper
 
     /**
      * Converts the provided JSON value using the registered strategies.
+     *
+     * @throws TypeMismatchException When a null value targets a non-nullable type.
      */
     private function convertValue(
         mixed $json,
         Type $type,
         MappingContext $context,
     ): mixed {
-        if (
-            is_string($json)
-            && ($json === '' || trim($json) === '')
-            && (bool) $context->getOption(MappingContext::OPTION_TREAT_EMPTY_STRING_AS_NULL, false)
-        ) {
-            $json = null;
-        }
-
         if ($type instanceof CollectionType) {
+            // A null payload is only acceptable for a collection when the configuration maps it
+            // to an empty collection. Otherwise it must surface as a type mismatch instead of
+            // being assigned to the (non-nullable) collection property later on.
+            if (
+                ($json === null)
+                && !$type->isNullable()
+                && !$context->shouldTreatNullAsEmptyCollection()
+            ) {
+                throw $this->createNullMismatchException($type, $context);
+            }
+
             return $this->collectionFactory->fromCollectionType($type, $json, $context);
         }
 
@@ -788,7 +813,55 @@ final readonly class JsonMapper
             return null;
         }
 
+        // Reject null for non-nullable targets before it reaches the strategy chain, where the
+        // null strategy would swallow it and the later property assignment would fail with a
+        // native (non-mapping) exception outside the error-collection contract.
+        if (
+            ($json === null)
+            && !$type->isNullable()
+        ) {
+            throw $this->createNullMismatchException($type, $context);
+        }
+
         return $this->valueConverter->convert($type, $json, $context);
+    }
+
+    /**
+     * Creates the type-mismatch exception raised when a null value targets a non-nullable type.
+     *
+     * @param Type           $type    Non-nullable target type the null value was rejected for.
+     * @param MappingContext $context Mapping context providing the current path.
+     *
+     * @return TypeMismatchException Exception describing the rejected null assignment.
+     */
+    private function createNullMismatchException(Type $type, MappingContext $context): TypeMismatchException
+    {
+        return new TypeMismatchException(
+            $context->getPath(),
+            $this->describeType($type),
+            'null',
+        );
+    }
+
+    /**
+     * Normalizes an empty or whitespace-only string to null when the corresponding option is set.
+     *
+     * @param mixed          $value   Raw value coming from the input payload.
+     * @param MappingContext $context Mapping context carrying the normalization option.
+     *
+     * @return mixed The unchanged value, or null when the normalization applies.
+     */
+    private function normalizeEmptyStringToNull(mixed $value, MappingContext $context): mixed
+    {
+        if (
+            is_string($value)
+            && (trim($value) === '')
+            && (bool) $context->getOption(MappingContext::OPTION_TREAT_EMPTY_STRING_AS_NULL, false)
+        ) {
+            return null;
+        }
+
+        return $value;
     }
 
     /**
@@ -799,6 +872,8 @@ final readonly class JsonMapper
      * @param MappingContext  $context Context used to track conversion errors while testing candidates.
      *
      * @return mixed Value converted to a type accepted by the union.
+     *
+     * @throws TypeMismatchException When a null value targets a union without a null member.
      */
     private function convertUnionValue(
         mixed $json,
@@ -809,10 +884,27 @@ final readonly class JsonMapper
             return null;
         }
 
+        if ($json === null) {
+            // A collection member of the union honours the treat-null-as-empty-collection
+            // option, mirroring the CollectionType branch in convertValue().
+            if ($context->shouldTreatNullAsEmptyCollection()) {
+                foreach ($type->getTypes() as $candidate) {
+                    if ($candidate instanceof CollectionType) {
+                        return $this->convertValue($json, $candidate, $context);
+                    }
+                }
+            }
+
+            // A null value on a union without a null member can never match a candidate. Reject
+            // it up front with the full union description instead of surfacing the misleading
+            // mismatch of whichever candidate happens to be tried last.
+            throw $this->createNullMismatchException($type, $context);
+        }
+
         $lastException = null;
 
         foreach ($type->getTypes() as $candidate) {
-            if (($json !== null) && $this->isNullType($candidate)) {
+            if ($this->isNullType($candidate)) {
                 continue;
             }
 
@@ -1308,13 +1400,17 @@ final readonly class JsonMapper
             return $parameter->getDefaultValue();
         }
 
-        return $reflectionProperty->getDefaultValue();
+        // Neither the property nor a promoted parameter declares a default. Calling
+        // ReflectionProperty::getDefaultValue() here is deprecated as of PHP 8.5 precisely
+        // because there is nothing to return.
+        return null;
     }
 
     /**
-     * Returns the constructor parameter of the given class that shares the property's name, or
-     * NULL. Used to read a promoted property's default and required-ness, which live on the
-     * parameter rather than the property.
+     * Returns the PROMOTED constructor parameter of the given class that shares the property's
+     * name, or NULL. Used to read a promoted property's default and required-ness, which live on
+     * the parameter rather than the property. A plain parameter that merely shares the name is
+     * ignored, since it has no type relationship to the property.
      *
      * @param class-string $className    Fully qualified class name to inspect.
      * @param string       $propertyName Property (and promoted parameter) name to look up.
@@ -1330,7 +1426,10 @@ final readonly class JsonMapper
         }
 
         foreach ($constructor->getParameters() as $parameter) {
-            if ($parameter->getName() === $propertyName) {
+            if (
+                ($parameter->getName() === $propertyName)
+                && $parameter->isPromoted()
+            ) {
                 return $parameter;
             }
         }

@@ -22,11 +22,13 @@ use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
 use Symfony\Component\PropertyInfo\PropertyTypeExtractorInterface;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\BuiltinType;
+use Symfony\Component\TypeInfo\Type\NullableType;
 use Symfony\Component\TypeInfo\Type\UnionType;
 use Symfony\Component\TypeInfo\TypeIdentifier;
 
 use function array_key_exists;
 use function array_values;
+use function str_replace;
 
 /**
  * @internal
@@ -70,7 +72,7 @@ final class TypeResolverTest extends TestCase
     }
 
     #[Test]
-    public function itFallsBackToStringType(): void
+    public function itFallsBackToNullableStringType(): void
     {
         $typeExtractor = new StubPropertyTypeExtractor(null);
         $extractor     = new PropertyInfoExtractor([], [$typeExtractor]);
@@ -78,9 +80,49 @@ final class TypeResolverTest extends TestCase
 
         $type = $resolver->resolve(TypeResolverFixture::class, 'name');
 
-        self::assertInstanceOf(BuiltinType::class, $type);
+        self::assertInstanceOf(NullableType::class, $type);
         self::assertTrue($type->isIdentifiedBy(TypeIdentifier::STRING));
+        self::assertTrue($type->isNullable());
         self::assertSame(1, $typeExtractor->callCount);
+    }
+
+    #[Test]
+    public function itIgnoresCacheEntriesWrittenByAnEarlierSchemaVersion(): void
+    {
+        // A persistent pool warmed by a previous release still holds types resolved under the
+        // old semantics. Without a schema token in the key those entries would be served
+        // verbatim and the new behaviour would never reach an upgraded deployment.
+        $typeExtractor = new StubPropertyTypeExtractor(null);
+        $extractor     = new PropertyInfoExtractor([], [$typeExtractor]);
+        $cache         = new InMemoryCachePool();
+
+        // Mirrors the key the previous release wrote: prefix + FQCN with backslashes replaced.
+        $legacyKey = 'jsonmapper.property_type.'
+            . str_replace('\\', '_', TypeResolverFixture::class)
+            . '.name';
+        $legacyItem = $cache->getItem($legacyKey);
+        $legacyItem->set(new BuiltinType(TypeIdentifier::STRING));
+        $cache->save($legacyItem);
+
+        $resolver = new TypeResolver($extractor, $cache);
+        $type     = $resolver->resolve(TypeResolverFixture::class, 'name');
+
+        // The stale non-nullable entry must not win; the current fallback is nullable.
+        self::assertTrue($type->isNullable());
+        self::assertSame(1, $typeExtractor->callCount);
+
+        // Control: without this, a drifted key scheme would make the priming above miss for the
+        // wrong reason, the resolver would fall through to a fresh resolve, and both assertions
+        // would still pass — leaving the test permanently green while asserting nothing. Proving
+        // the resolver writes under the versioned key anchors the miss to the schema token.
+        $versionedKey = 'jsonmapper.property_type.v2.'
+            . str_replace('\\', '_', TypeResolverFixture::class)
+            . '.name';
+
+        self::assertTrue(
+            $cache->getItem($versionedKey)->isHit(),
+            'The resolver must store the freshly resolved type under the schema-versioned key.',
+        );
     }
 }
 
