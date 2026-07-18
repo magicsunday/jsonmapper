@@ -12,8 +12,8 @@ declare(strict_types=1);
 namespace MagicSunday\Test\JsonMapper;
 
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
-use MagicSunday\JsonMapper\Exception\MappingException;
 use MagicSunday\JsonMapper\Exception\MissingConstructorArgumentException;
+use MagicSunday\JsonMapper\Exception\MissingPropertyException;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\Test\Classes\RequiredConstructorArgumentDto;
 use MagicSunday\Test\Classes\RequiredConstructorArgumentDtoHolder;
@@ -39,7 +39,7 @@ final class RootLevelErrorHandlingTest extends TestCase
 
         $errors = $result->getReport()->getErrors();
 
-        self::assertCount(1, $errors);
+        self::assertCount(1, $errors, 'One unbuildable root object produces exactly one record.');
         self::assertInstanceOf(MissingConstructorArgumentException::class, $errors[0]->getException());
     }
 
@@ -58,14 +58,18 @@ final class RootLevelErrorHandlingTest extends TestCase
             RequiredConstructorArgumentDtoHolder::class,
         );
 
-        self::assertSame(
-            $nested->getReport()->getErrorCount(),
-            $root->getReport()->getErrorCount(),
-            'Root and nested must record the same number of errors for the same failure.',
+        // Both lanes are anchored to a literal rather than to each other: a mutation that shifted
+        // both together - two records per failure, or the nested lane regressing to the root's
+        // old escape-then-record - would satisfy a bare count-equals-count comparison.
+        self::assertSame(1, $root->getReport()->getErrorCount(), 'Root: one unbuildable object, one record.');
+        self::assertSame(1, $nested->getReport()->getErrorCount(), 'Nested: same failure, same record count.');
+        self::assertInstanceOf(
+            MissingConstructorArgumentException::class,
+            $root->getReport()->getErrors()[0]->getException(),
         );
         self::assertInstanceOf(
-            MappingException::class,
-            $root->getReport()->getErrors()[0]->getException(),
+            MissingConstructorArgumentException::class,
+            $nested->getReport()->getErrors()[0]->getException(),
         );
     }
 
@@ -80,7 +84,7 @@ final class RootLevelErrorHandlingTest extends TestCase
 
         $errors = $result->getReport()->getErrors();
 
-        self::assertCount(1, $errors);
+        self::assertCount(1, $errors, 'One rejected payload produces exactly one record.');
         self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
     }
 
@@ -103,10 +107,13 @@ final class RootLevelErrorHandlingTest extends TestCase
     public function itStillThrowsInStrictMode(): void
     {
         // Recording at the root must not swallow the failure when the caller asked for strictness.
-        // The concrete type is left open on purpose: strict mode reports the missing property
-        // before construction is even attempted, so pinning the constructor exception here would
-        // assert the order of two unrelated guards rather than the rethrow.
-        $this->expectException(MappingException::class);
+        // The concrete type is pinned deliberately: which exception a strict-mode caller catches is
+        // part of the contract, and here it is the missing PROPERTY rather than the missing
+        // constructor argument, because strict mode validates the payload before construction is
+        // attempted. Should that order ever change, this fails loudly and gets decided on purpose
+        // instead of drifting.
+        $this->expectException(MissingPropertyException::class);
+        $this->expectExceptionMessageMatches('/' . preg_quote('$.name', '/') . '/');
 
         $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
             [],
