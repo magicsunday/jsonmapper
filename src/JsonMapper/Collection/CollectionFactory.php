@@ -15,6 +15,7 @@ use Closure;
 use DomainException;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Exception\CollectionMappingException;
+use MagicSunday\JsonMapper\Exception\MappingException;
 use MagicSunday\JsonMapper\Resolver\ClassResolver;
 use MagicSunday\JsonMapper\Value\ValueConverter;
 use Symfony\Component\TypeInfo\Type;
@@ -91,7 +92,20 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
         $collection = [];
 
         foreach ($source as $key => $value) {
-            $collection[$key] = $context->withPathSegment((string) $key, fn (MappingContext $childContext): mixed => $this->valueConverter->convert($valueType, $value, $childContext));
+            try {
+                $collection[$key] = $context->withPathSegment((string) $key, fn (MappingContext $childContext): mixed => $this->valueConverter->convert($valueType, $value, $childContext));
+            } catch (MappingException $exception) {
+                // An element that cannot be converted is dropped, not propagated: one invalid
+                // entry must not discard its valid siblings, which is what lenient mode exists
+                // for. The error is recorded here because the exception no longer travels up to
+                // the caller that would have recorded it. Strict mode still aborts on the first
+                // failure.
+                $context->recordException($exception);
+
+                if ($context->isStrictMode()) {
+                    throw $exception;
+                }
+            }
         }
 
         return $collection;
