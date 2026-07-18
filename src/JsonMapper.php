@@ -350,13 +350,23 @@ final readonly class JsonMapper
         $configuration = ($configuration ?? $this->createDefaultConfiguration())->withErrorCollection(true);
         $context       = new MappingContext($json, $configuration->toOptions());
 
-        $value = $this->map(
-            $json,
-            $className,
-            $collectionClassName,
-            $context,
-            $configuration
-        );
+        try {
+            $value = $this->map(
+                $json,
+                $className,
+                $collectionClassName,
+                $context,
+                $configuration
+            );
+        } catch (MappingException $exception) {
+            // A failure on the root object has no enclosing property loop to record it, so it
+            // used to escape this method while the identical failure one level down was collected
+            // - the same error meaning different things depending on nesting depth. Routing it
+            // through the shared handler makes both lanes agree; strict mode still rethrows.
+            $this->handleMappingException($exception, $context, $configuration);
+
+            $value = null;
+        }
 
         return new MappingResult($value, new MappingReport($context->getErrorRecords()));
     }
