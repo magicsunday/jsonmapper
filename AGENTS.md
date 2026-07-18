@@ -14,7 +14,11 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
 * Keep the public API **compact**; no breaking changes without README/docs/PR notes.
 * Avoid magic strings in type resolvers. Prefer dedicated value objects/enums for strategies, converters, and handlers.
 * The mapper operates in-memory; do **not** add I/O or network calls.
-* Forbid `mixed`, `empty()`, nested ternaries, and sprawling public APIs. Use expressive constants/enums instead.
+* Forbid `empty()`, nested ternaries, and sprawling public APIs. Use expressive constants/enums instead.
+* Avoid `mixed` **inside** the library. It is deliberate at the public boundary, where the payload
+  type genuinely is unknown (`map()`, `TypeHandlerInterface::convert()`): a mapper that could
+  declare its input type would not need to exist. Narrow it as early as possible behind that
+  boundary rather than passing it through.
 * One class per file. Test namespaces mirror the source tree (`MagicSunday\Test\…`).
 * PHPDoc blocks and inline comments must be in **English**; inline comments only where the logic is non-trivial.
 
@@ -25,7 +29,11 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
 * Type resolvers/analyzers must respect nullability, collections, and generic annotations.
 * Attributes such as `ReplaceNullWithDefaultValue` must not override the absence of defaults.
 * Be mindful of memory usage when working with collections; avoid blindly materialising huge iterables.
-* All failures raise domain exceptions (`MappingError`, `ResolverException`, etc.); never fall back to `trigger_error()` or `var_dump()`.
+* All failures raise domain exceptions deriving from `MappingException` (`TypeMismatchException`,
+  `MissingPropertyException`, `MissingConstructorArgumentException`, `ReadonlyPropertyException`,
+  `UnknownPropertyException`, `CollectionMappingException`); never fall back to `trigger_error()`
+  or `var_dump()`, and never let a native error (`TypeError`, `ValueError`, `ArgumentCountError`)
+  escape - it bypasses error collection entirely.
 * Transformations must remain pure and stateless. No singletons or global state.
 
 ---
@@ -62,8 +70,11 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
 
 **Git flow (no ad-hoc diffs):**
 
-* Branch naming: `feat/<area>-<slug>`, `fix/<area>-<slug>`, `chore/<area>-<slug>`.
-* Commits follow **Conventional Commits** (e.g. `feat(mapper): support readonly properties`).
+* Branch naming for issue-tied work: `GH-<issue number>`, nothing appended.
+* Commit subjects start with a capitalised imperative verb and carry a `GH-<issue number>: ` prefix
+  when the commit belongs to an issue (`GH-55: Reject an enum value that does not match the backing
+  type`). No `feat:`/`fix:`/`chore:` prefixes.
+* One concern per commit; keep formatting-only changes out of a behavioural commit.
 * Open PRs early, keep CI green, assign reviewers.
 
 ---
@@ -92,7 +103,12 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
 
 **Error handling**
 
-* Raise domain exceptions only (`MappingError`, `ResolverException`, `TypeError`, …).
+* Raise domain exceptions only - the `MappingException` hierarchy listed in §1. A native
+  `TypeError`/`ValueError`/`ArgumentCountError` reaching the caller is a defect: it is invisible to
+  error collection, so `mapWithReport()` cannot report it.
+* A rejected value is recorded exactly once. Recording it and then continuing produces either a
+  duplicate record further up or a native crash - throw instead, and let the single catch site
+  record it.
 * Never rely on the silence operator, `trigger_error()`, or debugging prints.
 * Partial updates must leave already mapped state consistent when errors occur.
 
@@ -100,7 +116,7 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
 
 ## 5) Pipeline (agent playbook)
 
-1. **Planner** — define file scope, non-goals, and guardrails; reference `tests/fixtures/` if needed.
+1. **Planner** — define file scope, non-goals, and guardrails; reference `tests/Classes/` and `tests/Fixtures/` if needed.
 2. **Spec Writer** — describe acceptance criteria and test cases (nullable properties, collections, attributes, type handlers).
 3. **Test Agent (RED)** — add/adjust tests (positive & negative) using synthetic fixtures.
 4. **Implementer (GREEN)** — apply the minimal code change that satisfies the tests; refresh PHPDocs/enums/attributes where required.
@@ -108,7 +124,9 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
 6. **Security** — ensure no unsafe reflection, unchecked class instantiation, or deserialisation risks were introduced.
 7. **Reviewer & Release** — review for minimality/AC coverage; draft the PR text and link the issue.
 
-Always build the PR body from `.github/pull_request_template.md` (default branch) and insert the section “M# Sweep — Verify compliance for this milestone” **above** the template content before submission.
+Write the PR body yourself: an overview of the defect or feature, the details of the change, how it
+was verified, any behaviour change worth naming, and the closing reference. State what was measured
+rather than what was intended.
 
 ---
 
@@ -139,7 +157,7 @@ Output: Commits under tests/**; summarise CI output briefly.
 ```
 Role: Implementer. PHPUnit output (red):
 <OUTPUT>
-Apply the minimal code change within the allowed file scope to fix the failures; update PHPDocs/enums/attributes if needed; commit using Conventional Commits.
+Apply the minimal code change within the allowed file scope to fix the failures; update PHPDocs/enums/attributes if needed; commit with a capitalised imperative subject and the `GH-<issue number>: ` prefix.
 ```
 
 **PR text**
@@ -154,7 +172,7 @@ List changed API surfaces and relevant attributes/converters in the “Reference
 ## 7) Domain cheat sheet
 
 * **Property Info:** Use Symfony’s extractor stack (reflection, PHPDoc, type info). Respect the ordering and fallbacks.
-* **Type handlers:** Implement `MagicSunday\JsonMapper\Value\TypeHandlerInterface`; handlers are stateless and must honour the `supports`/`map` contract.
+* **Type handlers:** Implement `MagicSunday\JsonMapper\Value\TypeHandlerInterface`; handlers are stateless and must honour the `supports()`/`convert()` contract.
 * **Attributes:**
     * `ReplaceNullWithDefaultValue` — only applies when a default exists.
     * `ReplaceProperty` — supports multiple alias names; ordering defines priority.
@@ -175,7 +193,7 @@ List changed API surfaces and relevant attributes/converters in the “Reference
 * ✅ Acceptance criteria met; README/docs updated when behaviour or API changes.
 * ✅ Public API documented (PHPDoc + README where applicable).
 * ✅ Type handlers/attributes documented and tested.
-* ✅ Issue/milestone linked; PR uses **Conventional Commits** and includes “Closes #…”.
+* ✅ Issue/milestone linked; Commit subjects follow the convention above and the PR includes “Closes #…”.
 
 ---
 
@@ -184,7 +202,7 @@ List changed API surfaces and relevant attributes/converters in the “Reference
 * **Input:** The issue requires `ReplaceNullWithDefaultValue` to work for collection properties without losing type information.
 * **File scope:**
     * `src/JsonMapper.php`
-    * `src/Attribute/ReplaceNullWithDefaultValue.php`
+    * `src/JsonMapper/Attribute/ReplaceNullWithDefaultValue.php`
     * `tests/JsonMapper/ReplaceNullWithDefaultValueTest.php`
 * **Guards:** No dynamic property creation; collection defaults remain immutable; throw clear exceptions for incompatible types.
 * **Expectation:** Collections are replaced with defaults when source data is `null`; log/raise errors for incompatible types.
@@ -226,4 +244,7 @@ List changed API surfaces and relevant attributes/converters in the “Reference
 ---
 
 **Owner/Contact:** *MagicSunday* (Europe/Berlin)
-**Structure:** `src/Attribute`, `src/Converter`, `src/JsonMapper`, `src/Value`, `tests/**`, `docs/**`, `scripts/**`.
+**Structure:** `src/JsonMapper.php` (the mapper itself) and `src/JsonMapper/` split into
+`Attribute`, `Collection`, `Configuration`, `Context`, `Converter`, `Exception`, `Report`,
+`Resolver`, `Type` and `Value` (with `Value/Strategy` holding the conversion chain); plus
+`tests/**` (fixtures under `tests/Classes` and `tests/Fixtures`), `docs/**` and `.github/**`.
