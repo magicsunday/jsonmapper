@@ -110,6 +110,19 @@ final class TypeResolverTest extends TestCase
         // The stale non-nullable entry must not win; the current fallback is nullable.
         self::assertTrue($type->isNullable());
         self::assertSame(1, $typeExtractor->callCount);
+
+        // Control: without this, a drifted key scheme would make the priming above miss for the
+        // wrong reason, the resolver would fall through to a fresh resolve, and both assertions
+        // would still pass — leaving the test permanently green while asserting nothing. Proving
+        // the resolver writes under the versioned key anchors the miss to the schema token.
+        $versionedKey = 'jsonmapper.property_type.v2.'
+            . str_replace('\\', '_', TypeResolverFixture::class)
+            . '.name';
+
+        self::assertTrue(
+            $cache->getItem($versionedKey)->isHit(),
+            'The resolver must store the freshly resolved type under the schema-versioned key.',
+        );
     }
 }
 

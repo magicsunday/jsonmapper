@@ -37,6 +37,10 @@ final class TypeResolver
      */
     private const string CACHE_SCHEMA_VERSION = 'v2';
 
+    /**
+     * Leading segment of every cache key, ending in a separating dot. The full key appends the
+     * fully qualified class name with its separators folded, another dot, and the property name.
+     */
     private const string CACHE_KEY_PREFIX = 'jsonmapper.property_type.' . self::CACHE_SCHEMA_VERSION . '.';
 
     /**

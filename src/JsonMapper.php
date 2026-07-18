@@ -872,6 +872,8 @@ final readonly class JsonMapper
      * @param MappingContext  $context Context used to track conversion errors while testing candidates.
      *
      * @return mixed Value converted to a type accepted by the union.
+     *
+     * @throws TypeMismatchException When a null value targets a union without a null member.
      */
     private function convertUnionValue(
         mixed $json,

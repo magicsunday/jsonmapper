@@ -14,10 +14,10 @@ namespace MagicSunday\Test\Classes;
 use MagicSunday\JsonMapper\Attribute\ReplaceNullWithDefaultValue;
 
 /**
- * A non-nullable property marked ReplaceNullWithDefaultValue whose declared default is itself
- * NULL, used to pin that the attribute shortcut must not assign that null to a non-nullable
- * target. The default lives on the optional constructor parameter, which is deliberately not
- * promoted so the property is hydrated through the setter path.
+ * A non-nullable property marked ReplaceNullWithDefaultValue that the constructor seeds with a
+ * value, while declaring no default the mapper can read: the property itself has none, and the
+ * optional constructor parameter is deliberately not promoted, so it is ignored as a default
+ * source. Used to pin that a rejected null leaves the constructor-initialised value intact.
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT

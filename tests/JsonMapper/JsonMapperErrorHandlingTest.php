@@ -23,6 +23,7 @@ use MagicSunday\Test\Classes\Collection;
 use MagicSunday\Test\Classes\DateTimeHolder;
 use MagicSunday\Test\Classes\EnumHolder;
 use MagicSunday\Test\Classes\Initialized;
+use MagicSunday\Test\Classes\MixedPropertyHolder;
 use MagicSunday\Test\Classes\NullableStringHolder;
 use MagicSunday\Test\Classes\Person;
 use MagicSunday\Test\Classes\ReadonlyPropertyHolder;
@@ -291,8 +292,10 @@ final class JsonMapperErrorHandlingTest extends TestCase
         $base = $result->getValue();
 
         self::assertInstanceOf(Base::class, $base);
-        self::assertNull($base->simple);
 
+        // Base::$simple is untyped and therefore already null before mapping, so asserting null
+        // here would pass whether the value was skipped or assigned. The error assertions below
+        // carry the test instead.
         $errors = $result->getReport()->getErrors();
 
         self::assertCount(1, $errors);
@@ -318,8 +321,9 @@ final class JsonMapperErrorHandlingTest extends TestCase
         $base = $result->getValue();
 
         self::assertInstanceOf(Base::class, $base);
-        self::assertNull($base->simpleArray);
 
+        // As above: Base::$simpleArray is untyped and already null, so the assertion would not
+        // discriminate a skip from an assignment.
         $errors = $result->getReport()->getErrors();
 
         self::assertCount(1, $errors);
@@ -392,16 +396,18 @@ final class JsonMapperErrorHandlingTest extends TestCase
     #[Test]
     public function itAssignsNullToMixedPropertyWithoutError(): void
     {
+        // The holder seeds a sentinel default, so asserting null proves the null was actually
+        // assigned rather than the property having been left untouched.
         $result = $this->getJsonMapper()
             ->mapWithReport(
-                ['empty' => null],
-                Simple::class,
+                ['value' => null],
+                MixedPropertyHolder::class,
             );
 
         $holder = $result->getValue();
 
-        self::assertInstanceOf(Simple::class, $holder);
-        self::assertNull($holder->empty);
+        self::assertInstanceOf(MixedPropertyHolder::class, $holder);
+        self::assertNull($holder->value);
         self::assertFalse($result->getReport()->hasErrors());
     }
 
@@ -491,6 +497,14 @@ final class JsonMapperErrorHandlingTest extends TestCase
         self::assertCount(1, $errors);
         self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
         self::assertSame('$.simpleCollection', $errors[0]->getPath());
+
+        // The descriptor is the point of this branch: the union must be reported in full rather
+        // than as whichever candidate happened to be tried last.
+        self::assertStringContainsString(
+            'Type mismatch at $.simpleCollection: expected ',
+            $errors[0]->getMessage(),
+        );
+        self::assertStringEndsWith(', got null.', $errors[0]->getMessage());
     }
 
     #[Test]
@@ -651,16 +665,21 @@ final class JsonMapperErrorHandlingTest extends TestCase
     }
 
     #[Test]
-    public function itReportsTypeMismatchWhenReplaceNullWithDefaultValueResolvesToNull(): void
+    public function itLeavesAConstructorInitialisedValueIntactWhenTheNullIsRejected(): void
     {
-        // A declared default that is itself null cannot satisfy a non-nullable target, so the
-        // attribute must not short-circuit the null guard with it. Assigning it would let a
-        // foreign PropertyAccess exception escape the error-collection contract.
+        // A rejected null must not clobber what the constructor already put in place. The holder
+        // seeds 7 during construction, so the property is observable both before and after the
+        // failed mapping — which is what distinguishes "value skipped" from "value overwritten".
         $result = $this->getJsonMapper()
             ->mapWithReport(
                 ['count' => null],
                 ReplaceNullWithNullDefaultHolder::class,
             );
+
+        $holder = $result->getValue();
+
+        self::assertInstanceOf(ReplaceNullWithNullDefaultHolder::class, $holder);
+        self::assertSame(7, $holder->count);
 
         $errors = $result->getReport()->getErrors();
 
