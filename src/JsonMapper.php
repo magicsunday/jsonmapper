@@ -536,16 +536,21 @@ final readonly class JsonMapper
 
                 // A null input on a property marked ReplaceNullWithDefaultValue keeps the declared
                 // default without running through the conversion pipeline, which would reject null
-                // for a non-nullable target. Without a declared default there is nothing to fall
-                // back to, so the value takes the regular pipeline and its null type guard.
+                // for a non-nullable target. A default that is itself null cannot satisfy such a
+                // target either, and an untyped property reports an implicit null default through
+                // reflection, so both fall through to the regular pipeline and its null guard.
                 if (
                     ($preparedValue === null)
                     && $this->isReplaceNullWithDefaultValueAnnotation($resolvedClassName, $validatedProperty)
                     && $this->hasDefaultValue($resolvedClassName, $validatedProperty)
                 ) {
-                    $convertedValues[$validatedProperty] = $this->getDefaultValue($resolvedClassName, $validatedProperty);
+                    $defaultValue = $this->getDefaultValue($resolvedClassName, $validatedProperty);
 
-                    return;
+                    if ($defaultValue !== null) {
+                        $convertedValues[$validatedProperty] = $defaultValue;
+
+                        return;
+                    }
                 }
 
                 $type = $this->typeResolver->resolve($resolvedClassName, $validatedProperty);
@@ -1426,9 +1431,10 @@ final readonly class JsonMapper
     }
 
     /**
-     * Returns the constructor parameter of the given class that shares the property's name, or
-     * NULL. Used to read a promoted property's default and required-ness, which live on the
-     * parameter rather than the property.
+     * Returns the PROMOTED constructor parameter of the given class that shares the property's
+     * name, or NULL. Used to read a promoted property's default and required-ness, which live on
+     * the parameter rather than the property. A plain parameter that merely shares the name is
+     * ignored, since it has no type relationship to the property.
      *
      * @param class-string $className    Fully qualified class name to inspect.
      * @param string       $propertyName Property (and promoted parameter) name to look up.
@@ -1444,7 +1450,10 @@ final readonly class JsonMapper
         }
 
         foreach ($constructor->getParameters() as $parameter) {
-            if ($parameter->getName() === $propertyName) {
+            if (
+                ($parameter->getName() === $propertyName)
+                && $parameter->isPromoted()
+            ) {
                 return $parameter;
             }
         }
