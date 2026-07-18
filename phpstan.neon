@@ -25,6 +25,13 @@ parameters:
             message: '#^Property MagicSunday\\Test\\Classes\\UntypedPropertyHolder\:\:\$anything has no type specified\.$#'
             path: %currentWorkingDirectory%/tests/Classes/UntypedPropertyHolder.php
 
+        # The missing value type IS the fixture's purpose: a docblock would make the docblock
+        # extractor win, and the bare native iterable type is exactly the case under test.
+        -
+            identifier: missingType.iterableValue
+            message: '#^Property MagicSunday\\Test\\Classes\\IterablePropertyHolder\:\:\$items type has no value type specified in iterable type iterable\.$#'
+            path: %currentWorkingDirectory%/tests/Classes/IterablePropertyHolder.php
+
         # The unused parameter IS the fixture's purpose: it pins that a non-promoted constructor
         # parameter sharing a property name must not supply that property's default.
         -

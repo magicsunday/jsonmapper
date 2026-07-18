@@ -20,6 +20,7 @@ use Symfony\Component\TypeInfo\TypeIdentifier;
 use function assert;
 use function filter_var;
 use function get_debug_type;
+use function in_array;
 use function is_array;
 use function is_bool;
 use function is_callable;
@@ -40,6 +41,23 @@ use const FILTER_VALIDATE_INT;
  */
 final class BuiltinValueConversionStrategy implements ValueConversionStrategyInterface
 {
+    /**
+     * Type identifiers settype() understands. The remaining builtin identifiers - among them
+     * mixed, iterable and callable - have no cast equivalent; passing one to settype() raises a
+     * ValueError, so a value targeting such a type is kept as it is.
+     *
+     * @var list<TypeIdentifier>
+     */
+    private const array CASTABLE_IDENTIFIERS = [
+        TypeIdentifier::ARRAY,
+        TypeIdentifier::BOOL,
+        TypeIdentifier::FLOAT,
+        TypeIdentifier::INT,
+        TypeIdentifier::NULL,
+        TypeIdentifier::OBJECT,
+        TypeIdentifier::STRING,
+    ];
+
     /**
      * Determines whether the provided type represents a builtin PHP value.
      *
@@ -73,6 +91,10 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
 
         if ($normalized === null) {
             return null;
+        }
+
+        if (!in_array($type->getTypeIdentifier(), self::CASTABLE_IDENTIFIERS, true)) {
+            return $normalized;
         }
 
         $converted = $normalized;
