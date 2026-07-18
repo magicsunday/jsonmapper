@@ -68,20 +68,19 @@ final class ScalarPayloadOnObjectTest extends TestCase
 
     #[Test]
     #[DataProvider('scalarPayloadProvider')]
-    public function itCurrentlyEscapesTheReportForAScalarPayloadAtTheTopLevel(
+    public function itRecordsAMismatchForAScalarPayloadAtTheTopLevel(
         string|int|float|bool $payload,
     ): void {
-        // What this pins is the domain exception replacing a native ArgumentCountError. That it
-        // ESCAPES mapWithReport() rather than being recorded is a separate, tracked defect in the
-        // root-level error handling (issue 58). The name says "currently" on purpose: once that
-        // lands, this expectation inverts to a recorded error, and the failure should read as the
-        // planned flip rather than as a regression.
-        $this->expectException(TypeMismatchException::class);
-
-        $this->getJsonMapper()->mapWithReport(
+        $result = $this->getJsonMapper()->mapWithReport(
             $payload,
             RequiredConstructorArgumentDto::class,
         );
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertNull($result->getValue());
+        self::assertCount(1, $errors, 'One rejected value must produce exactly one record.');
+        self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
     }
 
     /**

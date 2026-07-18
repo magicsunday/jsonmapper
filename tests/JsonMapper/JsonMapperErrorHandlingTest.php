@@ -577,17 +577,13 @@ final class JsonMapperErrorHandlingTest extends TestCase
     }
 
     #[Test]
-    public function itThrowsMissingConstructorArgumentWhenNullIsMappedOntoRequiredPromotedParameter(): void
+    public function itRecordsMissingConstructorArgumentWhenNullIsMappedOntoRequiredPromotedParameter(): void
     {
         // The type mismatch is collected and the value skipped, so constructor hydration runs
         // without the argument and raises MissingConstructorArgumentException even in lenient
-        // mode. Root-level constructor failures escaping mapWithReport() are tracked in issue #58.
-        $this->expectException(MissingConstructorArgumentException::class);
-        $this->expectExceptionMessageMatches(
-            '/' . preg_quote('ReadonlyValueObject::$name', '/') . '/',
-        );
-
-        $this->getJsonMapper()
+        // mode. That second failure sits on the root object and used to escape mapWithReport()
+        // entirely; both are recorded now, in the order they occur.
+        $result = $this->getJsonMapper()
             ->mapWithReport(
                 [
                     'name' => null,
@@ -595,6 +591,17 @@ final class JsonMapperErrorHandlingTest extends TestCase
                 ],
                 ReadonlyValueObject::class,
             );
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertNull($result->getValue());
+        self::assertCount(2, $errors);
+        self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
+        self::assertInstanceOf(MissingConstructorArgumentException::class, $errors[1]->getException());
+        self::assertMatchesRegularExpression(
+            '/' . preg_quote('ReadonlyValueObject::$name', '/') . '/',
+            $errors[1]->getMessage(),
+        );
     }
 
     #[Test]
