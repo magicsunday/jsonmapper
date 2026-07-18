@@ -13,6 +13,7 @@ parameters:
     paths:
         - %currentWorkingDirectory%/src/
         - %currentWorkingDirectory%/tests/
+        - %currentWorkingDirectory%/.github/scripts/
 
     excludePaths:
         - %currentWorkingDirectory%/.build/

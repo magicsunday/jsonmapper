@@ -48,7 +48,8 @@ $mapper = new JsonMapper(
 );
 ```
 
-To use the `PhpDocExtractor` extractor you need to install the `phpdocumentor/reflection-docblock` library too.
+The `PhpDocExtractor` extractor needs `phpdocumentor/reflection-docblock`. That package is a
+regular requirement of this library, so it is already installed - no extra step is needed.
 
 ## Complete factory helper
 
