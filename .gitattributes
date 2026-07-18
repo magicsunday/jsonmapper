@@ -1,0 +1,13 @@
+# Keep the distributed package limited to what a consumer actually needs. Without this every
+# development artefact - the test suite, the CI definition and every tool configuration - is
+# part of the Composer dist archive and ends up inside the consumer's vendor directory.
+/.github/                   export-ignore
+/tests/                     export-ignore
+/.gitattributes             export-ignore
+/.gitignore                 export-ignore
+/.jscpd.json                export-ignore
+/.phplint.yml               export-ignore
+/.php-cs-fixer.dist.php     export-ignore
+/phpstan.neon               export-ignore
+/phpunit.xml                export-ignore
+/rector.php                 export-ignore

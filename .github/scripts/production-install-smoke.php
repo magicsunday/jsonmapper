@@ -19,6 +19,11 @@ declare(strict_types=1);
  */
 
 use MagicSunday\JsonMapper;
+use Psr\Cache\CacheItemPoolInterface;
+
+if (\PHP_SAPI !== 'cli') {
+    exit('This script supports command line usage only. Please check your command.');
+}
 
 require __DIR__ . '/../../.build/vendor/autoload.php';
 
@@ -34,6 +39,16 @@ final class ProductionInstallSmokeTarget
      * @var array<int, string>
      */
     public $tags = [];
+}
+
+// The mapper accepts a PSR-6 pool and type-hints this interface in its own signatures, so
+// psr/cache is a runtime requirement as well. The default construction path below passes no
+// pool, which would leave that requirement unexercised - an absent interface only surfaces
+// when something actually resolves it.
+if (!interface_exists(CacheItemPoolInterface::class)) {
+    fwrite(\STDERR, "psr/cache is not installed, although the mapper type-hints its interfaces.\n");
+
+    exit(1);
 }
 
 $mapper = JsonMapper::createWithDefaults();

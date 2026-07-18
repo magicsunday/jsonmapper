@@ -93,7 +93,9 @@ jobs:
 
             # The build job always installs development dependencies, so it structurally cannot
             # detect a runtime dependency that is declared under "require-dev" only. This job
-            # reproduces a consumer installation and constructs the mapper in it.
+            # reproduces a consumer installation and constructs the mapper in it. The install is
+            # deliberately uncached: a cold resolve is what a real consumer performs, and the
+            # build job's cache key covers a different (dev) package set.
             - name: Install dependencies without dev requirements
               run: |
                   composer install --no-dev --prefer-dist --no-interaction --no-progress
