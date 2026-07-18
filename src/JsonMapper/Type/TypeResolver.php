@@ -30,7 +30,14 @@ use function count;
  */
 final class TypeResolver
 {
-    private const string CACHE_KEY_PREFIX = 'jsonmapper.property_type.';
+    /**
+     * Schema token of the cached type shape. Bump it whenever the resolution semantics change,
+     * so a persistent pool warmed by an earlier release stops serving entries that were resolved
+     * under the old rules instead of silently withholding the new behaviour.
+     */
+    private const string CACHE_SCHEMA_VERSION = 'v2';
+
+    private const string CACHE_KEY_PREFIX = 'jsonmapper.property_type.' . self::CACHE_SCHEMA_VERSION . '.';
 
     /**
      * @var BuiltinType<TypeIdentifier::STRING>

@@ -28,6 +28,7 @@ use Symfony\Component\TypeInfo\TypeIdentifier;
 
 use function array_key_exists;
 use function array_values;
+use function str_replace;
 
 /**
  * @internal
@@ -81,6 +82,32 @@ final class TypeResolverTest extends TestCase
 
         self::assertInstanceOf(NullableType::class, $type);
         self::assertTrue($type->isIdentifiedBy(TypeIdentifier::STRING));
+        self::assertTrue($type->isNullable());
+        self::assertSame(1, $typeExtractor->callCount);
+    }
+
+    #[Test]
+    public function itIgnoresCacheEntriesWrittenByAnEarlierSchemaVersion(): void
+    {
+        // A persistent pool warmed by a previous release still holds types resolved under the
+        // old semantics. Without a schema token in the key those entries would be served
+        // verbatim and the new behaviour would never reach an upgraded deployment.
+        $typeExtractor = new StubPropertyTypeExtractor(null);
+        $extractor     = new PropertyInfoExtractor([], [$typeExtractor]);
+        $cache         = new InMemoryCachePool();
+
+        // Mirrors the key the previous release wrote: prefix + FQCN with backslashes replaced.
+        $legacyKey = 'jsonmapper.property_type.'
+            . str_replace('\\', '_', TypeResolverFixture::class)
+            . '.name';
+        $legacyItem = $cache->getItem($legacyKey);
+        $legacyItem->set(new BuiltinType(TypeIdentifier::STRING));
+        $cache->save($legacyItem);
+
+        $resolver = new TypeResolver($extractor, $cache);
+        $type     = $resolver->resolve(TypeResolverFixture::class, 'name');
+
+        // The stale non-nullable entry must not win; the current fallback is nullable.
         self::assertTrue($type->isNullable());
         self::assertSame(1, $typeExtractor->callCount);
     }
