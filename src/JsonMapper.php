@@ -542,7 +542,6 @@ final readonly class JsonMapper
                 if (
                     ($preparedValue === null)
                     && $this->isReplaceNullWithDefaultValueAnnotation($resolvedClassName, $validatedProperty)
-                    && $this->hasDefaultValue($resolvedClassName, $validatedProperty)
                 ) {
                     $defaultValue = $this->getDefaultValue($resolvedClassName, $validatedProperty);
 
@@ -1374,32 +1373,6 @@ final readonly class JsonMapper
     }
 
     /**
-     * Determines whether the property declares a default value, either on the property itself
-     * or on the promoted constructor parameter of the same name.
-     *
-     * @param class-string $className    Fully qualified class that defines the property.
-     * @param string       $propertyName Property name inspected for a declared default.
-     *
-     * @return bool True when a default value is available to fall back to.
-     */
-    private function hasDefaultValue(string $className, string $propertyName): bool
-    {
-        $reflectionProperty = $this->getReflectionProperty($className, $propertyName);
-
-        if (!$reflectionProperty instanceof ReflectionProperty) {
-            return false;
-        }
-
-        if ($reflectionProperty->hasDefaultValue()) {
-            return true;
-        }
-
-        $parameter = $this->constructorParameter($className, $propertyName);
-
-        return ($parameter instanceof ReflectionParameter) && $parameter->isDefaultValueAvailable();
-    }
-
-    /**
      * Returns the default value of a property.
      *
      * @param class-string $className    Fully qualified class that defines the property.
@@ -1427,7 +1400,10 @@ final readonly class JsonMapper
             return $parameter->getDefaultValue();
         }
 
-        return $reflectionProperty->getDefaultValue();
+        // Neither the property nor a promoted parameter declares a default. Calling
+        // ReflectionProperty::getDefaultValue() here is deprecated as of PHP 8.5 precisely
+        // because there is nothing to return.
+        return null;
     }
 
     /**
