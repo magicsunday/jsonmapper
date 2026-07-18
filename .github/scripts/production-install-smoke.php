@@ -21,8 +21,10 @@ declare(strict_types=1);
 use MagicSunday\JsonMapper;
 use Psr\Cache\CacheItemPoolInterface;
 
+// STDERR only exists in the CLI SAPI, so this branch cannot use it - it is precisely the branch
+// that runs when the script was not started from the command line.
 if (\PHP_SAPI !== 'cli') {
-    fwrite(\STDERR, "This script supports command line usage only. Please check your command.\n");
+    echo "This script supports command line usage only. Please check your command.\n";
 
     exit(1);
 }
