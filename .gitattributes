@@ -1,6 +1,7 @@
 # Keep the distributed package limited to what a consumer actually needs. Without this every
 # development artefact - the test suite, the CI definition and every tool configuration - is
 # part of the Composer dist archive and ends up inside the consumer's vendor directory.
+/AGENTS.md                  export-ignore
 /.github/                   export-ignore
 /tests/                     export-ignore
 /.gitattributes             export-ignore
