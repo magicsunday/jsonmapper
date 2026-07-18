@@ -1,6 +1,7 @@
 path:
     - ./src
     - ./tests
+    - ./.github/scripts
 jobs: 10
 cache-dir: .build/cache/.phplint.cache
 extensions:
