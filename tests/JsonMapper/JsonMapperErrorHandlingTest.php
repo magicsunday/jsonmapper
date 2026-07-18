@@ -719,6 +719,33 @@ final class JsonMapperErrorHandlingTest extends TestCase
     }
 
     #[Test]
+    public function itNormalizesAnEmptyStringBeforeTheUnionCandidatesAreTried(): void
+    {
+        // Discriminating case for where the empty-string normalization happens: the union
+        // accepts string, so an unnormalized "" would simply be assigned. Reaching the union
+        // as null instead proves the normalization runs once, ahead of candidate selection.
+        $configuration = JsonMapperConfiguration::lenient()
+            ->withEmptyStringAsNull(true);
+
+        $result = $this->getJsonMapper()
+            ->mapWithReport(
+                ['value' => ''],
+                UnionHolder::class,
+                null,
+                $configuration,
+            );
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors);
+        self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
+        self::assertSame(
+            'Type mismatch at $.value: expected int|string, got null.',
+            $errors[0]->getMessage(),
+        );
+    }
+
+    #[Test]
     public function itReportsTypeMismatchForNullOnAUnionWithoutACollectionMemberDespiteTheOption(): void
     {
         // The treat-null-as-empty-collection option must not swallow a genuine null mismatch

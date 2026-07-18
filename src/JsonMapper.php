@@ -790,8 +790,6 @@ final readonly class JsonMapper
         Type $type,
         MappingContext $context,
     ): mixed {
-        $json = $this->normalizeEmptyStringToNull($json, $context);
-
         if ($type instanceof CollectionType) {
             // A null payload is only acceptable for a collection when the configuration maps it
             // to an empty collection. Otherwise it must surface as a type mismatch instead of
