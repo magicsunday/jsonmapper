@@ -90,6 +90,47 @@ final class BuiltinCoercionTest extends TestCase
         self::assertSame($expected, (new ReflectionProperty($holder, $property))->getValue($holder));
     }
 
+    #[Test]
+    public function itStillCastsAnObjectOntoAnArrayProperty(): void
+    {
+        // array and object are castable targets, so a composite reaching them has a meaningful
+        // cast and must not be swept up by the composite rejection. The rejection has to look at
+        // the target type, not only at the value.
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['bag' => (object) ['a' => 'one']],
+            BuiltinCoercionHolder::class,
+        );
+
+        $holder = $result->getValue();
+
+        self::assertInstanceOf(BuiltinCoercionHolder::class, $holder);
+        self::assertSame(['a' => 'one'], $holder->bag);
+        self::assertFalse($result->getReport()->hasErrors());
+    }
+
+    #[Test]
+    public function itStillCastsAnArrayOntoAnObjectProperty(): void
+    {
+        // The more damaging direction: the property has no default, so a wrongly rejected value
+        // leaves it uninitialised and every later read raises an Error.
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['thing' => ['a' => 'one']],
+            BuiltinCoercionHolder::class,
+        );
+
+        $holder = $result->getValue();
+
+        self::assertInstanceOf(BuiltinCoercionHolder::class, $holder);
+        self::assertTrue(
+            (new ReflectionProperty($holder, 'thing'))->isInitialized($holder),
+            'The object property must have been written.',
+        );
+
+        // Lenient mode reports the coercion it performed, exactly as it does for the scalar pairs
+        // above - what matters here is that the value arrives rather than being discarded.
+        self::assertSame(1, $result->getReport()->getErrorCount());
+    }
+
     /**
      * @param string                    $property Property receiving the payload value.
      * @param array<int, string>|object $payload  Composite value with no meaningful cast.

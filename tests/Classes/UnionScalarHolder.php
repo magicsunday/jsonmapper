@@ -21,5 +21,10 @@ namespace MagicSunday\Test\Classes;
  */
 final class UnionScalarHolder
 {
-    public int|string $value = 0;
+    /**
+     * The sentinel is a string no coercion can produce. An int sentinel would collide with what
+     * casting an unmatched value to the first union member yields, so it could not tell an
+     * untouched property apart from a wrongly coerced one.
+     */
+    public int|string $value = 'untouched';
 }

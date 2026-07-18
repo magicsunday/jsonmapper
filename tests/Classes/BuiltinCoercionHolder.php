@@ -29,4 +29,11 @@ final class BuiltinCoercionHolder
     public float $decimal = -1.5;
 
     public bool $flag = false;
+
+    /**
+     * @var array<string, string>
+     */
+    public array $bag = ['sentinel' => 'sentinel'];
+
+    public object $thing;
 }

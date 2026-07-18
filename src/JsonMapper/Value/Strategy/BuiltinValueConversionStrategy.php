@@ -48,6 +48,21 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
      *
      * @var list<TypeIdentifier>
      */
+    /**
+     * Identifiers whose values are scalar. A composite value reaching one of these has no
+     * meaningful cast - settype() would write the literal 'Array' and emit a PHP warning. The
+     * remaining castable identifiers - array, object, null - convert a composite perfectly well,
+     * which is why the check has to look at the target and not only at the value.
+     *
+     * @var list<TypeIdentifier>
+     */
+    private const array SCALAR_IDENTIFIERS = [
+        TypeIdentifier::BOOL,
+        TypeIdentifier::FLOAT,
+        TypeIdentifier::INT,
+        TypeIdentifier::STRING,
+    ];
+
     private const array CASTABLE_IDENTIFIERS = [
         TypeIdentifier::ARRAY,
         TypeIdentifier::BOOL,
@@ -93,8 +108,10 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
             && !$this->isCompatibleValue($normalized, $identifier)
             && (
                 !in_array($identifier, self::CASTABLE_IDENTIFIERS, true)
-                || is_array($normalized)
-                || is_object($normalized)
+                || (
+                    (is_array($normalized) || is_object($normalized))
+                    && in_array($identifier, self::SCALAR_IDENTIFIERS, true)
+                )
             )
         ) {
             // Two cases have no conversion left to attempt. An identifier settype() does not know -
