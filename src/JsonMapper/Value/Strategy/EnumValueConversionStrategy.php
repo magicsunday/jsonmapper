@@ -61,7 +61,8 @@ final class EnumValueConversionStrategy implements ValueConversionStrategyInterf
      * @param mixed          $value   Raw value coming from the input payload.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
-     * @return mixed Backed enum instance returned by the case factory method.
+     * @return mixed Enum case - resolved through the case factory for a backed enum, by case name
+     *               for a pure one.
      */
     public function convert(Type $type, mixed $value, MappingContext $context): mixed
     {
@@ -71,7 +72,9 @@ final class EnumValueConversionStrategy implements ValueConversionStrategyInterf
             $value,
             static function (string $className, mixed $value) use ($context) {
                 // A pure enum is a UnitEnum but not a BackedEnum, so it has no case factory to
-                // call - its cases are addressed by name instead.
+                // call - its cases are addressed by name instead. The second half of the condition
+                // is redundant at runtime (supports() already established this is an enum) but
+                // narrows the class-string for static analysis; do not simplify it away.
                 if (
                     !is_a($className, BackedEnum::class, true)
                     && is_a($className, UnitEnum::class, true)
