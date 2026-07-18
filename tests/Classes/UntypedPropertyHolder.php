@@ -19,9 +19,9 @@ namespace MagicSunday\Test\Classes;
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
  */
-class UntypedPropertyHolder
+final class UntypedPropertyHolder
 {
     // The missing type is the fixture's purpose. The resolver must fall back to its default.
-    // @phpstan-ignore missingType.property
-    public $anything;
+    // The resulting missingType.property report is silenced by a scoped phpstan.neon entry.
+    public $anything = 'preset';
 }

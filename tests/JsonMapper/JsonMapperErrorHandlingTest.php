@@ -28,10 +28,13 @@ use MagicSunday\Test\Classes\Person;
 use MagicSunday\Test\Classes\ReadonlyPropertyHolder;
 use MagicSunday\Test\Classes\ReadonlyValueObject;
 use MagicSunday\Test\Classes\ReplaceNullCollectionHolder;
+use MagicSunday\Test\Classes\ReplaceNullWithNullDefaultHolder;
 use MagicSunday\Test\Classes\ReplaceNullWithoutDefaultHolder;
+use MagicSunday\Test\Classes\SameNamedConstructorParameterHolder;
 use MagicSunday\Test\Classes\Simple;
 use MagicSunday\Test\Classes\UnionHolder;
 use MagicSunday\Test\Classes\UntypedPropertyHolder;
+use MagicSunday\Test\Classes\UntypedReplaceNullCollectionHolder;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionProperty;
@@ -470,6 +473,27 @@ final class JsonMapperErrorHandlingTest extends TestCase
     }
 
     #[Test]
+    public function itReportsTypeMismatchForNullOnAUnionTypedCollectionWithoutTheOption(): void
+    {
+        // Counterpart to the test above: with the option off, the same union member must not
+        // absorb the null, so the mismatch surfaces with the full union description.
+        $result = $this->getJsonMapper()
+            ->mapWithReport(
+                [
+                    'name'             => 'John Doe',
+                    'simpleCollection' => null,
+                ],
+                Base::class,
+            );
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors);
+        self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
+        self::assertSame('$.simpleCollection', $errors[0]->getPath());
+    }
+
+    #[Test]
     public function itCollectsTypeMismatchWhenNullIsMappedOntoAnnotatedPropertyWithoutDefault(): void
     {
         $result = $this->getJsonMapper()
@@ -524,8 +548,18 @@ final class JsonMapperErrorHandlingTest extends TestCase
         $holder = $result->getValue();
 
         self::assertInstanceOf(UntypedPropertyHolder::class, $holder);
-        self::assertNull($holder->anything);
-        self::assertCount(1, $result->getReport()->getErrors());
+
+        // The declared default survives, proving the value was skipped rather than assigned.
+        self::assertSame('preset', $holder->anything);
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors);
+        self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
+        self::assertSame(
+            'Type mismatch at $.anything: expected string, got int.',
+            $errors[0]->getMessage(),
+        );
     }
 
     #[Test]
@@ -535,6 +569,9 @@ final class JsonMapperErrorHandlingTest extends TestCase
         // without the argument and raises MissingConstructorArgumentException even in lenient
         // mode. Root-level constructor failures escaping mapWithReport() are tracked in issue #58.
         $this->expectException(MissingConstructorArgumentException::class);
+        $this->expectExceptionMessageMatches(
+            '/' . preg_quote('ReadonlyValueObject::$name', '/') . '/',
+        );
 
         $this->getJsonMapper()
             ->mapWithReport(
@@ -609,6 +646,100 @@ final class JsonMapperErrorHandlingTest extends TestCase
         self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
         self::assertSame(
             'Type mismatch at $.status: expected MagicSunday\\Test\\Fixtures\\Enum\\SampleStatus, got string.',
+            $errors[0]->getMessage(),
+        );
+    }
+
+    #[Test]
+    public function itReportsTypeMismatchWhenReplaceNullWithDefaultValueResolvesToNull(): void
+    {
+        // A declared default that is itself null cannot satisfy a non-nullable target, so the
+        // attribute must not short-circuit the null guard with it. Assigning it would let a
+        // foreign PropertyAccess exception escape the error-collection contract.
+        $result = $this->getJsonMapper()
+            ->mapWithReport(
+                ['count' => null],
+                ReplaceNullWithNullDefaultHolder::class,
+            );
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors);
+        self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
+        self::assertSame(
+            'Type mismatch at $.count: expected int, got null.',
+            $errors[0]->getMessage(),
+        );
+    }
+
+    #[Test]
+    public function itIgnoresANonPromotedConstructorParameterSharingThePropertyName(): void
+    {
+        // Only a promoted parameter carries the property's default. A plain parameter that
+        // merely shares the name has no type relationship to the property, so its default
+        // must never be assigned. With no usable default the value takes the regular pipeline
+        // and its null guard.
+        $result = $this->getJsonMapper()
+            ->mapWithReport(
+                ['count' => null],
+                SameNamedConstructorParameterHolder::class,
+            );
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors);
+        self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
+        self::assertSame(
+            'Type mismatch at $.count: expected int, got null.',
+            $errors[0]->getMessage(),
+        );
+    }
+
+    #[Test]
+    public function itKeepsTheEmptyCollectionForAnUntypedPropertyMarkedReplaceNullWithDefaultValue(): void
+    {
+        // An untyped property reports a null default through reflection. Treating that as a
+        // usable default would strip the empty-collection behaviour the option promises.
+        $configuration = JsonMapperConfiguration::lenient()
+            ->withTreatNullAsEmptyCollection(true);
+
+        $result = $this->getJsonMapper()
+            ->mapWithReport(
+                ['items' => null],
+                UntypedReplaceNullCollectionHolder::class,
+                null,
+                $configuration,
+            );
+
+        $holder = $result->getValue();
+
+        self::assertInstanceOf(UntypedReplaceNullCollectionHolder::class, $holder);
+        self::assertSame([], $holder->items);
+        self::assertFalse($result->getReport()->hasErrors());
+    }
+
+    #[Test]
+    public function itReportsTypeMismatchForNullOnAUnionWithoutACollectionMemberDespiteTheOption(): void
+    {
+        // The treat-null-as-empty-collection option must not swallow a genuine null mismatch
+        // when no union member is a collection.
+        $configuration = JsonMapperConfiguration::lenient()
+            ->withTreatNullAsEmptyCollection(true);
+
+        $result = $this->getJsonMapper()
+            ->mapWithReport(
+                ['value' => null],
+                UnionHolder::class,
+                null,
+                $configuration,
+            );
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors);
+        self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
+        self::assertSame(
+            'Type mismatch at $.value: expected int|string, got null.',
             $errors[0]->getMessage(),
         );
     }
