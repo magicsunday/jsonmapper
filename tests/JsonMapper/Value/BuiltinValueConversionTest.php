@@ -15,22 +15,36 @@ use ArrayIterator;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\Test\Classes\CallableDocBlockPropertyHolder;
+use MagicSunday\Test\Classes\FalseTypedPropertyHolder;
 use MagicSunday\Test\Classes\IterablePropertyHolder;
 use MagicSunday\Test\Classes\MixedPropertyHolder;
 use MagicSunday\Test\Classes\TrueTypedPropertyHolder;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionProperty;
+
+use function preg_quote;
 
 /**
- * Covers the builtin type identifiers settype() cannot handle. Every holder used here seeds a
- * sentinel default, so an assertion on the mapped value also proves the property was written
- * rather than silently skipped.
+ * Covers the builtin type identifiers settype() cannot handle. The holders whose type admits more
+ * than one value seed a sentinel default, so an assertion on the mapped value also proves the
+ * property was written rather than silently skipped. The two literal-typed holders cannot do that
+ * - their type has a single inhabitant - so they are left uninitialized and their tests assert the
+ * initialization state instead.
  *
  * @internal
  */
 final class BuiltinValueConversionTest extends TestCase
 {
+    /**
+     * Explains why the error count is pinned exactly rather than loosely: the throw inside the
+     * strategy is the only recording path, and an earlier implementation that also consulted the
+     * recording guard produced two entries for a single mismatch.
+     */
+    private const string SINGLE_RECORDING_PATH
+        = 'The throw is the single recording path; an earlier implementation recorded 2.';
+
     /**
      * Values that must survive a mixed-typed property untouched. settype() has no "mixed" mode,
      * so every one of these used to abort the whole mapping with a ValueError.
@@ -127,9 +141,32 @@ final class BuiltinValueConversionTest extends TestCase
 
         $holder = $result->getValue();
 
-        // The property type admits exactly one value, so there is nothing to assert about the
-        // value itself - what this pins is that the identifier no longer aborts the mapping.
+        // The property type admits exactly one value, so asserting the value proves nothing - a
+        // mapper that never wrote it would look identical. The initialization state is what tells
+        // an assignment apart from a skipped property.
         self::assertInstanceOf(TrueTypedPropertyHolder::class, $holder);
+        self::assertTrue(
+            (new ReflectionProperty($holder, 'flag'))->isInitialized($holder),
+            'The true-typed property must have been written, not skipped.',
+        );
+        self::assertFalse($result->getReport()->hasErrors());
+    }
+
+    #[Test]
+    public function itAssignsAFalseTypedPropertyWithoutCastingIt(): void
+    {
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['flag' => false],
+            FalseTypedPropertyHolder::class,
+        );
+
+        $holder = $result->getValue();
+
+        self::assertInstanceOf(FalseTypedPropertyHolder::class, $holder);
+        self::assertTrue(
+            (new ReflectionProperty($holder, 'flag'))->isInitialized($holder),
+            'The false-typed property must have been written, not skipped.',
+        );
         self::assertFalse($result->getReport()->hasErrors());
     }
 
@@ -148,7 +185,7 @@ final class BuiltinValueConversionTest extends TestCase
 
         self::assertInstanceOf(IterablePropertyHolder::class, $holder);
         self::assertSame(['preset'], $holder->items);
-        self::assertSame(1, $result->getReport()->getErrorCount());
+        self::assertSame(1, $result->getReport()->getErrorCount(), self::SINGLE_RECORDING_PATH);
     }
 
     #[Test]
@@ -162,7 +199,21 @@ final class BuiltinValueConversionTest extends TestCase
         $holder = $result->getValue();
 
         self::assertInstanceOf(TrueTypedPropertyHolder::class, $holder);
-        self::assertSame(1, $result->getReport()->getErrorCount());
+        self::assertSame(1, $result->getReport()->getErrorCount(), self::SINGLE_RECORDING_PATH);
+    }
+
+    #[Test]
+    public function itRecordsAMismatchForAValueThatDoesNotMatchAFalseTypedProperty(): void
+    {
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['flag' => 'abc'],
+            FalseTypedPropertyHolder::class,
+        );
+
+        $holder = $result->getValue();
+
+        self::assertInstanceOf(FalseTypedPropertyHolder::class, $holder);
+        self::assertSame(1, $result->getReport()->getErrorCount(), self::SINGLE_RECORDING_PATH);
     }
 
     #[Test]
@@ -177,13 +228,16 @@ final class BuiltinValueConversionTest extends TestCase
 
         self::assertInstanceOf(IterablePropertyHolder::class, $holder);
         self::assertSame(['preset'], $holder->items);
-        self::assertSame(1, $result->getReport()->getErrorCount());
+        self::assertSame(1, $result->getReport()->getErrorCount(), self::SINGLE_RECORDING_PATH);
     }
 
     #[Test]
     public function itThrowsInStrictModeWhenAnIncompatibleValueCannotBeCast(): void
     {
+        // The class alone would not discriminate: the recording guard raises the same type. The
+        // property path pins that the rejection came from the non-castable branch.
         $this->expectException(TypeMismatchException::class);
+        $this->expectExceptionMessageMatches('/' . preg_quote('items', '/') . '/');
 
         $this->getJsonMapper(config: JsonMapperConfiguration::strict())->map(
             ['items' => 'nope'],

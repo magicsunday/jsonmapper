@@ -14,7 +14,9 @@ namespace MagicSunday\Test\Classes;
 /**
  * A property typed with the true literal. That identifier has no settype() equivalent either,
  * and unlike iterable it accepts exactly one value, so it pins the compatibility check for the
- * literal type identifiers.
+ * literal type identifiers. It is deliberately left uninitialized: a default would be
+ * indistinguishable from a successfully mapped value, so only the initialization state can tell
+ * an assignment apart from a skipped property.
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
@@ -22,5 +24,5 @@ namespace MagicSunday\Test\Classes;
  */
 final class TrueTypedPropertyHolder
 {
-    public true $flag = true;
+    public true $flag;
 }
