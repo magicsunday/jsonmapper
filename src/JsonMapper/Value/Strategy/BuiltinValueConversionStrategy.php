@@ -90,21 +90,27 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
 
         if (
             ($normalized !== null)
+            && !$this->isCompatibleValue($normalized, $identifier)
+        ) {
+            // Normalisation already had its chance to bring the value into shape, so a value still
+            // incompatible here cannot be converted at all. settype() would not refuse it - it
+            // would produce nonsense, turning an array into the literal 'Array' and emitting a PHP
+            // warning on the way - so the mismatch has to surface as a mapping exception instead.
+            // The throw is the recording path: the caller records it once, which is why
+            // guardCompatibility() is deliberately not consulted for it.
+            throw new TypeMismatchException(
+                $context->getPath(),
+                $identifier->value,
+                get_debug_type($normalized),
+            );
+        }
+
+        if (
+            ($normalized !== null)
             && !in_array($identifier, self::CASTABLE_IDENTIFIERS, true)
         ) {
-            // Without a settype() equivalent there is no coercion left to try, so an incompatible
-            // value has to surface as a mapping exception. Returning it would hand an unassignable
-            // value to the property assignment, which fails with a native exception outside the
-            // error-collection contract. The throw is the recording path here - the caller records
-            // it once, which is why guardCompatibility() is deliberately not consulted.
-            if (!$this->isCompatibleValue($normalized, $identifier)) {
-                throw new TypeMismatchException(
-                    $context->getPath(),
-                    $identifier->value,
-                    get_debug_type($normalized),
-                );
-            }
-
+            // Compatible, but there is no settype() equivalent for this identifier - mixed,
+            // iterable, callable and the literal types. The value is already what it needs to be.
             return $normalized;
         }
 

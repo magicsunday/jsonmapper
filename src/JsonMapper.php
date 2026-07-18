@@ -925,34 +925,54 @@ final readonly class JsonMapper
 
         $lastException = null;
 
-        foreach ($type->getTypes() as $candidate) {
-            if ($this->isNullType($candidate)) {
-                continue;
+        // A candidate is accepted when converting the value against it produces no error. That
+        // observation is only possible while errors are actually being recorded, so collection is
+        // forced on for the duration - otherwise a caller who switched reporting off would get the
+        // first candidate every time, and the declared type of the value would depend on an
+        // unrelated setting. Everything recorded here is trimmed away again: these are internal
+        // attempts, not failures the caller asked about.
+        $matched   = false;
+        $converted = null;
+
+        $context->withForcedErrorCollection(
+            function (MappingContext $context) use ($type, $json, &$lastException, &$matched, &$converted): void {
+                foreach ($type->getTypes() as $candidate) {
+                    if ($this->isNullType($candidate)) {
+                        continue;
+                    }
+
+                    $errorCount = $context->getErrorCount();
+
+                    try {
+                        $candidateValue = $this->convertValue($json, $candidate, $context);
+                    } catch (MappingException $exception) {
+                        $context->trimErrors($errorCount);
+                        $lastException = $exception;
+
+                        continue;
+                    }
+
+                    if ($context->getErrorCount() > $errorCount) {
+                        $context->trimErrors($errorCount);
+
+                        $lastException = new TypeMismatchException(
+                            $context->getPath(),
+                            $this->describeType($candidate),
+                            get_debug_type($json),
+                        );
+
+                        continue;
+                    }
+
+                    $matched   = true;
+                    $converted = $candidateValue;
+
+                    return;
+                }
             }
+        );
 
-            $errorCount = $context->getErrorCount();
-
-            try {
-                $converted = $this->convertValue($json, $candidate, $context);
-            } catch (MappingException $exception) {
-                $context->trimErrors($errorCount);
-                $lastException = $exception;
-
-                continue;
-            }
-
-            if ($context->getErrorCount() > $errorCount) {
-                $context->trimErrors($errorCount);
-
-                $lastException = new TypeMismatchException(
-                    $context->getPath(),
-                    $this->describeType($candidate),
-                    get_debug_type($json),
-                );
-
-                continue;
-            }
-
+        if ($matched) {
             return $converted;
         }
 

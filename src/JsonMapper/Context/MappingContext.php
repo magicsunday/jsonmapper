@@ -106,6 +106,36 @@ final class MappingContext
     }
 
     /**
+     * Executes the callback with error collection switched on, restoring the previous setting
+     * afterwards.
+     *
+     * Some decisions are made by observing whether a conversion produced an error - union
+     * candidate selection being the one that needs it. That observation must not depend on the
+     * caller's reporting preference: with collection switched off nothing is recorded, so the
+     * observation would always report success and the decision would silently change. Records
+     * written during the callback are the caller's to keep or discard via {@see trimErrors()}.
+     *
+     * @param callable(self):mixed $callback Callback executed while collection is forced on
+     *
+     * @return mixed Result produced by the callback
+     */
+    public function withForcedErrorCollection(callable $callback): mixed
+    {
+        $previous                                   = $this->options[self::OPTION_COLLECT_ERRORS] ?? null;
+        $this->options[self::OPTION_COLLECT_ERRORS] = true;
+
+        try {
+            return $callback($this);
+        } finally {
+            if ($previous === null) {
+                unset($this->options[self::OPTION_COLLECT_ERRORS]);
+            } else {
+                $this->options[self::OPTION_COLLECT_ERRORS] = $previous;
+            }
+        }
+    }
+
+    /**
      * Stores the error message for later consumption.
      *
      * @param string                $message   Human-readable description of the failure
