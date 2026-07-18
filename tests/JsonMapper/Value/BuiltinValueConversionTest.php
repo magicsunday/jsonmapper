@@ -132,6 +132,21 @@ final class BuiltinValueConversionTest extends TestCase
     }
 
     #[Test]
+    public function itRecordsAMismatchInsteadOfAssigningANonCallableValue(): void
+    {
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['handler' => 'no_such_function_exists'],
+            CallableDocBlockPropertyHolder::class,
+        );
+
+        $holder = $result->getValue();
+
+        self::assertInstanceOf(CallableDocBlockPropertyHolder::class, $holder);
+        self::assertSame('trim', $holder->handler);
+        self::assertSame(1, $result->getReport()->getErrorCount(), self::SINGLE_RECORDING_PATH);
+    }
+
+    #[Test]
     public function itAssignsATrueTypedPropertyWithoutCastingIt(): void
     {
         $result = $this->getJsonMapper()->mapWithReport(
