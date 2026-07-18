@@ -143,16 +143,13 @@ final class UnitEnumValueConversionTest extends TestCase
     }
 
     #[Test]
-    public function itRejectsTheWholeCollectionWhenOneElementNamesNoCase(): void
+    public function itDropsOnlyTheElementThatNamesNoCase(): void
     {
-        // Pinning the current contract rather than endorsing it: one bad element discards the
-        // valid ones too, because the rejection is handled at property level. That follows the
-        // established lenient semantic - a rejected property keeps its previous value - but it
-        // does mean a single malformed entry costs the whole list. Where the per-element contract
-        // should sit is being decided in the conversion-entry-point convergence (issue 87); this
-        // test is the visible decision point if that changes.
+        // An element that cannot be converted is dropped on its own; its valid siblings survive.
+        // This test previously pinned the opposite - the whole list was discarded - and was
+        // written as the visible decision point for exactly this change.
         $result = $this->getJsonMapper()->mapWithReport(
-            ['colors' => ['Red', 'Green']],
+            ['colors' => ['Red', 'Green', 'Blue']],
             EnumCollectionHolder::class,
         );
 
@@ -160,13 +157,20 @@ final class UnitEnumValueConversionTest extends TestCase
         $errors = $result->getReport()->getErrors();
 
         self::assertInstanceOf(EnumCollectionHolder::class, $holder);
+        // Asserted without re-indexing on purpose: dropping an element must not leave a gap in
+        // the keys, or the declared list type would no longer hold.
         self::assertSame(
-            [SampleColor::Blue],
+            [SampleColor::Red, SampleColor::Blue],
             $holder->colors,
-            'The rejected property must keep its previous value.',
+            'The valid elements must survive an invalid sibling, without a gap in the keys.',
         );
         self::assertCount(1, $errors);
         self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
+        self::assertSame(
+            'Type mismatch at $.colors.1: expected MagicSunday\\Test\\Fixtures\\Enum\\SampleColor, got string.',
+            $errors[0]->getMessage(),
+            'The recorded error must name the index of the element that was dropped.',
+        );
     }
 
     #[Test]

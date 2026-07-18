@@ -14,8 +14,11 @@ namespace MagicSunday\Test\JsonMapper;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\Test\Classes\NonNullableDtoHolder;
+use MagicSunday\Test\Classes\ReadonlyEntity;
 use MagicSunday\Test\Classes\RequiredConstructorArgumentDto;
 use MagicSunday\Test\Classes\RequiredConstructorArgumentDtoHolder;
+use MagicSunday\Test\Classes\Simple;
+use MagicSunday\Test\Classes\VariadicConstructor;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -46,14 +49,33 @@ final class ScalarPayloadOnObjectTest extends TestCase
         ];
     }
 
+    /**
+     * Targets whose constructor an argument-less instantiation can satisfy. A scalar payload
+     * still produces an instance for these - that is the behaviour the guard preserves, and
+     * without a case here two mutations of it survive the suite, including one that would reject
+     * every scalar outright.
+     *
+     * @return array<string, array{class-string}>
+     */
+    public static function instantiableTargetProvider(): array
+    {
+        return [
+            'optional promoted argument' => [ReadonlyEntity::class],
+            'variadic argument'          => [VariadicConstructor::class],
+            'no constructor at all'      => [Simple::class],
+        ];
+    }
+
     #[Test]
     #[DataProvider('scalarPayloadProvider')]
-    public function itRaisesAMappingExceptionForAScalarPayloadAtTheTopLevel(
+    public function itCurrentlyEscapesTheReportForAScalarPayloadAtTheTopLevel(
         string|int|float|bool $payload,
     ): void {
-        // A domain exception rather than a native ArgumentCountError is what this pins. That it
-        // escapes mapWithReport() instead of being recorded is a separate, already tracked gap in
-        // the root-level error handling (issue 58) - the nested case below shows the difference.
+        // What this pins is the domain exception replacing a native ArgumentCountError. That it
+        // ESCAPES mapWithReport() rather than being recorded is a separate, tracked defect in the
+        // root-level error handling (issue 58). The name says "currently" on purpose: once that
+        // lands, this expectation inverts to a recorded error, and the failure should read as the
+        // planned flip rather than as a regression.
         $this->expectException(TypeMismatchException::class);
 
         $this->getJsonMapper()->mapWithReport(
@@ -62,11 +84,39 @@ final class ScalarPayloadOnObjectTest extends TestCase
         );
     }
 
+    /**
+     * @param class-string $className Target whose constructor needs no arguments.
+     */
+    #[Test]
+    #[DataProvider('instantiableTargetProvider')]
+    public function itStillInstantiatesATargetThatNeedsNoConstructorArguments(string $className): void
+    {
+        $result = $this->getJsonMapper()->mapWithReport('oops', $className);
+
+        self::assertInstanceOf($className, $result->getValue());
+        self::assertFalse($result->getReport()->hasErrors());
+    }
+
+    #[Test]
+    public function itLeavesAnOptionalConstructorDefaultInPlace(): void
+    {
+        // The optional-but-promoted boundary: this is the shape that distinguishes the guard's
+        // "required parameters" predicate from the broader one the hydration path uses. Without
+        // this assertion, widening the predicate to any parameter passes unnoticed.
+        $result = $this->getJsonMapper()->mapWithReport('oops', ReadonlyEntity::class);
+
+        $entity = $result->getValue();
+
+        self::assertInstanceOf(ReadonlyEntity::class, $entity);
+        self::assertSame('initial', $entity->id);
+    }
+
     #[Test]
     public function itRecordsAMismatchForAScalarPayloadOnANestedProperty(): void
     {
-        // The nested path reaches the instantiator through a different caller than the top level,
-        // so it needs its own case - it crashed just the same.
+        // This pins the object strategy's rejection, not the instantiator guard: the strategy
+        // short-circuits the nested path before it ever reaches the instantiator. Both crashed
+        // before the fix, but through different code.
         $result = $this->getJsonMapper()->mapWithReport(
             ['dto' => 'oops'],
             RequiredConstructorArgumentDtoHolder::class,
@@ -77,7 +127,7 @@ final class ScalarPayloadOnObjectTest extends TestCase
 
         self::assertInstanceOf(RequiredConstructorArgumentDtoHolder::class, $holder);
         self::assertNull($holder->dto);
-        self::assertCount(1, $errors);
+        self::assertCount(1, $errors, 'One rejected value must produce exactly one record.');
         self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
     }
 

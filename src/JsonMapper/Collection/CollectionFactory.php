@@ -27,6 +27,7 @@ use Symfony\Component\TypeInfo\Type\WrappingTypeInterface;
 use Symfony\Component\TypeInfo\TypeIdentifier;
 use Traversable;
 
+use function array_is_list;
 use function get_debug_type;
 use function get_object_vars;
 use function is_array;
@@ -91,9 +92,20 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
 
         $collection = [];
 
+        // Dropping an element must not punch a hole into the keys: a payload that arrived as a
+        // JSON array is declared as a list, and a gap would make it one no longer. Keys are only
+        // carried over when the source is keyed to begin with.
+        $sourceIsList = array_is_list($source);
+
         foreach ($source as $key => $value) {
             try {
-                $collection[$key] = $context->withPathSegment((string) $key, fn (MappingContext $childContext): mixed => $this->valueConverter->convert($valueType, $value, $childContext));
+                $converted = $context->withPathSegment((string) $key, fn (MappingContext $childContext): mixed => $this->valueConverter->convert($valueType, $value, $childContext));
+
+                if ($sourceIsList) {
+                    $collection[] = $converted;
+                } else {
+                    $collection[$key] = $converted;
+                }
             } catch (MappingException $exception) {
                 // An element that cannot be converted is dropped, not propagated: one invalid
                 // entry must not discard its valid siblings, which is what lenient mode exists
