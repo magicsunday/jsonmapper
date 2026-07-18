@@ -13,11 +13,13 @@ namespace MagicSunday\Test\JsonMapper;
 
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
+use MagicSunday\Test\Classes\NonNullableDtoHolder;
 use MagicSunday\Test\Classes\RequiredConstructorArgumentDto;
 use MagicSunday\Test\Classes\RequiredConstructorArgumentDtoHolder;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionProperty;
 
 /**
  * A scalar payload cannot supply a constructor argument, so a class that requires one cannot be
@@ -77,6 +79,33 @@ final class ScalarPayloadOnObjectTest extends TestCase
         self::assertNull($holder->dto);
         self::assertCount(1, $errors);
         self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
+    }
+
+    #[Test]
+    public function itRecordsTheMismatchExactlyOnceOnANonNullableProperty(): void
+    {
+        // The nullable sibling above cannot observe this: its union path trims recorded errors
+        // before rethrowing, so a duplicate record would be invisible there. One rejected value
+        // must produce exactly one record - consumers count and display them.
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['dto' => 'oops'],
+            NonNullableDtoHolder::class,
+        );
+
+        $holder = $result->getValue();
+        $errors = $result->getReport()->getErrors();
+
+        self::assertInstanceOf(NonNullableDtoHolder::class, $holder);
+        self::assertFalse(
+            (new ReflectionProperty($holder, 'dto'))->isInitialized($holder),
+            'The rejected value must not have been written to the property.',
+        );
+        self::assertCount(1, $errors);
+        self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
+        self::assertSame(
+            'Type mismatch at $.dto: expected MagicSunday\\Test\\Classes\\RequiredConstructorArgumentDto, got string.',
+            $errors[0]->getMessage(),
+        );
     }
 
     #[Test]
