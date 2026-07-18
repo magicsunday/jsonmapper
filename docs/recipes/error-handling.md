@@ -42,25 +42,55 @@ var_dump($result->getValue());
 
 ## What the report covers
 
-In lenient mode `mapWithReport()` records every mapping failure and never throws - regardless of
-where the failure occurs. A failure on the **root** object is reported exactly like one on a nested
-property; the mapped value is then `null`, so a caller can tell "nothing was produced" apart from a
-partially populated object:
+In lenient mode `mapWithReport()` records every **mapping** failure - the `MappingException`
+hierarchy - regardless of where in the payload it occurs. A failure on the **root** object is
+reported exactly like one on a nested property; the mapped value is then `null`, so a caller can
+tell "nothing was produced" apart from a partially populated object:
 
 ```php
-$result = $mapper->mapWithReport([], ImmutableDto::class);
+final readonly class ImmutableArticle
+{
+    public function __construct(public string $title)
+    {
+    }
+}
 
-$result->getValue();                  // null - the object could not be built
-$result->getReport()->getErrors();    // MissingConstructorArgumentException
+// The payload supplies no title, so the object cannot be constructed at all.
+$result = $mapper->mapWithReport([], ImmutableArticle::class);
+
+$result->getValue();    // null - the object could not be built
+
+foreach ($result->getReport()->getErrors() as $error) {
+    $error->getPath();         // '$'
+    $error->getMessage();      // human readable description
+    $error->getException();    // MissingConstructorArgumentException
+}
 ```
 
-A rejected value never reaches its target. The property keeps whatever it had - its default, or
-nothing at all if it was never initialised - and the failure is in the report instead. For a
-collection, only the offending element is dropped; its valid siblings survive, and list keys stay
-gap-free.
+`getErrors()` returns `MappingError` records, not exceptions: each carries the path, the message and
+the originating exception.
 
-In strict mode the same failures are thrown on the first occurrence rather than collected.
+A rejected value for an **object** target never reaches its property. The property keeps whatever it
+had - its default, or nothing at all if it was never initialised - and the failure is in the report
+instead. For a collection, only the offending element is dropped; its valid siblings survive, and
+list keys stay gap-free.
+
+For a **builtin** target the value is currently still coerced and assigned after the mismatch has
+been recorded, so a `string` property can end up holding `'Array'`. Check the report before trusting
+such a value. Aligning this with the object behaviour is tracked in issue 63.
+
+A scalar payload against an object target is rejected only when the target actually needs
+constructor arguments. A class whose constructor can be called without any still yields an instance,
+with no error recorded - the scalar simply supplies nothing.
+
+Configuration problems are not mapping failures and still surface as exceptions in both modes: a
+class name that does not exist, or a collection whose element type cannot be resolved, is a defect
+in the call rather than in the payload.
+
+In strict mode the same mapping failures are thrown on the first occurrence rather than collected.
 
 ## Lenient mode
 
 For tolerant APIs combine `JsonMapperConfiguration::lenient()` with `->withIgnoreUnknownProperties(true)` or `->withTreatNullAsEmptyCollection(true)` to absorb schema drifts.
+
+Test coverage: `tests/JsonMapper/DocsErrorHandlingTest.php`, `tests/JsonMapper/RootLevelErrorHandlingTest.php`, `tests/JsonMapper/ScalarPayloadOnObjectTest.php` and `tests/JsonMapper/JsonMapperErrorHandlingTest.php`.

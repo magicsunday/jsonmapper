@@ -46,7 +46,13 @@ final class Contact
 }
 ```
 
-Both `first_name` and `name` keys populate the `$fullName` property. Declare one attribute per alias to express the precedence order explicitly.
+Both `first_name` and `name` keys populate the `$fullName` property. Declare one attribute per alias.
+
+The attributes are collected into a map keyed by the alias, so their declaration order carries no
+meaning: distinct aliases never compete. Two attributes declaring the *same* alias are a
+redeclaration - the last one wins. If a single payload carries several aliases for one property,
+the last key the payload happens to supply is the one that ends up in the property, so a payload
+should not send more than one alias for the same target.
 
 Test coverage: `tests/Attribute/ReplacePropertyTest.php::replaceProperty`.
 
