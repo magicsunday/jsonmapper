@@ -22,7 +22,9 @@ use MagicSunday\JsonMapper;
 use Psr\Cache\CacheItemPoolInterface;
 
 if (\PHP_SAPI !== 'cli') {
-    exit('This script supports command line usage only. Please check your command.');
+    fwrite(\STDERR, "This script supports command line usage only. Please check your command.\n");
+
+    exit(1);
 }
 
 require __DIR__ . '/../../.build/vendor/autoload.php';

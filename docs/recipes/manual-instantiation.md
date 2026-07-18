@@ -48,8 +48,8 @@ $mapper = new JsonMapper(
 );
 ```
 
-The `PhpDocExtractor` extractor needs `phpdocumentor/reflection-docblock`. That package is a
-regular requirement of this library, so it is already installed - no extra step is needed.
+The `PhpDocExtractor` requires `phpdocumentor/reflection-docblock`. Since that package is a
+regular requirement of this library, it is already installed and no extra step is needed.
 
 ## Complete factory helper
 
