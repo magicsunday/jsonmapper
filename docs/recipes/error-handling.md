@@ -37,7 +37,7 @@ $config = JsonMapperConfiguration::strict()->withErrorCollection(true);
 // Map while receiving a result object that contains the mapped DTO and issues.
 $result = $mapper->mapWithReport($payload, Article::class, configuration: $config);
 
-var_dump($result->getMappedValue());
+var_dump($result->getValue());
 ```
 
 ## What the report covers
