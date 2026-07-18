@@ -13,6 +13,7 @@ namespace MagicSunday\Test\JsonMapper;
 
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Exception\MissingConstructorArgumentException;
+use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\Test\Fixtures\Docs\ErrorHandling\Article;
 use MagicSunday\Test\Fixtures\Docs\ErrorHandling\ImmutableArticle;
 use MagicSunday\Test\TestCase;
@@ -51,17 +52,27 @@ final class DocsErrorHandlingTest extends TestCase
 
         $errors = $result->getReport()->getErrors();
 
-        self::assertCount(1, $errors);
+        self::assertCount(1, $errors, 'One unbuildable root object produces exactly one record.');
         self::assertInstanceOf(MissingConstructorArgumentException::class, $errors[0]->getException());
     }
 
     #[Test]
-    public function itRunsTheEmptyStringAsNullOption(): void
+    public function itRunsTheReportContractExampleForARejectedValue(): void
     {
-        // Pins the wither name the API reference documents; the reference named a method that
-        // does not exist.
-        $config = JsonMapperConfiguration::lenient()->withEmptyStringAsNull(true);
+        // The recipe states that a failure appears in the report as a MappingError carrying path,
+        // message and exception. The payload is an int rather than an array on purpose: an array
+        // would additionally trigger the builtin coercion the recipe flags as issue 63, and this
+        // test is about the record's shape, not about that gap.
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['title' => 42],
+            Article::class,
+        );
 
-        self::assertTrue($config->shouldTreatEmptyStringAsNull());
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors, 'One rejected value produces exactly one record.');
+        self::assertSame('$.title', $errors[0]->getPath());
+        self::assertNotSame('', $errors[0]->getMessage());
+        self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
     }
 }
