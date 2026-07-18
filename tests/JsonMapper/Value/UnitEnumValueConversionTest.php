@@ -13,6 +13,7 @@ namespace MagicSunday\Test\JsonMapper\Value;
 
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
+use MagicSunday\Test\Classes\EnumCollectionHolder;
 use MagicSunday\Test\Classes\UnitEnumHolder;
 use MagicSunday\Test\Fixtures\Enum\SampleColor;
 use MagicSunday\Test\TestCase;
@@ -122,6 +123,46 @@ final class UnitEnumValueConversionTest extends TestCase
         self::assertInstanceOf(UnitEnumHolder::class, $holder);
         self::assertNull($holder->color);
         self::assertFalse($result->getReport()->hasErrors());
+    }
+
+    #[Test]
+    public function itMapsPureEnumsInsideACollection(): void
+    {
+        // Collection elements reach the strategies through a different caller than a plain
+        // property, so the case-name resolution needs its own coverage there.
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['colors' => ['Red', 'Blue']],
+            EnumCollectionHolder::class,
+        );
+
+        $holder = $result->getValue();
+
+        self::assertInstanceOf(EnumCollectionHolder::class, $holder);
+        self::assertSame([SampleColor::Red, SampleColor::Blue], $holder->colors);
+        self::assertFalse($result->getReport()->hasErrors());
+    }
+
+    #[Test]
+    public function itRejectsTheWholeCollectionWhenOneElementNamesNoCase(): void
+    {
+        // Pinning the current contract rather than endorsing it: one bad element discards the
+        // valid ones too, because the rejection is handled at property level. That follows the
+        // established lenient semantic - a rejected property keeps its previous value - but it
+        // does mean a single malformed entry costs the whole list. Where the per-element contract
+        // should sit is being decided in the conversion-entry-point convergence (issue 87); this
+        // test is the visible decision point if that changes.
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['colors' => ['Red', 'Green']],
+            EnumCollectionHolder::class,
+        );
+
+        $holder = $result->getValue();
+        $errors = $result->getReport()->getErrors();
+
+        self::assertInstanceOf(EnumCollectionHolder::class, $holder);
+        self::assertSame([], $holder->colors);
+        self::assertCount(1, $errors);
+        self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
     }
 
     #[Test]
