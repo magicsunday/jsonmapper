@@ -86,6 +86,27 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
         assert($type instanceof BuiltinType);
 
         $normalized = $this->normalizeValue($value, $type);
+        $identifier = $type->getTypeIdentifier();
+
+        if (
+            ($normalized !== null)
+            && !in_array($identifier, self::CASTABLE_IDENTIFIERS, true)
+        ) {
+            // Without a settype() equivalent there is no coercion left to try, so an incompatible
+            // value has to surface as a mapping exception. Returning it would hand an unassignable
+            // value to the property assignment, which fails with a native exception outside the
+            // error-collection contract. The throw is the recording path here - the caller records
+            // it once, which is why guardCompatibility() is deliberately not consulted.
+            if (!$this->isCompatibleValue($normalized, $identifier)) {
+                throw new TypeMismatchException(
+                    $context->getPath(),
+                    $identifier->value,
+                    get_debug_type($normalized),
+                );
+            }
+
+            return $normalized;
+        }
 
         $this->guardCompatibility($normalized, $type, $context);
 
@@ -93,12 +114,8 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
             return null;
         }
 
-        if (!in_array($type->getTypeIdentifier(), self::CASTABLE_IDENTIFIERS, true)) {
-            return $normalized;
-        }
-
         $converted = $normalized;
-        settype($converted, $type->getTypeIdentifier()->value);
+        settype($converted, $identifier->value);
 
         return $converted;
     }
@@ -241,6 +258,8 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
             'object'   => is_object($value),
             'callable' => is_callable($value),
             'iterable' => is_iterable($value),
+            'true'     => $value === true,
+            'false'    => $value === false,
             'null'     => $value === null,
             default    => true,
         };
