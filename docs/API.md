@@ -76,7 +76,7 @@ Each `with*` method toggles a single option and returns a clone:
 | --- | --- |
 | `withStrictMode(bool $enabled)` | Enable strict validation. |
 | `withErrorCollection(bool $collect)` | Collect errors instead of failing fast. Required for `mapWithReport()`. |
-| `withTreatEmptyStringAsNull(bool $enabled)` | Map empty strings to `null`. |
+| `withEmptyStringAsNull(bool $enabled)` | Map empty strings to `null`. |
 | `withIgnoreUnknownProperties(bool $enabled)` | Skip unmapped JSON keys. |
 | `withTreatNullAsEmptyCollection(bool $enabled)` | Replace `null` collections with their default value. |
 | `withDefaultDateFormat(string $format)` | Configure the default `DateTimeInterface` parsing format. |
