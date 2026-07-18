@@ -17,6 +17,7 @@ use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\ObjectType;
 use TypeError;
+use UnitEnum;
 use ValueError;
 
 use function enum_exists;
@@ -26,20 +27,21 @@ use function is_int;
 use function is_string;
 
 /**
- * Converts scalar JSON values into backed enums.
+ * Converts scalar JSON values into enum cases. A backed enum is addressed by case value, a pure
+ * enum by case name.
  */
 final class EnumValueConversionStrategy implements ValueConversionStrategyInterface
 {
     use ObjectTypeConversionGuardTrait;
 
     /**
-     * Determines whether the provided type is a backed enum.
+     * Determines whether the provided type is an enum.
      *
      * @param Type           $type    Type metadata describing the target property.
      * @param mixed          $value   Raw value coming from the input payload.
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
-     * @return bool TRUE when the target type resolves to a backed enum.
+     * @return bool TRUE when the target type resolves to an enum, backed or pure.
      */
     public function supports(Type $type, mixed $value, MappingContext $context): bool
     {
@@ -49,13 +51,7 @@ final class EnumValueConversionStrategy implements ValueConversionStrategyInterf
             return false;
         }
 
-        $className = $objectType->getClassName();
-
-        if (!enum_exists($className)) {
-            return false;
-        }
-
-        return is_a($className, BackedEnum::class, true);
+        return enum_exists($objectType->getClassName());
     }
 
     /**
@@ -74,6 +70,15 @@ final class EnumValueConversionStrategy implements ValueConversionStrategyInterf
             $context,
             $value,
             static function (string $className, mixed $value) use ($context) {
+                // A pure enum is a UnitEnum but not a BackedEnum, so it has no case factory to
+                // call - its cases are addressed by name instead.
+                if (
+                    !is_a($className, BackedEnum::class, true)
+                    && is_a($className, UnitEnum::class, true)
+                ) {
+                    return self::resolveUnitEnumCase($className, $value, $context);
+                }
+
                 if (!is_int($value) && !is_string($value)) {
                     throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
                 }
@@ -93,5 +98,35 @@ final class EnumValueConversionStrategy implements ValueConversionStrategyInterf
                 return $enum;
             }
         );
+    }
+
+    /**
+     * Resolves the enum case a pure enum payload addresses. Without a backing type the cases carry
+     * no scalar value, so the case name is the only thing a payload can name. The comparison is
+     * exact: a case name is an identifier, and a loose match would accept a payload the enum does
+     * not define.
+     *
+     * @param class-string<UnitEnum> $className Fully qualified name of the pure enum to resolve against.
+     * @param mixed                  $value     Raw value coming from the input payload.
+     * @param MappingContext         $context   Mapping context providing the current path.
+     *
+     * @return UnitEnum Enum case whose name equals the provided value.
+     *
+     * @throws TypeMismatchException When the value is not a string or names no case.
+     */
+    private static function resolveUnitEnumCase(
+        string $className,
+        mixed $value,
+        MappingContext $context,
+    ): UnitEnum {
+        if (is_string($value)) {
+            foreach ($className::cases() as $case) {
+                if ($case->name === $value) {
+                    return $case;
+                }
+            }
+        }
+
+        throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
     }
 }
