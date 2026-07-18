@@ -1,0 +1,118 @@
+<?php
+
+/**
+ * This file is part of the package magicsunday/jsonmapper.
+ *
+ * For the full copyright and license information, please read the
+ * LICENSE file that was distributed with this source code.
+ */
+
+declare(strict_types=1);
+
+namespace MagicSunday\Test\JsonMapper;
+
+use MagicSunday\Test\Classes\BuiltinCoercionHolder;
+use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Test;
+use ReflectionProperty;
+
+/**
+ * Pins which scalar payloads lenient mode coerces and which it rejects.
+ *
+ * This matrix was entirely uncovered, which let a change that widened rejection from "cannot be
+ * cast at all" to "any type mismatch" pass 178 green tests while silently dropping every value
+ * lenient mode used to absorb.
+ *
+ * @internal
+ */
+final class BuiltinCoercionTest extends TestCase
+{
+    /**
+     * Payloads that lenient mode converts rather than rejects. A scalar reaching a differently
+     * typed scalar property is exactly the schema drift lenient mode exists to absorb.
+     *
+     * @return array<string, array{string, int|float|bool|string, int|float|bool|string}>
+     */
+    public static function coercedValueProvider(): array
+    {
+        return [
+            'int to string'     => ['text', 42, '42'],
+            'float to string'   => ['text', 1.5, '1.5'],
+            'bool to string'    => ['text', true, '1'],
+            'numeric to int'    => ['number', '42', 42],
+            'bool to int'       => ['number', true, 1],
+            'int to float'      => ['decimal', 3, 3.0],
+            'numeric to float'  => ['decimal', '2.5', 2.5],
+            'literal true'      => ['flag', 'true', true],
+            'non empty to bool' => ['flag', 'yes', true],
+            'int to bool'       => ['flag', 5, true],
+        ];
+    }
+
+    /**
+     * Payloads with no meaningful cast. settype() would not refuse them - it would write the
+     * literal 'Array' and emit a PHP warning - so they are rejected instead.
+     *
+     * @return array<string, array{string, array<int, string>|object}>
+     */
+    public static function rejectedValueProvider(): array
+    {
+        return [
+            'array to string'  => ['text', ['a', 'b']],
+            'array to int'     => ['number', ['a']],
+            'array to float'   => ['decimal', ['a']],
+            'array to bool'    => ['flag', ['a']],
+            'object to string' => ['text', (object) ['a' => 1]],
+        ];
+    }
+
+    /**
+     * @param string                $property Property receiving the payload value.
+     * @param int|float|bool|string $payload  Value handed to the mapper.
+     * @param int|float|bool|string $expected Value the property must hold afterwards.
+     */
+    #[Test]
+    #[DataProvider('coercedValueProvider')]
+    public function itCoercesAMismatchingScalarInLenientMode(
+        string $property,
+        int|float|bool|string $payload,
+        int|float|bool|string $expected,
+    ): void {
+        $result = $this->getJsonMapper()->mapWithReport(
+            [$property => $payload],
+            BuiltinCoercionHolder::class,
+        );
+
+        $holder = $result->getValue();
+
+        self::assertInstanceOf(BuiltinCoercionHolder::class, $holder);
+        self::assertSame($expected, (new ReflectionProperty($holder, $property))->getValue($holder));
+    }
+
+    /**
+     * @param string                    $property Property receiving the payload value.
+     * @param array<int, string>|object $payload  Composite value with no meaningful cast.
+     */
+    #[Test]
+    #[DataProvider('rejectedValueProvider')]
+    public function itRejectsACompositeValueOnAScalarProperty(string $property, array|object $payload): void
+    {
+        $holderDefaults = new BuiltinCoercionHolder();
+
+        $result = $this->getJsonMapper()->mapWithReport(
+            [$property => $payload],
+            BuiltinCoercionHolder::class,
+        );
+
+        $holder = $result->getValue();
+
+        self::assertInstanceOf(BuiltinCoercionHolder::class, $holder);
+        self::assertSame(
+            (new ReflectionProperty($holderDefaults, $property))->getValue($holderDefaults),
+            (new ReflectionProperty($holder, $property))->getValue($holder),
+            'A value with no meaningful cast must leave the property untouched.',
+        );
+        self::assertSame(1, $result->getReport()->getErrorCount());
+    }
+}

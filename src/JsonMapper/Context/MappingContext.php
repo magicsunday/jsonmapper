@@ -115,9 +115,11 @@ final class MappingContext
      * observation would always report success and the decision would silently change. Records
      * written during the callback are the caller's to keep or discard via {@see trimErrors()}.
      *
-     * @param callable(self):mixed $callback Callback executed while collection is forced on
+     * @template TReturn
      *
-     * @return mixed Result produced by the callback
+     * @param callable(self): TReturn $callback Callback executed while collection is forced on
+     *
+     * @return TReturn Result produced by the callback
      */
     public function withForcedErrorCollection(callable $callback): mixed
     {

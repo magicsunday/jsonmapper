@@ -91,13 +91,21 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
         if (
             ($normalized !== null)
             && !$this->isCompatibleValue($normalized, $identifier)
+            && (
+                !in_array($identifier, self::CASTABLE_IDENTIFIERS, true)
+                || is_array($normalized)
+                || is_object($normalized)
+            )
         ) {
-            // Normalisation already had its chance to bring the value into shape, so a value still
-            // incompatible here cannot be converted at all. settype() would not refuse it - it
-            // would produce nonsense, turning an array into the literal 'Array' and emitting a PHP
-            // warning on the way - so the mismatch has to surface as a mapping exception instead.
-            // The throw is the recording path: the caller records it once, which is why
-            // guardCompatibility() is deliberately not consulted for it.
+            // Two cases have no conversion left to attempt. An identifier settype() does not know -
+            // mixed, iterable, callable, the literal types - cannot be cast at all. And a composite
+            // value targeting a scalar type is not something settype() refuses: it produces
+            // nonsense, turning an array into the literal 'Array' and emitting a PHP warning on the
+            // way. Both surface as a mapping exception instead. The throw is the recording path:
+            // the caller records it once, which is why guardCompatibility() is not consulted here.
+            //
+            // Scalar-to-scalar coercion is deliberately left alone - an int reaching a string
+            // property is what lenient mode exists to absorb.
             throw new TypeMismatchException(
                 $context->getPath(),
                 $identifier->value,
