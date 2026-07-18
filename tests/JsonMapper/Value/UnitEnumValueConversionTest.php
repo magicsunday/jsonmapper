@@ -160,7 +160,11 @@ final class UnitEnumValueConversionTest extends TestCase
         $errors = $result->getReport()->getErrors();
 
         self::assertInstanceOf(EnumCollectionHolder::class, $holder);
-        self::assertSame([], $holder->colors);
+        self::assertSame(
+            [SampleColor::Blue],
+            $holder->colors,
+            'The rejected property must keep its previous value.',
+        );
         self::assertCount(1, $errors);
         self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
     }
@@ -168,8 +172,12 @@ final class UnitEnumValueConversionTest extends TestCase
     #[Test]
     public function itThrowsInStrictModeForAnUnknownCaseName(): void
     {
+        // The type token is part of the expectation: both strict tests would otherwise pass on
+        // each other's input, since the two rejection reasons share a throw site and a path.
         $this->expectException(TypeMismatchException::class);
-        $this->expectExceptionMessageMatches('/' . preg_quote('$.color', '/') . '/');
+        $this->expectExceptionMessageMatches(
+            '/' . preg_quote('$.color: expected', '/') . '.*' . preg_quote('got string.', '/') . '/',
+        );
 
         $this->getJsonMapper(config: JsonMapperConfiguration::strict())->map(
             ['color' => 'Green'],
@@ -183,7 +191,9 @@ final class UnitEnumValueConversionTest extends TestCase
         // resolveUnitEnumCase() throws from a single site for two distinct reasons, so both need
         // their strict-mode counterpart.
         $this->expectException(TypeMismatchException::class);
-        $this->expectExceptionMessageMatches('/' . preg_quote('$.color', '/') . '/');
+        $this->expectExceptionMessageMatches(
+            '/' . preg_quote('$.color: expected', '/') . '.*' . preg_quote('got bool.', '/') . '/',
+        );
 
         $this->getJsonMapper(config: JsonMapperConfiguration::strict())->map(
             ['color' => true],
