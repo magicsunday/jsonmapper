@@ -16,6 +16,7 @@ use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\ObjectType;
+use TypeError;
 use ValueError;
 
 use function enum_exists;
@@ -80,7 +81,12 @@ final class EnumValueConversionStrategy implements ValueConversionStrategyInterf
                 try {
                     /** @var BackedEnum $enum */
                     $enum = $className::from($value);
-                } catch (ValueError) {
+                } catch (TypeError|ValueError) {
+                    // ValueError means the value is not one of the cases. TypeError means it does
+                    // not even match the backing type - under strict_types the case factory
+                    // rejects a string for an int-backed enum before any lookup happens, which
+                    // JSON payloads from loosely typed APIs routinely trigger. Both are the same
+                    // thing to a caller: this value does not name a case.
                     throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
                 }
 
