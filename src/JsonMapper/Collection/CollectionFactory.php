@@ -15,6 +15,7 @@ use Closure;
 use DomainException;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Exception\CollectionMappingException;
+use MagicSunday\JsonMapper\Exception\MappingException;
 use MagicSunday\JsonMapper\Resolver\ClassResolver;
 use MagicSunday\JsonMapper\Value\ValueConverter;
 use Symfony\Component\TypeInfo\Type;
@@ -26,6 +27,7 @@ use Symfony\Component\TypeInfo\Type\WrappingTypeInterface;
 use Symfony\Component\TypeInfo\TypeIdentifier;
 use Traversable;
 
+use function array_is_list;
 use function get_debug_type;
 use function get_object_vars;
 use function is_array;
@@ -90,8 +92,32 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
 
         $collection = [];
 
+        // Dropping an element must not punch a hole into the keys: a payload that arrived as a
+        // JSON array is declared as a list, and a gap would make it one no longer. Keys are only
+        // carried over when the source is keyed to begin with.
+        $sourceIsList = array_is_list($source);
+
         foreach ($source as $key => $value) {
-            $collection[$key] = $context->withPathSegment((string) $key, fn (MappingContext $childContext): mixed => $this->valueConverter->convert($valueType, $value, $childContext));
+            try {
+                $converted = $context->withPathSegment((string) $key, fn (MappingContext $childContext): mixed => $this->valueConverter->convert($valueType, $value, $childContext));
+
+                if ($sourceIsList) {
+                    $collection[] = $converted;
+                } else {
+                    $collection[$key] = $converted;
+                }
+            } catch (MappingException $exception) {
+                // An element that cannot be converted is dropped, not propagated: one invalid
+                // entry must not discard its valid siblings, which is what lenient mode exists
+                // for. The error is recorded here because the exception no longer travels up to
+                // the caller that would have recorded it. Strict mode still aborts on the first
+                // failure.
+                $context->recordException($exception);
+
+                if ($context->isStrictMode()) {
+                    throw $exception;
+                }
+            }
         }
 
         return $collection;

@@ -74,13 +74,18 @@ final readonly class ObjectValueConversionStrategy implements ValueConversionStr
         $className     = $this->resolveClassName($type);
         $resolvedClass = $this->classResolver->resolve($className, $value, $context);
 
-        if ($value !== null && !is_array($value) && !is_object($value) && !$context->shouldAllowScalarToObjectCasting()) {
-            $exception = new TypeMismatchException($context->getPath(), $resolvedClass, get_debug_type($value));
-            $context->recordException($exception);
-
-            if ($context->isStrictMode()) {
-                throw $exception;
-            }
+        if (
+            ($value !== null)
+            && !is_array($value)
+            && !is_object($value)
+            && !$context->shouldAllowScalarToObjectCasting()
+        ) {
+            // A scalar carries no property values, so it cannot populate an object. Throwing is
+            // the single recording path here: the caller records it once and leaves the property
+            // alone. Recording and then continuing would hand the scalar to the mapper, which
+            // either builds a meaningless empty instance or - for a class with required
+            // constructor arguments - rejects it and records the same mismatch a second time.
+            throw new TypeMismatchException($context->getPath(), $resolvedClass, get_debug_type($value));
         }
 
         $mapper = $this->mapper;

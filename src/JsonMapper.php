@@ -313,6 +313,18 @@ final readonly class JsonMapper
         }
 
         if (!is_array($json) && !is_object($json)) {
+            // A scalar carries no property values, so it can only produce an instance of a class
+            // whose constructor needs none. For anything else the instantiation below would fail
+            // with a native ArgumentCountError, outside the error-collection contract - so the
+            // impossible shape has to surface as a mapping error instead.
+            if ($this->hasRequiredConstructorArguments($resolvedClassName)) {
+                throw new TypeMismatchException(
+                    $context->getPath(),
+                    $resolvedClassName,
+                    get_debug_type($json),
+                );
+            }
+
             return $this->makeInstance($resolvedClassName);
         }
 
@@ -1060,6 +1072,28 @@ final readonly class JsonMapper
         }
 
         return null;
+    }
+
+    /**
+     * Determines whether a class can only be instantiated by passing constructor arguments.
+     *
+     * This is narrower than {@see constructorForHydration()}: that one also reports a constructor
+     * whose parameters are all optional but promoted, which an argument-less call satisfies fine.
+     * Here the question is only whether an argument-less instantiation would fail outright.
+     *
+     * @param class-string $className Fully qualified class name to inspect.
+     *
+     * @return bool TRUE when the constructor declares at least one required parameter.
+     */
+    private function hasRequiredConstructorArguments(string $className): bool
+    {
+        $constructor = (new ReflectionClass($className))->getConstructor();
+
+        if (!$constructor instanceof ReflectionMethod) {
+            return false;
+        }
+
+        return $constructor->getNumberOfRequiredParameters() > 0;
     }
 
     /**
