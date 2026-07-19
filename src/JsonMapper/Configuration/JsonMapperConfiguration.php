@@ -22,6 +22,12 @@ use function is_string;
 final class JsonMapperConfiguration
 {
     /**
+     * Timezone assumed for a date format that carries none of its own. UTC rather than the host
+     * default, so the same payload yields the same instant wherever it is mapped.
+     */
+    private const string DEFAULT_TIMEZONE = 'UTC';
+
+    /**
      * Creates a new configuration instance with optional overrides.
      *
      * @param bool   $strictMode                 Whether unknown/missing properties should trigger errors
@@ -31,6 +37,7 @@ final class JsonMapperConfiguration
      * @param bool   $treatNullAsEmptyCollection Whether null collections are replaced with empty collections
      * @param string $defaultDateFormat          Default `DateTimeInterface` format used for serialization/deserialization
      * @param bool   $allowScalarToObjectCasting Whether scalars can be coerced into objects when supported
+     * @param string $defaultTimezone            Timezone applied to date formats that carry none of their own
      */
     public function __construct(
         private bool $strictMode = false,
@@ -40,6 +47,7 @@ final class JsonMapperConfiguration
         private bool $treatNullAsEmptyCollection = false,
         private string $defaultDateFormat = DateTimeInterface::ATOM,
         private bool $allowScalarToObjectCasting = false,
+        private string $defaultTimezone = self::DEFAULT_TIMEZONE,
     ) {
     }
 
@@ -78,6 +86,12 @@ final class JsonMapperConfiguration
             $defaultDateFormat = DateTimeInterface::ATOM;
         }
 
+        $defaultTimezone = $data['defaultTimezone'] ?? self::DEFAULT_TIMEZONE;
+
+        if (!is_string($defaultTimezone) || $defaultTimezone === '') {
+            $defaultTimezone = self::DEFAULT_TIMEZONE;
+        }
+
         return new self(
             (bool) ($data['strictMode'] ?? false),
             (bool) ($data['collectErrors'] ?? true),
@@ -86,6 +100,7 @@ final class JsonMapperConfiguration
             (bool) ($data['treatNullAsEmptyCollection'] ?? false),
             $defaultDateFormat,
             (bool) ($data['allowScalarToObjectCasting'] ?? false),
+            $defaultTimezone,
         );
     }
 
@@ -104,6 +119,7 @@ final class JsonMapperConfiguration
             $context->shouldTreatNullAsEmptyCollection(),
             $context->getDefaultDateFormat(),
             $context->shouldAllowScalarToObjectCasting(),
+            $context->getDefaultTimezone(),
         );
     }
 
@@ -122,6 +138,7 @@ final class JsonMapperConfiguration
             'treatNullAsEmptyCollection' => $this->treatNullAsEmptyCollection,
             'defaultDateFormat'          => $this->defaultDateFormat,
             'allowScalarToObjectCasting' => $this->allowScalarToObjectCasting,
+            'defaultTimezone'            => $this->defaultTimezone,
         ];
     }
 
@@ -140,6 +157,7 @@ final class JsonMapperConfiguration
             MappingContext::OPTION_TREAT_NULL_AS_EMPTY_COLLECTION => $this->treatNullAsEmptyCollection,
             MappingContext::OPTION_DEFAULT_DATE_FORMAT            => $this->defaultDateFormat,
             MappingContext::OPTION_ALLOW_SCALAR_TO_OBJECT_CASTING => $this->allowScalarToObjectCasting,
+            MappingContext::OPTION_DEFAULT_TIMEZONE               => $this->defaultTimezone,
         ];
     }
 
@@ -286,6 +304,34 @@ final class JsonMapperConfiguration
         $clone->treatNullAsEmptyCollection = $enabled;
 
         return $clone;
+    }
+
+    /**
+     * Returns a copy with a different timezone for zoneless date formats.
+     *
+     * Only applies where the configured format carries no zone of its own; a payload stating its
+     * own offset always wins.
+     *
+     * @param string $timezone Timezone identifier accepted by {@see \DateTimeZone}
+     *
+     * @return self Cloned configuration using the provided timezone
+     */
+    public function withDefaultTimezone(string $timezone): self
+    {
+        $clone                  = clone $this;
+        $clone->defaultTimezone = $timezone;
+
+        return $clone;
+    }
+
+    /**
+     * Returns the timezone applied to date formats that carry none of their own.
+     *
+     * @return string Timezone identifier
+     */
+    public function getDefaultTimezone(): string
+    {
+        return $this->defaultTimezone;
     }
 
     /**

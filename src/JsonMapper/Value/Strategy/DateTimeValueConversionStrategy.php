@@ -13,6 +13,7 @@ namespace MagicSunday\JsonMapper\Value\Strategy;
 
 use DateInterval;
 use DateTimeInterface;
+use DateTimeZone;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use ReflectionClass;
@@ -22,8 +23,11 @@ use Throwable;
 
 use function get_debug_type;
 use function is_a;
+use function is_finite;
+use function is_float;
 use function is_int;
 use function is_string;
+use function sprintf;
 
 /**
  * Converts ISO-8601 strings and timestamps into date/time value objects.
@@ -92,7 +96,13 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
             $context,
             $value,
             static function (string $className, mixed $value) use ($context) {
-                if (!is_string($value) && !is_int($value)) {
+                // A float is accepted as a timestamp: a JSON number with a fraction is an
+                // ordinary way to express sub-second precision, and it used to be refused
+                // outright, leaving the property uninitialised so that reading it back raised an
+                // Error rather than reporting a failure. Non-finite values are excluded here
+                // because they format as the literals "inf"/"nan", which no date constructor
+                // understands - they would reach it and fail there on a message naming neither.
+                if (!is_string($value) && !is_int($value) && !(is_float($value) && is_finite($value))) {
                     throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
                 }
 
@@ -109,14 +119,31 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
                 }
 
                 if (is_string($value)) {
-                    $parsed = $className::createFromFormat($context->getDefaultDateFormat(), $value);
+                    // The timezone is passed unconditionally. PHP applies it only when the FORMAT
+                    // carries none of its own, so a payload that states its offset keeps it, while
+                    // a zoneless format stops falling back to the host default - which made the
+                    // same JSON decode to a different instant on every differently configured
+                    // deployment, silently.
+                    $parsed = $className::createFromFormat(
+                        $context->getDefaultDateFormat(),
+                        $value,
+                        new DateTimeZone($context->getDefaultTimezone()),
+                    );
 
                     if ($parsed instanceof DateTimeInterface) {
                         return $parsed;
                     }
                 }
 
-                $formatted = is_int($value) ? '@' . $value : $value;
+                // Six decimals because that is the precision DateTime keeps; %F rather than %f so
+                // a large timestamp is never rendered in exponential notation, which the leading
+                // @ syntax does not accept. A leading @ makes the value an absolute instant, so it
+                // is UTC by definition and no host can shift it.
+                $formatted = match (true) {
+                    is_int($value)   => '@' . $value,
+                    is_float($value) => '@' . sprintf('%.6F', $value),
+                    default          => $value,
+                };
 
                 try {
                     return new $className($formatted);

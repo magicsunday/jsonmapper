@@ -119,6 +119,12 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
   out of `JsonMapperConfiguration` so a caller cannot configure a `mapWithReport()` that throws.
 * Never rely on the silence operator, `trigger_error()`, or debugging prints.
 * Partial updates must leave already mapped state consistent when errors occur.
+* Mapping is deterministic: the same payload and configuration produce the same result on every
+  host. Anything read from the ambient process - the default timezone, the locale, the current
+  time - has to be supplied explicitly instead. A zoneless date format defaults to UTC for this
+  reason; falling back to the process timezone made identical JSON decode to instants fourteen
+  hours apart, and neither the payload nor the report showed that anything host-specific had
+  happened.
 
 ---
 

@@ -111,6 +111,7 @@ final class JsonMapperConfigurationTest extends TestCase
             MappingContext::OPTION_TREAT_NULL_AS_EMPTY_COLLECTION => true,
             MappingContext::OPTION_DEFAULT_DATE_FORMAT            => 'd.m.Y',
             MappingContext::OPTION_ALLOW_SCALAR_TO_OBJECT_CASTING => true,
+            MappingContext::OPTION_DEFAULT_TIMEZONE               => 'Asia/Tokyo',
         ]);
 
         $configuration = JsonMapperConfiguration::fromContext($context);
@@ -122,6 +123,7 @@ final class JsonMapperConfigurationTest extends TestCase
         self::assertTrue($configuration->shouldTreatNullAsEmptyCollection());
         self::assertSame('d.m.Y', $configuration->getDefaultDateFormat());
         self::assertTrue($configuration->shouldAllowScalarToObjectCasting());
+        self::assertSame('Asia/Tokyo', $configuration->getDefaultTimezone());
         self::assertSame([
             MappingContext::OPTION_STRICT_MODE                    => true,
             MappingContext::OPTION_COLLECT_ERRORS                 => false,
@@ -130,6 +132,7 @@ final class JsonMapperConfigurationTest extends TestCase
             MappingContext::OPTION_TREAT_NULL_AS_EMPTY_COLLECTION => true,
             MappingContext::OPTION_DEFAULT_DATE_FORMAT            => 'd.m.Y',
             MappingContext::OPTION_ALLOW_SCALAR_TO_OBJECT_CASTING => true,
+            MappingContext::OPTION_DEFAULT_TIMEZONE               => 'Asia/Tokyo',
         ], $configuration->toOptions());
     }
 }
