@@ -72,6 +72,7 @@ use Traversable;
 
 use function array_diff;
 use function array_filter;
+use function array_is_list;
 use function array_key_exists;
 use function array_replace;
 use function array_unique;
@@ -510,7 +511,18 @@ final readonly class JsonMapper
             // one has none: returning after recording would let map() fall through to the
             // single-object lane and build the very element being rejected. The catch that
             // receives the throw records it exactly once.
-            if (($resolvedCollectionClassName !== null) && !is_array($json) && !is_object($json)) {
+            // A LIST whose entries are not mappable is refused for the same reason, and the scalar
+            // test alone does not catch it because such a payload IS an array. A list of scalars
+            // cannot be a collection of objects, so it fell through to the single-object lane and
+            // came back as one element built from the list itself - silently, and where the list
+            // mixed shapes, discarding the entry that would have mapped.
+            //
+            // Being a list is the discriminator, not what the entries hold: an OBJECT whose values
+            // are scalars is simply an object, and stays exempt. An empty array is not caught here
+            // either, since isIterableWithArraysOrObjects() already answers true for it.
+            $isUnmappableList = is_array($json) && array_is_list($json);
+
+            if (($resolvedCollectionClassName !== null) && ($isUnmappableList || (!is_array($json) && !is_object($json)))) {
                 throw new CollectionMappingException($context->getPath(), get_debug_type($json));
             }
 

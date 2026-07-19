@@ -161,6 +161,45 @@ final class PayloadShapeEdgeCaseTest extends TestCase
         self::assertSame('a', $result->name);
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function unmappableListProvider(): array
+    {
+        return [
+            'all scalars' => ['[1, 2, 3]'],
+            'mixed'       => ['[{"name": "a"}, "oops"]'],
+        ];
+    }
+
+    /**
+     * @param string $json List whose entries cannot be the requested element type
+     */
+    #[Test]
+    #[DataProvider('unmappableListProvider')]
+    public function itReportsAListWhoseEntriesCannotBeTheElementType(string $json): void
+    {
+        // The same defect one level down, and the scalar guard did not catch it because the
+        // payload IS an array. A list whose entries are not objects cannot be a collection of
+        // them, so it fell through to the single-object lane and was read as one Base built from
+        // the list itself - silently, and in the mixed case losing the entry that WAS mappable.
+        //
+        // An object payload stays exempt: its values being scalars is what an object looks like.
+        // The discriminator is whether the payload is a LIST, which is a claim about its shape
+        // rather than about its contents.
+        $result = $this->getJsonMapper()->mapWithReport(
+            $this->getJsonAsObject($json),
+            Base::class,
+            BaseCollection::class,
+        );
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors, 'One unusable list, one record.');
+        self::assertInstanceOf(CollectionMappingException::class, $errors[0]->getException());
+        self::assertNull($result->getValue(), 'And no single object built from a list.');
+    }
+
     #[Test]
     public function itStillMapsAListIntoTheRequestedCollection(): void
     {
