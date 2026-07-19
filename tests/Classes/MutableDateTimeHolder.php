@@ -33,4 +33,10 @@ final class MutableDateTimeHolder
     public ?DateTime $optional = null;
 
     public ?DateTimeInterface $byInterface = null;
+
+    public ?CustomDateTime $custom = null;
+
+    public ?CustomDateTimeInterface $byCustomInterface = null;
+
+    public ?AbstractCustomDateTime $byAbstract = null;
 }

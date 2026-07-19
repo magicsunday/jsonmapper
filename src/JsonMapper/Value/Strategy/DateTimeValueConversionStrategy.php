@@ -16,6 +16,7 @@ use DateTimeInterface;
 use Exception;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
+use ReflectionClass;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\ObjectType;
 
@@ -55,11 +56,18 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
             return true;
         }
 
+        if (!is_a($className, DateTimeInterface::class, true)) {
+            return false;
+        }
+
         // Any DateTimeInterface implementation, mutable included - convert() builds whatever class
-        // the property asks for. class_exists() is what keeps the interface itself out: it is
-        // false for an interface, and picking an implementation for a property typed
-        // DateTimeInterface would be the mapper deciding mutability on the caller's behalf.
-        return is_a($className, DateTimeInterface::class, true) && class_exists($className);
+        // the property asks for. It has to be instantiable, though: an interface extending
+        // DateTimeInterface, or an abstract subclass, would reach `new $className` and raise a
+        // native Error that no MappingException catch can collect, turning a reportable mapping
+        // failure into a fatal. Claiming neither leaves them to the object strategy, which refuses
+        // them as a recorded mismatch. Picking an implementation for a property typed by the
+        // interface would also be the mapper deciding mutability on the caller's behalf.
+        return class_exists($className) && (new ReflectionClass($className))->isInstantiable();
     }
 
     /**
