@@ -146,6 +146,28 @@ final class DateTimeDeterminismTest extends TestCase
     }
 
     #[Test]
+    public function itDoesNotFillUnspecifiedFieldsFromTheClock(): void
+    {
+        // The other ambient input, and the same class of defect as the host timezone: fields the
+        // format does not mention were taken from the CURRENT CLOCK, so a date-only format yielded
+        // a different instant on every invocation - 'Y-m-d' gave 2024-01-01T16:36:39 when run at
+        // 16:36. Two mappings of the identical payload therefore disagreed, which no caller could
+        // see from the payload or the report.
+        $mapper = $this->getJsonMapper(
+            config: JsonMapperConfiguration::lenient()->withDefaultDateFormat('Y-m-d'),
+        );
+
+        $result = $mapper->map(['createdAt' => '2024-01-01'], DateTimeHolder::class);
+
+        self::assertInstanceOf(DateTimeHolder::class, $result);
+        self::assertSame(
+            '2024-01-01T00:00:00+00:00',
+            $result->createdAt->format('c'),
+            'Unmentioned fields reset, rather than being taken from the clock.',
+        );
+    }
+
+    #[Test]
     public function itAcceptsAFractionalTimestamp(): void
     {
         // Rejected outright before, which left the property uninitialised - reading it back raised

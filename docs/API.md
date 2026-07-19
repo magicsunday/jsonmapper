@@ -97,6 +97,9 @@ Use `toOptions()` to feed configuration data into a `MappingContext`, or `toArra
 > payload that states its own offset always wins; the default format, `ATOM`, carries one, so this
 > setting does not affect it.
 
+> A field the format does not mention — the time of day under `Y-m-d`, say — is **reset**, not taken
+> from the clock, so the same payload maps to the same instant however often it is mapped.
+
 > A **timestamp** may be an integer or a float. A fraction is kept as microseconds
 > (`1700000000.5` → `.500000`), and a timestamp is an absolute instant, so the host's timezone
 > cannot shift it either.

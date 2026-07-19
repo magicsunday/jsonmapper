@@ -64,10 +64,9 @@ final class JsonMapperConfiguration
      */
     private static function isKnownTimezone(string $timezone): bool
     {
-        if ($timezone === '') {
-            return false;
-        }
-
+        // Constructed rather than checked against listIdentifiers(): the latter excludes plain
+        // offsets such as "+09:00", which DateTimeZone accepts and which are a legitimate way to
+        // state a fixed zone. An empty string needs no separate branch - DateTimeZone rejects it.
         try {
             new DateTimeZone($timezone);
         } catch (Throwable) {
@@ -352,12 +351,7 @@ final class JsonMapperConfiguration
         // would escape mid-run - after partial state had already been written - past a report the
         // caller was promised. A typo in a configuration file is an ordinary way to produce one.
         //
-        // Constructed rather than checked against listIdentifiers(): the latter excludes plain
-        // offsets such as "+09:00", which DateTimeZone accepts and which are a legitimate way to
-        // state a fixed zone.
-        try {
-            new DateTimeZone($timezone);
-        } catch (Throwable) {
+        if (!self::isKnownTimezone($timezone)) {
             throw new InvalidArgumentException(
                 sprintf('Unknown timezone identifier "%s".', $timezone),
             );

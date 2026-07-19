@@ -103,7 +103,11 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
                 try {
                     $timezone = new DateTimeZone($context->getDefaultTimezone());
                 } catch (Throwable) {
-                    throw new TypeMismatchException($context->getPath(), $className, 'invalid timezone');
+                    throw new TypeMismatchException(
+                        $context->getPath(),
+                        $className,
+                        sprintf('invalid timezone "%s"', $context->getDefaultTimezone()),
+                    );
                 }
 
                 // A float is accepted as a timestamp: a JSON number with a fraction is an
@@ -137,8 +141,13 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
                     // a zoneless format stops falling back to the host default - which made the
                     // same JSON decode to a different instant on every differently configured
                     // deployment, silently.
+                    // The leading ! resets every field the format does not mention. Without it
+                    // they are filled from the CURRENT CLOCK, so a format like 'Y-m-d' produced a
+                    // different instant on every invocation - the same class of ambient-input
+                    // defect as the timezone fallback, and just as invisible. A format that does
+                    // state a zone still keeps it; the reset applies to the fields, not the zone.
                     $parsed = $className::createFromFormat(
-                        $context->getDefaultDateFormat(),
+                        '!' . $context->getDefaultDateFormat(),
                         $value,
                         $timezone,
                     );
