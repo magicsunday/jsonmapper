@@ -130,8 +130,9 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
                 );
 
                 // NOT throwOrRecord(): this site records BEFORE raising, and the helper does the
-                // opposite. Routing it there would leave an aborting run with no record of the
-                // element at all. (The path is not the obstacle - withPathSegment() restores it in
+                // opposite. Routing it there loses the element's OWN record on an aborting run -
+                // silently, since the caller still gets its exception, and a deeper record written
+                // further inside the element can survive and make the report look complete. (The path is not the obstacle - withPathSegment() restores it in
                 // a finally, so a throw from inside the closure propagates cleanly. What the
                 // segment buys is that the record names the element rather than the collection.)
                 //

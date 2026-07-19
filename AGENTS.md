@@ -117,8 +117,9 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
   collection, an unconverted value - routes through it. The two that do not both record BEFORE
   raising, and each says so at its own call site: the shared catch, because it IS the catch the
   helper's throw reaches; and the collection element loop, because an aborting run would otherwise
-  carry no record of the element. Finishing the centralisation past those two loses a record in
-  each case, silently, since the caller still gets its exception.
+  lose the element's own record. Finishing the centralisation past those two loses a record in each
+  case, silently, since the caller still gets its exception - and on a nested payload a deeper
+  record can survive and leave the report looking complete.
 * Whether a recorded failure also aborts the run is the ENTRY POINT's decision, not the
   configuration's. `map()` raises on the first failure in strict mode; `mapWithReport()` always
   collects, because returning a report is its entire purpose. Strict mode decides only *what*
