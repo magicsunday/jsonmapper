@@ -36,7 +36,7 @@ use function preg_quote;
  * The sites, and what covers each here:
  *   - the collection factory's non-iterable guard  -> itReports...ForACollectionProperty/Root
  *   - the collection factory's element loop        -> itKeepsValidSiblings..., itCollectsEvery...
- *   - the builtin strategy's compatibility guard   -> reached through the element tests
+ *   - the builtin strategy's compatibility guard   -> itKeepsACoercibleElementMismatch...
  *   - the builtin strategy's null branch           -> NOT covered: the null strategy is registered
  *     first and answers every null, so nothing reaches it through the converter chain
  *   - the union fallback in convertUnionValue()    -> NOT covered: unreachable, see the test below
@@ -87,6 +87,37 @@ final class StrictReportCollectsEverywhereTest extends TestCase
         // discrepancy invisible: whoever caught it saw $.values.1 while the report said $.values.
         self::assertSame('$.values.1', $error->getPath(), 'The record names the element, not its collection.');
         self::assertSame($error->getException()?->getPath(), $error->getPath(), 'Record and exception agree.');
+    }
+
+    #[Test]
+    public function itKeepsACoercibleElementMismatchAndRecordsItOnce(): void
+    {
+        // The builtin strategy's compatibility guard, which no other test here reaches: the element
+        // tests use a COMPOSITE, and a composite targeting a scalar is rejected earlier, by a
+        // different site. A wrong-typed SCALAR takes the other route - it is coerced and recorded
+        // rather than dropped, which is the documented lenient contract.
+        //
+        // Both assertions are needed to pin the guard's abort decision. Were it still asking the
+        // configuration, it would rethrow under strict: the element loop above would drop the
+        // element AND record the same failure a second time, giving [1, 3] and two records.
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
+            ['values' => [1, 'abc', 3]],
+            IntListHolder::class,
+        );
+
+        $holder = $result->getValue();
+
+        self::assertInstanceOf(IntListHolder::class, $holder);
+        self::assertSame(
+            [1, 0, 3],
+            $holder->values,
+            'A coercible mismatch is recorded and kept, not dropped.',
+        );
+        self::assertSame(
+            1,
+            $result->getReport()->getErrorCount(),
+            'Recorded once - the guard must not rethrow into the loop that records again.',
+        );
     }
 
     #[Test]
@@ -153,8 +184,10 @@ final class StrictReportCollectsEverywhereTest extends TestCase
         // The VALUE is asserted too, and that is what makes this test discriminate. Two separate
         // changes block the old TypeError - mapIterable() returning [] for a recorded failure, and
         // wrapCollection()'s null guard - so asserting only the report lets either one cover for
-        // the other: revert the [] and the guard silently turns the result into null, with the
-        // record still in place and the test still green.
+        // the other. Revert the [] and the guard turns the run into a null from wrapCollection(),
+        // which mapCollection() reports as "not handled", so map() falls through and hands back the
+        // RAW PAYLOAD - the string 'not-a-collection' - with the record still in place and the test
+        // still green. Not merely an absence: unmapped input returned as if it had been mapped.
         self::assertInstanceOf(
             Collection::class,
             $result->getValue(),

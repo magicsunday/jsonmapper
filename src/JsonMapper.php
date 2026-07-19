@@ -807,13 +807,14 @@ final readonly class JsonMapper
     /**
      * Instantiates the collection wrapper around the mapped elements.
      *
-     * The null case is no longer reachable: the caller's own null guard runs first, and
-     * mapIterable() returns an empty array for a recorded failure rather than its absence
-     * sentinel. It is handled rather than asserted away because the method's declared return type
-     * still permits it, and because a wrapper's constructor answers null with a native TypeError -
-     * an error that would escape error collection entirely. Passing the absence on, rather than
-     * substituting an empty collection, is what keeps treatNullAsEmptyCollection observable if the
-     * case ever becomes reachable again.
+     * The null case is no longer reachable: both call sites guard against it, one with its own null
+     * check and one via isIterableWithArraysOrObjects(), and mapIterable() returns an empty array
+     * for a recorded failure rather than its absence sentinel. It is handled rather than asserted
+     * away because the declared return type still permits null, and passing null to a wrapper's
+     * constructor raises a native TypeError - an error that escapes error collection entirely,
+     * which is the one thing this entry point promises not to do. The unreachability is an
+     * emergent property of two callers, not an invariant the signature enforces, so the branch is
+     * the cheap enforcement at the boundary.
      *
      * @param class-string                 $collectionClassName Fully qualified collection class to instantiate.
      * @param array<array-key, mixed>|null $elements            Mapped elements, or null when there was no collection.
