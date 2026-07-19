@@ -11,12 +11,17 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper;
 
+use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
+use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\Test\Classes\BuiltinCoercionHolder;
+use MagicSunday\Test\Classes\IntPropertyHolder;
 use MagicSunday\Test\Classes\StringableValue;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionProperty;
+
+use function preg_quote;
 
 /**
  * Pins which scalar payloads lenient mode coerces and which it rejects.
@@ -47,7 +52,7 @@ final class BuiltinCoercionTest extends TestCase
         return [
             // Normalised silently - the payload is a representation of the target type.
             'numeric to int'          => ['number', '42', 42, false],
-            'float truncates to int'  => ['number', 3.9, 3, false],
+            'integer valued float'    => ['number', 3.0, 3, false],
             'int to float'            => ['decimal', 3, 3.0, false],
             'numeric to float'        => ['decimal', '2.5', 2.5, false],
             'literal true'            => ['flag', 'true', true, false],
@@ -67,6 +72,7 @@ final class BuiltinCoercionTest extends TestCase
             'bool true to int'     => ['number', true, 1, true],
             'bool false to int'    => ['number', false, 0, true],
             'non numeric to int'   => ['number', 'abc', 0, true],
+            'fractional float'     => ['number', 3.9, 3, true],
             'bool to float'        => ['decimal', true, 1.0, true],
             'non numeric to float' => ['decimal', 'abc', 0.0, true],
             'non empty to bool'    => ['flag', 'yes', true, true],
@@ -134,6 +140,37 @@ final class BuiltinCoercionTest extends TestCase
                 ? 'A cast the guard saw stays visible in the report.'
                 : 'A recognised representation is not a mismatch and must not be reported.',
         );
+    }
+
+    #[Test]
+    public function itRaisesOnALossyFloatInStrictMode(): void
+    {
+        // The truncation used to happen in normalizeValue(), before any check ran, so the
+        // fraction was discarded silently - in strict mode too, where every other type mismatch
+        // raises.
+        $this->expectException(TypeMismatchException::class);
+        $this->expectExceptionMessageMatches(
+            '/' . preg_quote('expected int, got float', '/') . '/',
+        );
+
+        $this->getJsonMapper(config: JsonMapperConfiguration::strict())->map(
+            ['number' => 1.9],
+            IntPropertyHolder::class,
+        );
+    }
+
+    #[Test]
+    public function itAcceptsAnIntegerValuedFloatInStrictMode(): void
+    {
+        // The control: 2.0 IS the integer 2, so nothing is lost and nothing should be reported.
+        // Without this the fix could just as well reject every float and still look correct.
+        $holder = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->map(
+            ['number' => 2.0],
+            IntPropertyHolder::class,
+        );
+
+        self::assertInstanceOf(IntPropertyHolder::class, $holder);
+        self::assertSame(2, $holder->number);
     }
 
     #[Test]

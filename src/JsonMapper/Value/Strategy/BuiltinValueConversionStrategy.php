@@ -19,6 +19,7 @@ use Symfony\Component\TypeInfo\TypeIdentifier;
 
 use function assert;
 use function filter_var;
+use function floor;
 use function get_debug_type;
 use function in_array;
 use function is_array;
@@ -204,7 +205,11 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
             }
         }
 
-        if ($identifier === 'int' && is_float($value)) {
+        // Only an integer-valued float is a representation of an int. A fractional one is not,
+        // so it is left alone and reaches the compatibility guard, which reports the mismatch
+        // instead of quietly discarding the fraction - the truncation happened before any check
+        // ran, so it was invisible even in strict mode.
+        if (($identifier === 'int') && is_float($value) && (floor($value) === $value)) {
             return (int) $value;
         }
 
