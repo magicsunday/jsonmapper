@@ -152,7 +152,12 @@ final readonly class JsonMapper
         );
 
         $this->valueConverter->addStrategy(new NullValueConversionStrategy());
-        $this->valueConverter->addStrategy(new CollectionValueConversionStrategy($this->collectionFactory));
+        $this->valueConverter->addStrategy(
+            new CollectionValueConversionStrategy(
+                $this->collectionFactory,
+                $this->collectionDocBlockTypeResolver
+            )
+        );
         $this->valueConverter->addStrategy(new CustomTypeValueConversionStrategy($this->customTypeRegistry));
         $this->valueConverter->addStrategy(new DateTimeValueConversionStrategy());
         $this->valueConverter->addStrategy(new EnumValueConversionStrategy());

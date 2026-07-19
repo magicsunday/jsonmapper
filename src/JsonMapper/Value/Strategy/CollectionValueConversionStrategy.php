@@ -11,16 +11,20 @@ declare(strict_types=1);
 
 namespace MagicSunday\JsonMapper\Value\Strategy;
 
+use ArrayAccess;
 use MagicSunday\JsonMapper\Collection\CollectionDocBlockTypeResolver;
 use MagicSunday\JsonMapper\Collection\CollectionFactoryInterface;
 use MagicSunday\JsonMapper\Context\MappingContext;
+use ReflectionClass;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\CollectionType;
 use Symfony\Component\TypeInfo\Type\GenericType;
 use Symfony\Component\TypeInfo\Type\ObjectType;
+use Traversable;
 
 use function assert;
 use function class_exists;
+use function is_a;
 
 /**
  * Converts collection values using the configured factory.
@@ -100,7 +104,36 @@ final readonly class CollectionValueConversionStrategy implements ValueConversio
             return null;
         }
 
+        if (!$this->isCollectionContainer($className)) {
+            return null;
+        }
+
         return $this->buildCollectionType($className);
+    }
+
+    /**
+     * Determines whether the class is a container rather than a data object that happens to be
+     * iterable.
+     *
+     * Declaring an element type is not enough on its own. A perfectly ordinary DTO may implement
+     * IteratorAggregate and annotate what it yields, and routing that to the collection factory
+     * would build it from the payload's elements and silently drop every property it declares -
+     * the payload arrives, the object is of the right class, and its fields are empty.
+     *
+     * A collection wrapper holds its contents in the container it inherits from and declares no
+     * state of its own, so its own properties are the discriminator.
+     *
+     * @param class-string $className Class backing the target type.
+     *
+     * @return bool TRUE when the class is a traversable container without own properties
+     */
+    private function isCollectionContainer(string $className): bool
+    {
+        if (!is_a($className, Traversable::class, true) && !is_a($className, ArrayAccess::class, true)) {
+            return false;
+        }
+
+        return (new ReflectionClass($className))->getProperties() === [];
     }
 
     /**

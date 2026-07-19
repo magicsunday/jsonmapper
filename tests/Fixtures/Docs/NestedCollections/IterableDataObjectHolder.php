@@ -12,18 +12,17 @@ declare(strict_types=1);
 namespace MagicSunday\Test\Fixtures\Docs\NestedCollections;
 
 /**
- * The singly nested shape - a collection of objects, one level deep.
- *
- * The property deliberately carries no generic docblock, so the element type can only come from
- * the collection class's own "extends" annotation. That is the difference from {@see Article},
- * whose property names the element type itself, and it is what the doubly nested recipe test
- * never exercises.
+ * Holds the iterable data object so it is reached as a PROPERTY type, which is the path the
+ * collection-class detection runs on.
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
  */
-final class SinglyNestedArticle
+final class IterableDataObjectHolder
 {
-    public TagCollection $tags;
+    /**
+     * @var IterableDataObject
+     */
+    public IterableDataObject $payload;
 }
