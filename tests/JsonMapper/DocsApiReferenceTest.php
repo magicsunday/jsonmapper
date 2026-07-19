@@ -24,6 +24,7 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
 
+use function array_keys;
 use function array_push;
 use function file_get_contents;
 use function is_dir;
