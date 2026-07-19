@@ -15,7 +15,7 @@ use DateInterval;
 use DateTimeInterface;
 use MagicSunday\JsonMapper\Type\TypeResolver;
 use MagicSunday\Test\Classes\Ns\Item as NamespacedItem;
-use MagicSunday_Test_Classes_Ns_Item;
+use MagicSunday\Test\Classes\Ns_Item as UnderscoredItem;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Cache\CacheItemInterface;
@@ -32,6 +32,7 @@ use function array_key_exists;
 use function array_keys;
 use function array_map;
 use function array_values;
+use function hash;
 use function str_replace;
 use function substr;
 
@@ -150,12 +151,16 @@ final class TypeResolverTest extends TestCase
         $extractor     = new PropertyInfoExtractor([], [$typeExtractor]);
         $cache         = new InMemoryCachePool();
 
-        // Written in the v2 key FORMAT as well as under the v2 token, which is what a pool warmed
-        // by that release actually holds. Since then the key became a hash, so this entry misses
-        // on two counts - the point stands either way: a v2 pool cannot serve a v3 resolver.
-        $staleKey = 'jsonmapper.property_type.v2.'
-            . str_replace('\\', '_', TypeResolverFixture::class)
-            . '.name';
+        // Primed in the CURRENT key format under the PREVIOUS token, which is the only shape that
+        // isolates the token itself. Using the v2 FORMAT as well would make the entry miss because
+        // the format changed, and the test would stay green with the token reverted - proving only
+        // that a foreign-shaped key misses, which is trivially true.
+        //
+        // Restating the hash here is the price of that isolation, and it is the right trade: this
+        // test is about the token, and the sibling test above deliberately does NOT recompute the
+        // key, so the implementation is not pinned twice.
+        $staleKey = 'jsonmapper.pt.v2.'
+            . hash('xxh128', TypeResolverFixture::class . "\0" . 'name');
         $staleItem = $cache->getItem($staleKey);
         $staleItem->set(new BuiltinType(TypeIdentifier::STRING));
         $cache->save($staleItem);
@@ -179,7 +184,7 @@ final class TypeResolverTest extends TestCase
         // The pair is real: folding the namespaced class's backslashes yields the global class's
         // name character for character, which is the legacy PEAR-style shape the issue names.
         $resolver->resolve(NamespacedItem::class, 'value');
-        $resolver->resolve(MagicSunday_Test_Classes_Ns_Item::class, 'value');
+        $resolver->resolve(UnderscoredItem::class, 'value');
 
         // Two classes, two entries. One key would leave a single entry behind.
         self::assertCount(2, $cache->storedKeys(), 'Each class gets a key of its own.');
@@ -196,7 +201,14 @@ final class TypeResolverTest extends TestCase
 
         (new TypeResolver($extractor, $cache))->resolve(TypeResolverFixture::class, 'grÖße');
 
-        foreach ($cache->storedKeys() as $key) {
+        $keys = $cache->storedKeys();
+
+        // Counted before the loop: assertions living only inside a foreach assert nothing when the
+        // collection is empty, so a change that stopped writing keys at all would leave this test
+        // reporting no failures rather than a problem.
+        self::assertCount(1, $keys, 'One resolve writes exactly one key.');
+
+        foreach ($keys as $key) {
             self::assertMatchesRegularExpression('/^[A-Za-z0-9_.]+$/', $key, 'Only PSR-6 safe characters.');
             self::assertLessThanOrEqual(64, strlen($key), 'Within the length PSR-6 guarantees.');
         }
