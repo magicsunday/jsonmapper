@@ -14,6 +14,7 @@ namespace MagicSunday\JsonMapper\Resolver;
 use Closure;
 use DomainException;
 use MagicSunday\JsonMapper\Context\MappingContext;
+use ReflectionClass;
 use ReflectionFunction;
 
 use function array_key_exists;
@@ -133,13 +134,15 @@ final class ClassResolver
 
         return array_map(
             function (string $target) use ($className): string {
-                // class_exists() only, unlike assertClassString(): an interface can never be what a
-                // resolver returns for instantiation, so listing one is always a mistake and one
-                // that would show up as an unexplained refusal.
-                if (!class_exists($target)) {
+                // Instantiability, not mere existence. assertClassString() accepts an interface,
+                // and class_exists() additionally accepts an abstract class and an enum - none of
+                // which a resolver can return for instantiation, so listing one is always a
+                // mistake. Left to fail later it becomes a native Error from makeInstance(),
+                // outside the error-collection contract, on a payload that looks fine.
+                if (!class_exists($target) || !(new ReflectionClass($target))->isInstantiable()) {
                     throw new DomainException(
                         sprintf(
-                            'Allowed target %s for %s is not an existing class.',
+                            'Allowed target %s for %s is not an instantiable class.',
                             $target,
                             $className,
                         ),

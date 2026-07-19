@@ -281,6 +281,10 @@ final readonly class JsonMapper
      * the class map is documented for class replacement as well as polymorphism and a default
      * restriction would break that.
      *
+     * An entry is REPLACED wholesale: registering the same base class again without
+     * $allowedTargets drops the list the earlier registration carried, since a list written for one
+     * closure must not outlive it. Registration order therefore decides what is enforced.
+     *
      * @param class-string                                                            $className      Fully qualified class name that should be resolved dynamically.
      * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $closure        Closure that returns the concrete class to instantiate for the provided value.
      * @param list<string>|null                                                       $allowedTargets Classes the closure may return; null leaves it unrestricted.

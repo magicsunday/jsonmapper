@@ -14,9 +14,12 @@ namespace MagicSunday\Test\JsonMapper\Resolver;
 use DomainException;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Resolver\ClassResolver;
+use MagicSunday\Test\Classes\AbstractCustomDateTime;
 use MagicSunday\Test\Classes\Base;
 use MagicSunday\Test\Classes\Person;
 use MagicSunday\Test\Classes\VipPerson;
+use MagicSunday\Test\Fixtures\Enum\SampleColor;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Stringable;
@@ -190,17 +193,35 @@ final class ClassResolverAllowlistTest extends TestCase
         );
     }
 
-    #[Test]
-    public function itRejectsAnAllowlistNamingAnInterface(): void
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function uninstantiableTargetProvider(): array
     {
-        // An interface can never be what a resolver returns for instantiation, so listing one is
-        // always a mistake - and one that would otherwise surface as an unexplained refusal of a
-        // class the consumer believes they permitted.
+        // Three kinds, one reason: none of them can be what a resolver returns for instantiation.
+        // assertClassString() accepts the interface and class_exists() accepts the other two, so
+        // each needed its own rejection - left to fail later they become a native Error from
+        // makeInstance(), outside the error-collection contract, on a payload that looks fine.
+        return [
+            'interface'      => [Stringable::class],
+            'abstract class' => [AbstractCustomDateTime::class],
+            'enum'           => [SampleColor::class],
+        ];
+    }
+
+    /**
+     * @param string $target Class name that cannot be instantiated
+     */
+    #[Test]
+    #[DataProvider('uninstantiableTargetProvider')]
+    public function itRejectsAnAllowlistNamingSomethingUninstantiable(string $target): void
+    {
         $resolver = new ClassResolver();
 
         $this->expectException(DomainException::class);
+        $this->expectExceptionMessageMatches('/not an instantiable class/');
 
-        $resolver->add(Person::class, static fn (): string => VipPerson::class, [Stringable::class]);
+        $resolver->add(Person::class, static fn (): string => VipPerson::class, [$target]);
     }
 
     #[Test]
