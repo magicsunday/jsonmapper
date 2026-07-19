@@ -85,11 +85,18 @@ final class BuiltinCoercionTest extends TestCase
     public static function rejectedValueProvider(): array
     {
         return [
+            // Both value kinds against every scalar target. The object axis is not redundant:
+            // json_decode() without associative mode hands nested objects over as stdClass, so
+            // this is an everyday payload, and object-to-int/float/bool are the silent casts -
+            // the ones whose failure mode is a fabricated value rather than a visible warning.
             'array to string'  => ['text', ['a', 'b']],
             'array to int'     => ['number', ['a']],
             'array to float'   => ['decimal', ['a']],
             'array to bool'    => ['flag', ['a']],
             'object to string' => ['text', (object) ['a' => 1]],
+            'object to int'    => ['number', (object) ['a' => 1]],
+            'object to float'  => ['decimal', (object) ['a' => 1]],
+            'object to bool'   => ['flag', (object) ['a' => 1]],
         ];
     }
 
