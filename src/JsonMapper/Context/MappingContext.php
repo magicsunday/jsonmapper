@@ -14,6 +14,7 @@ namespace MagicSunday\JsonMapper\Context;
 use DateTimeInterface;
 use MagicSunday\JsonMapper\Exception\MappingException;
 
+use function array_key_exists;
 use function array_slice;
 use function count;
 use function implode;
@@ -102,6 +103,43 @@ final class MappingContext
             return $callback($this);
         } finally {
             array_pop($this->pathSegments);
+        }
+    }
+
+    /**
+     * Executes the callback with error collection switched on, restoring the previous setting
+     * afterwards.
+     *
+     * Some decisions are made by observing whether a conversion produced an error - union
+     * candidate selection being the one that needs it. That observation must not depend on the
+     * caller's reporting preference: with collection switched off nothing is recorded, so the
+     * observation would always report success and the decision would silently change. Records
+     * written during the callback are the caller's to keep or discard via {@see trimErrors()}.
+     *
+     * @template TReturn
+     *
+     * @param callable(self): TReturn $callback Callback executed while collection is forced on
+     *
+     * @return TReturn Result produced by the callback
+     */
+    public function withForcedErrorCollection(callable $callback): mixed
+    {
+        // array_key_exists() rather than ??: a stored null and an absent key read the same through
+        // shouldCollectErrors(), which coalesces both to true. They differ only in the raw bag
+        // returned by getOptions(), so restoring "absent" as "null" would hand a caller comparing
+        // that bag a difference that was never there.
+        $wasSet                                     = array_key_exists(self::OPTION_COLLECT_ERRORS, $this->options);
+        $previous                                   = $this->options[self::OPTION_COLLECT_ERRORS] ?? null;
+        $this->options[self::OPTION_COLLECT_ERRORS] = true;
+
+        try {
+            return $callback($this);
+        } finally {
+            if ($wasSet) {
+                $this->options[self::OPTION_COLLECT_ERRORS] = $previous;
+            } else {
+                unset($this->options[self::OPTION_COLLECT_ERRORS]);
+            }
         }
     }
 

@@ -925,34 +925,22 @@ final readonly class JsonMapper
 
         $lastException = null;
 
-        foreach ($type->getTypes() as $candidate) {
-            if ($this->isNullType($candidate)) {
-                continue;
+        // A candidate is accepted when converting the value against it produces no error. That
+        // observation is only possible while errors are actually being recorded, so collection is
+        // forced on for the duration - otherwise a caller who switched reporting off would get the
+        // first candidate every time, and the declared type of the value would depend on an
+        // unrelated setting. Everything recorded here is trimmed away again: these are internal
+        // attempts, not failures the caller asked about.
+        // A regular closure rather than an arrow function: the latter captures by value, which
+        // would bind the by-reference argument to a copy and leave the failure of the last
+        // rejected candidate behind.
+        [$matched, $converted] = $context->withForcedErrorCollection(
+            function (MappingContext $childContext) use ($json, $type, &$lastException): array {
+                return $this->resolveUnionCandidate($json, $type, $childContext, $lastException);
             }
+        );
 
-            $errorCount = $context->getErrorCount();
-
-            try {
-                $converted = $this->convertValue($json, $candidate, $context);
-            } catch (MappingException $exception) {
-                $context->trimErrors($errorCount);
-                $lastException = $exception;
-
-                continue;
-            }
-
-            if ($context->getErrorCount() > $errorCount) {
-                $context->trimErrors($errorCount);
-
-                $lastException = new TypeMismatchException(
-                    $context->getPath(),
-                    $this->describeType($candidate),
-                    get_debug_type($json),
-                );
-
-                continue;
-            }
-
+        if ($matched) {
             return $converted;
         }
 
@@ -973,6 +961,62 @@ final readonly class JsonMapper
         }
 
         return $json;
+    }
+
+    /**
+     * Tries each member of a union in declaration order and returns the first that converts the
+     * value without producing an error.
+     *
+     * A candidate is judged by whether converting against it recorded anything, so the caller has
+     * to run this with error collection forced on - see {@see MappingContext::withForcedErrorCollection()}.
+     * Records produced by rejected candidates are trimmed away again: they are internal attempts,
+     * not failures the caller asked about.
+     *
+     * @param mixed                 $json          Raw value to convert.
+     * @param UnionType<Type>       $type          Union whose members are tried in order.
+     * @param MappingContext        $context       Mapping context, with error collection forced on.
+     * @param MappingException|null $lastException Receives the failure of the last rejected candidate.
+     *
+     * @return array{0: bool, 1: mixed} Whether a candidate matched, and the value it produced.
+     */
+    private function resolveUnionCandidate(
+        mixed $json,
+        UnionType $type,
+        MappingContext $context,
+        ?MappingException &$lastException,
+    ): array {
+        foreach ($type->getTypes() as $candidate) {
+            if ($this->isNullType($candidate)) {
+                continue;
+            }
+
+            $errorCount = $context->getErrorCount();
+
+            try {
+                $candidateValue = $this->convertValue($json, $candidate, $context);
+            } catch (MappingException $exception) {
+                $context->trimErrors($errorCount);
+                $lastException = $exception;
+
+                continue;
+            }
+
+            if ($context->getErrorCount() > $errorCount) {
+                $context->trimErrors($errorCount);
+
+                $lastException = new TypeMismatchException(
+                    $context->getPath(),
+                    $this->describeType($candidate),
+                    get_debug_type($json),
+                );
+
+                continue;
+            }
+
+            return [true, $candidateValue];
+        }
+
+        return [false, null];
     }
 
     /**

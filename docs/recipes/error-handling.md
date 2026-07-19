@@ -75,9 +75,10 @@ had - its default, or nothing at all if it was never initialised - and the failu
 instead. For a collection, only the offending element is dropped; its valid siblings survive, and
 list keys stay gap-free.
 
-For a **builtin** target the value is currently still coerced and assigned after the mismatch has
-been recorded, so a `string` property can end up holding `'Array'`. Check the report before trusting
-such a value. Aligning this with the object behaviour is tracked in issue 63.
+A **builtin** target behaves the same way when the value has no meaningful cast: a composite
+reaching a scalar property is rejected rather than assigned, so a `string` property can no longer
+end up holding `'Array'`. A scalar that merely arrives as the wrong scalar type is still coerced -
+see the coercion contract below for which conversions happen silently and which are reported.
 
 A scalar payload against an object target is rejected only when the target actually needs
 constructor arguments. A class whose constructor can be called without any still yields an instance,
@@ -92,5 +93,60 @@ In strict mode the same mapping failures are thrown on the first occurrence rath
 ## Lenient mode
 
 For tolerant APIs combine `JsonMapperConfiguration::lenient()` with `->withIgnoreUnknownProperties(true)` or `->withTreatNullAsEmptyCollection(true)` to absorb schema drifts.
+
+### What lenient mode coerces, and what it refuses
+
+Lenient mode absorbs a *scalar* that arrives with the wrong type, and it does so in two distinct
+ways. Where the payload is a recognisable **representation** of the target type, it is normalised
+silently — nothing is reported, because nothing was lost:
+
+| Payload | Target | Result |
+|---------|--------|--------|
+| `'42'` | `int` | `42` |
+| `'2.5'` | `float` | `2.5` |
+| `3` | `float` | `3.0` |
+| `'true'`, `'1'`, `1` | `bool` | `true` |
+| `'false'`, `'0'`, `0` | `bool` | `false` |
+
+One case is silent **without** being lossless: a `float` reaching an `int` property is truncated —
+`3.9` becomes `3`, and the discarded fraction is not reported. If that precision matters, reject
+such payloads before mapping; checking the report will not tell you.
+
+Everything else is a genuine mismatch: the value is cast **and** recorded in the report, so the
+mapping succeeds while the drift stays visible.
+
+| Payload | Target | Result |
+|---------|--------|--------|
+| `42` | `string` | `'42'` |
+| `true` | `string` | `'1'` |
+| `'abc'` | `int` | `0` |
+| `'yes'`, `5` | `bool` | `true` |
+
+An `array` or an object reaching a **scalar** property is refused instead of cast. PHP itself would
+not object in every case — casting a non-empty array to `string` yields the literal `'Array'` plus a
+warning, while casting it to `bool`, `int` or `float` silently yields `true`, `1` or `1.0`. None of
+those carry information from the payload, so the mapper records a `TypeMismatchException` rather
+than handing back a plausible-looking value derived from nothing.
+
+This applies to objects with a `__toString()` method as well: the decision is made on the target
+type, not on what the value happens to be capable of.
+
+Composites reaching an `array` or `object` property are *not* refused — those casts are meaningful
+and still happen. They are reported like any other cast, so "not refused" does not mean "silent".
+
+A refused value is recorded exactly once. A declared property keeps its default; one declared
+without a default is left uninitialised, so read it back only after checking the report. (A value
+required by the constructor is a different case — that raises `MissingConstructorArgumentException`
+instead.)
+
+```php
+$result = $mapper->mapWithReport($payload, Article::class);
+
+if ($result->getReport()->hasErrors()) {
+    foreach ($result->getReport()->getErrors() as $error) {
+        // $error->getPath(), $error->getMessage()
+    }
+}
+```
 
 Test coverage: `tests/JsonMapper/DocsErrorHandlingTest.php`, `tests/JsonMapper/RootLevelErrorHandlingTest.php`, `tests/JsonMapper/ScalarPayloadOnObjectTest.php` and `tests/JsonMapper/JsonMapperErrorHandlingTest.php`.

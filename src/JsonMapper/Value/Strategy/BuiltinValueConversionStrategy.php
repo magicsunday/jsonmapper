@@ -42,6 +42,25 @@ use const FILTER_VALIDATE_INT;
 final class BuiltinValueConversionStrategy implements ValueConversionStrategyInterface
 {
     /**
+     * Identifiers whose values are scalar. A composite value reaching one of these is rejected
+     * rather than cast: settype() does not refuse it, it produces nonsense. Only the string cast
+     * announces itself, writing the literal 'Array' and emitting an "Array to string conversion"
+     * warning; the bool, int and float casts are silent and well-defined, and would hand the
+     * caller a plausible-looking true/1/1.0 derived from nothing. Rejecting those three is a
+     * deliberate product decision, not a technical necessity. The remaining castable identifiers -
+     * array, object, null - convert a composite perfectly well, which is why the check has to look
+     * at the target and not only at the value.
+     *
+     * @var list<TypeIdentifier>
+     */
+    private const array SCALAR_IDENTIFIERS = [
+        TypeIdentifier::BOOL,
+        TypeIdentifier::FLOAT,
+        TypeIdentifier::INT,
+        TypeIdentifier::STRING,
+    ];
+
+    /**
      * Type identifiers settype() understands. The remaining builtin identifiers - among them
      * mixed, iterable and callable - have no cast equivalent; passing one to settype() raises a
      * ValueError, so a value targeting such a type is kept as it is.
@@ -87,24 +106,33 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
 
         $normalized = $this->normalizeValue($value, $type);
         $identifier = $type->getTypeIdentifier();
+        $isCastable = in_array($identifier, self::CASTABLE_IDENTIFIERS, true);
 
         if (
             ($normalized !== null)
-            && !in_array($identifier, self::CASTABLE_IDENTIFIERS, true)
+            && !$this->isCompatibleValue($normalized, $identifier)
+            && (!$isCastable || $this->isCompositeTargetingScalar($normalized, $identifier))
         ) {
-            // Without a settype() equivalent there is no coercion left to try, so an incompatible
-            // value has to surface as a mapping exception. Returning it would hand an unassignable
-            // value to the property assignment, which fails with a native exception outside the
-            // error-collection contract. The throw is the recording path here - the caller records
-            // it once, which is why guardCompatibility() is deliberately not consulted.
-            if (!$this->isCompatibleValue($normalized, $identifier)) {
-                throw new TypeMismatchException(
-                    $context->getPath(),
-                    $identifier->value,
-                    get_debug_type($normalized),
-                );
-            }
+            // Two cases have no conversion worth attempting. An identifier settype() does not know
+            // - mixed, iterable, callable, the literal types - cannot be cast at all. And a
+            // composite value targeting a scalar type is not something settype() refuses: it
+            // produces nonsense, whether loudly (the literal 'Array' plus a PHP warning for string)
+            // or silently (true/1/1.0 for bool, int and float). Both surface as a mapping exception
+            // instead. The throw is the recording path: the caller records it once, which is why
+            // guardCompatibility() is not consulted here.
+            //
+            // Scalar-to-scalar coercion is deliberately left alone - an int reaching a string
+            // property is what lenient mode exists to absorb.
+            throw new TypeMismatchException(
+                $context->getPath(),
+                $identifier->value,
+                get_debug_type($normalized),
+            );
+        }
 
+        if (($normalized !== null) && !$isCastable) {
+            // Compatible, but there is no settype() equivalent for this identifier - mixed,
+            // iterable, callable and the literal types. The value is already what it needs to be.
             return $normalized;
         }
 
@@ -237,6 +265,21 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
     private function allowsNull(BuiltinType $type): bool
     {
         return $type->isNullable();
+    }
+
+    /**
+     * Determines whether a composite value targets a scalar identifier, a combination settype()
+     * would silently mangle instead of refusing.
+     *
+     * @param mixed          $value      Normalized value used during conversion.
+     * @param TypeIdentifier $identifier Identifier of the builtin type to check against.
+     *
+     * @return bool TRUE when a composite value targets a scalar identifier.
+     */
+    private function isCompositeTargetingScalar(mixed $value, TypeIdentifier $identifier): bool
+    {
+        return (is_array($value) || is_object($value))
+            && in_array($identifier, self::SCALAR_IDENTIFIERS, true);
     }
 
     /**
