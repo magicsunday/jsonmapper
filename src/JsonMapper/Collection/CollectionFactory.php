@@ -83,7 +83,10 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
             $exception = new CollectionMappingException($context->getPath(), get_debug_type($json));
             $context->recordException($exception);
 
-            if ($context->isStrictMode()) {
+            // Asked of the context, not the configuration: strict mode decides what counts as a
+            // failure, the entry point decides whether one aborts the run. mapWithReport() turns
+            // aborting off, so this has to yield or the report stops after the first failure.
+            if ($context->shouldAbortOnError()) {
                 throw $exception;
             }
 
@@ -110,11 +113,14 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
                 // An element that cannot be converted is dropped, not propagated: one invalid
                 // entry must not discard its valid siblings, which is what lenient mode exists
                 // for. The error is recorded here because the exception no longer travels up to
-                // the caller that would have recorded it. Strict mode still aborts on the first
-                // failure.
+                // the caller that would have recorded it.
                 $context->recordException($exception);
 
-                if ($context->isStrictMode()) {
+                // Asked of the context, not the configuration. Rethrowing here means the property
+                // loop above records the very same element failure a second time, so the run has
+                // to be one that aborts - otherwise the caller receives a duplicate and loses the
+                // rejected element's valid siblings along with it.
+                if ($context->shouldAbortOnError()) {
                     throw $exception;
                 }
             }

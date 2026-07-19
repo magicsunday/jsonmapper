@@ -957,7 +957,10 @@ final readonly class JsonMapper
 
         $context->recordException($exception);
 
-        if ($context->isStrictMode()) {
+        // Asked of the context, not the configuration - see handleMappingException(). A union
+        // matching no candidate is the last of the sites that could abort a run the caller asked
+        // to report on.
+        if ($context->shouldAbortOnError()) {
             throw $exception;
         }
 
