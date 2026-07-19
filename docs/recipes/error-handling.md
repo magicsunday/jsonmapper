@@ -93,4 +93,43 @@ In strict mode the same mapping failures are thrown on the first occurrence rath
 
 For tolerant APIs combine `JsonMapperConfiguration::lenient()` with `->withIgnoreUnknownProperties(true)` or `->withTreatNullAsEmptyCollection(true)` to absorb schema drifts.
 
+### What lenient mode coerces, and what it refuses
+
+Lenient mode absorbs a *scalar* that arrives with the wrong type. The value is converted and the
+conversion is recorded in the report, so the mapping succeeds and the drift stays visible:
+
+| Payload | Target | Result |
+|---------|--------|--------|
+| `42` | `string` | `'42'` |
+| `'42'` | `int` | `42` |
+| `3.9` | `int` | `3` (truncated) |
+| `'true'`, `'1'`, `'yes'` | `bool` | `true` |
+| `'false'`, `'0'`, `0` | `bool` | `false` |
+| `'abc'` | `int` | `0` |
+
+An `array` or an object reaching a **scalar** property is refused instead. PHP would not object —
+casting an array to `string` yields the literal `'Array'` plus a warning, and casting it to `bool`,
+`int` or `float` silently yields `true`, `1` or `1.0`. None of those carry information from the
+payload, so the mapper records a `TypeMismatchException` and leaves the property at its default
+rather than handing back a plausible-looking value derived from nothing.
+
+This applies to objects with a `__toString()` method as well: the decision is made on the target
+type, not on what the value happens to be capable of.
+
+Composites reaching an `array` or `object` property are *not* affected — those casts are
+meaningful and still happen.
+
+A refused value is recorded exactly once. Where the property has no default, it is left
+uninitialised, so read it back only after checking the report:
+
+```php
+$result = $mapper->mapWithReport($payload, Article::class);
+
+if ($result->getReport()->hasErrors()) {
+    foreach ($result->getReport()->getErrors() as $error) {
+        // $error->getPath(), $error->getMessage()
+    }
+}
+```
+
 Test coverage: `tests/JsonMapper/DocsErrorHandlingTest.php`, `tests/JsonMapper/RootLevelErrorHandlingTest.php`, `tests/JsonMapper/ScalarPayloadOnObjectTest.php` and `tests/JsonMapper/JsonMapperErrorHandlingTest.php`.
