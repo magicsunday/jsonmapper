@@ -16,7 +16,7 @@ use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Context\MappingError;
 use MagicSunday\JsonMapper\Exception\CollectionMappingException;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
-use MagicSunday\Test\Classes\Collection;
+use MagicSunday\Test\Classes\BaseCollection;
 use MagicSunday\Test\Classes\IntListHolder;
 use MagicSunday\Test\Classes\UnionScalarHolder;
 use MagicSunday\Test\TestCase;
@@ -175,7 +175,7 @@ final class StrictReportCollectsEverywhereTest extends TestCase
         $result = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
             'not-a-collection',
             null,
-            Collection::class,
+            BaseCollection::class,
         );
 
         self::assertTrue($result->getReport()->hasErrors(), 'The failure is reported.');
@@ -192,7 +192,7 @@ final class StrictReportCollectsEverywhereTest extends TestCase
         // RAW PAYLOAD - the string 'not-a-collection' - with the record still in place and the test
         // still green. Not merely an absence: unmapped input returned as if it had been mapped.
         self::assertInstanceOf(
-            Collection::class,
+            BaseCollection::class,
             $result->getValue(),
             'A recorded failure still yields a collection, not an absence.',
         );
@@ -209,7 +209,7 @@ final class StrictReportCollectsEverywhereTest extends TestCase
         $absent = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
             null,
             null,
-            Collection::class,
+            BaseCollection::class,
         );
 
         self::assertNull($absent->getValue(), 'A null payload produces no collection at all.');
@@ -229,9 +229,9 @@ final class StrictReportCollectsEverywhereTest extends TestCase
         // makes the assertion above a statement about the option rather than about null handling.
         $empty = $this->getJsonMapper(
             config: JsonMapperConfiguration::strict()->withTreatNullAsEmptyCollection(true),
-        )->mapWithReport(null, null, Collection::class);
+        )->mapWithReport(null, null, BaseCollection::class);
 
-        self::assertInstanceOf(Collection::class, $empty->getValue());
+        self::assertInstanceOf(BaseCollection::class, $empty->getValue());
         self::assertCount(0, $empty->getValue());
         self::assertFalse($empty->getReport()->hasErrors(), 'With the option on, null is not a failure.');
     }
