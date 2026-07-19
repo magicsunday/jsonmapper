@@ -72,7 +72,7 @@ final class TypeResolverTest extends TestCase
     }
 
     #[Test]
-    public function itFallsBackToNullableStringType(): void
+    public function itFallsBackToMixedWhenNoTypeIsAvailable(): void
     {
         $typeExtractor = new StubPropertyTypeExtractor(null);
         $extractor     = new PropertyInfoExtractor([], [$typeExtractor]);
@@ -80,8 +80,9 @@ final class TypeResolverTest extends TestCase
 
         $type = $resolver->resolve(TypeResolverFixture::class, 'name');
 
-        self::assertInstanceOf(NullableType::class, $type);
-        self::assertTrue($type->isIdentifiedBy(TypeIdentifier::STRING));
+        // mixed rather than string: the fallback must not narrow a property that declared nothing.
+        // It is nullable by construction, so no NullableType wrapper appears.
+        self::assertTrue($type->isIdentifiedBy(TypeIdentifier::MIXED));
         self::assertTrue($type->isNullable());
         self::assertSame(1, $typeExtractor->callCount);
     }

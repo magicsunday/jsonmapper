@@ -44,7 +44,15 @@ final class TypeResolver
     private const string CACHE_KEY_PREFIX = 'jsonmapper.property_type.' . self::CACHE_SCHEMA_VERSION . '.';
 
     /**
-     * @var BuiltinType<TypeIdentifier::STRING>
+     * The type assumed when a property declares none.
+     *
+     * mixed rather than string: a property without type information makes no claim about its
+     * value, so the mapper must not invent one. Defaulting to string meant only strings survived -
+     * an int, an array or an object was reported as a mismatch and discarded, and before the
+     * builtin strategy learned to refuse composites an array was written out as the literal
+     * 'Array'. mixed has no settype() equivalent, so the value passes through as it arrived.
+     *
+     * @var BuiltinType<TypeIdentifier::MIXED>
      */
     private BuiltinType $defaultType;
 
@@ -52,7 +60,7 @@ final class TypeResolver
         private readonly PropertyInfoExtractorInterface $extractor,
         private readonly ?CacheItemPoolInterface $cache = null,
     ) {
-        $this->defaultType = new BuiltinType(TypeIdentifier::STRING);
+        $this->defaultType = new BuiltinType(TypeIdentifier::MIXED);
     }
 
     /**
