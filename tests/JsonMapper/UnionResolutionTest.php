@@ -121,6 +121,9 @@ final class UnionResolutionTest extends TestCase
     #[DataProvider('errorCollectionProvider')]
     public function itKeepsAnIntegerAsAnIntegerRegardlessOfErrorCollection(bool $collect): void
     {
+        // The positive control for the int member. Deliberately NOT a discriminator: a mapper that
+        // simply takes the first candidate produces 42 here too. It guards against a fix that
+        // rejects everything.
         $config = JsonMapperConfiguration::lenient()->withErrorCollection($collect);
 
         $result = $this->getJsonMapper(config: $config)->map(
@@ -157,6 +160,8 @@ final class UnionResolutionTest extends TestCase
     #[Test]
     public function itRecordsExactlyOneErrorWhenNoCandidateMatches(): void
     {
+        // Pins the trimming: evaluating candidates records per member, so without the trim the
+        // caller would see one error per union member instead of one for the union.
         $result = $this->getJsonMapper()->mapWithReport(
             ['value' => ['nested' => true]],
             UnionScalarHolder::class,

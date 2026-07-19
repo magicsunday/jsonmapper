@@ -31,6 +31,14 @@ final class BuiltinCoercionHolder
     public bool $flag = false;
 
     /**
+     * Seeded the other way round on purpose. A bool has only two values, so a row expecting false
+     * cannot discriminate against a property that already defaults to false - "coerced to false"
+     * and "rejected, left untouched" would be the same observation. Rows expecting false use this
+     * property, rows expecting true use the one above.
+     */
+    public bool $flagSeededTrue = true;
+
+    /**
      * Deliberately declared without an element-type annotation. Naming an element type would make
      * this a CollectionType, which a different strategy resolves - the object-to-array cast would
      * then never reach the builtin strategy and the test asserting it would be vacuous.

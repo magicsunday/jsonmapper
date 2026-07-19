@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\Test\JsonMapper;
 
 use MagicSunday\Test\Classes\BuiltinCoercionHolder;
+use MagicSunday\Test\Classes\StringableValue;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -37,32 +38,36 @@ final class BuiltinCoercionTest extends TestCase
     public static function coercedValueProvider(): array
     {
         return [
-            'int to string'          => ['text', 42, '42'],
-            'float to string'        => ['text', 1.5, '1.5'],
-            'bool true to string'    => ['text', true, '1'],
-            'bool false to string'   => ['text', false, ''],
-            'numeric to int'         => ['number', '42', 42],
-            'bool true to int'       => ['number', true, 1],
-            'bool false to int'      => ['number', false, 0],
-            'float truncates to int' => ['number', 3.9, 3],
-            'non numeric to int'     => ['number', 'abc', 0],
-            'int to float'           => ['decimal', 3, 3.0],
-            'numeric to float'       => ['decimal', '2.5', 2.5],
-            'bool to float'          => ['decimal', true, 1.0],
-            'non numeric to float'   => ['decimal', 'abc', 0.0],
-            'literal true'           => ['flag', 'true', true],
-            'literal false'          => ['flag', 'false', false],
-            'numeric string zero'    => ['flag', '0', false],
-            'non empty to bool'      => ['flag', 'yes', true],
-            'int to bool'            => ['flag', 5, true],
-            'int zero to bool'       => ['flag', 0, false],
-            'float zero to bool'     => ['flag', 0.0, false],
+            'int to string'           => ['text', 42, '42'],
+            'float to string'         => ['text', 1.5, '1.5'],
+            'bool true to string'     => ['text', true, '1'],
+            'bool false to string'    => ['text', false, ''],
+            'numeric to int'          => ['number', '42', 42],
+            'bool true to int'        => ['number', true, 1],
+            'bool false to int'       => ['number', false, 0],
+            'float truncates to int'  => ['number', 3.9, 3],
+            'non numeric to int'      => ['number', 'abc', 0],
+            'int to float'            => ['decimal', 3, 3.0],
+            'numeric to float'        => ['decimal', '2.5', 2.5],
+            'bool to float'           => ['decimal', true, 1.0],
+            'non numeric to float'    => ['decimal', 'abc', 0.0],
+            'literal true'            => ['flag', 'true', true],
+            'padded mixed case true'  => ['flag', '  TRUE  ', true],
+            'non empty to bool'       => ['flag', 'yes', true],
+            'int one to bool'         => ['flag', 1, true],
+            'int to bool'             => ['flag', 5, true],
+            'literal false'           => ['flagSeededTrue', 'false', false],
+            'padded mixed case false' => ['flagSeededTrue', '  FALSE  ', false],
+            'numeric string zero'     => ['flagSeededTrue', '0', false],
+            'int zero to bool'        => ['flagSeededTrue', 0, false],
+            'float zero to bool'      => ['flagSeededTrue', 0.0, false],
         ];
     }
 
     /**
-     * Payloads with no meaningful cast. settype() would not refuse them - it would write the
-     * literal 'Array' and emit a PHP warning - so they are rejected instead.
+     * Payloads with no meaningful cast. settype() would not refuse them: the string target writes
+     * the literal 'Array' and warns, the bool/int/float targets silently yield true/1/1.0. Both
+     * kinds are rejected instead of handed to the caller.
      *
      * @return array<string, array{string, array<int, string>|object}>
      */
@@ -139,6 +144,9 @@ final class BuiltinCoercionTest extends TestCase
             'The object property must have been written.',
         );
 
+        // isInitialized() alone would pass for any written value, including a wrong one.
+        self::assertEquals((object) ['a' => 'one'], $holder->thing);
+
         // Lenient mode reports the coercion it performed, exactly as it does for the scalar pairs
         // above - what matters here is that the value arrives rather than being discarded.
         self::assertSame(1, $result->getReport()->getErrorCount());
@@ -167,6 +175,25 @@ final class BuiltinCoercionTest extends TestCase
             (new ReflectionProperty($holder, $property))->getValue($holder),
             'A value with no meaningful cast must leave the property untouched.',
         );
+        self::assertSame(1, $result->getReport()->getErrorCount());
+    }
+
+    #[Test]
+    public function itRejectsAStringableObjectOnAStringProperty(): void
+    {
+        // The one composite that settype() would convert meaningfully: it honours __toString() and
+        // would yield 'hi'. The rejection is by target type, so this is swept up with the rest -
+        // a deliberate trade, pinned here because nothing else records it. Only reachable when
+        // mapping a PHP array; a json_decode() payload cannot carry a Stringable.
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['text' => new StringableValue()],
+            BuiltinCoercionHolder::class,
+        );
+
+        $holder = $result->getValue();
+
+        self::assertInstanceOf(BuiltinCoercionHolder::class, $holder);
+        self::assertSame('sentinel', $holder->text, 'The Stringable is rejected, not stringified.');
         self::assertSame(1, $result->getReport()->getErrorCount());
     }
 }
