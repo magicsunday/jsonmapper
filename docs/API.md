@@ -50,6 +50,12 @@ var_dump($mapper::class);
 
 ### Methods
 
+> The built-in `Value\Strategy\*` classes are `@internal`: they are the conversion chain's
+> implementation, not an extension point, and there is no public way to register one. A
+> `TypeHandlerInterface` added through `addTypeHandler()` is consulted ahead of the built-in
+> *deciding* strategies (after null handling), which is the supported way to change how a type
+> converts.
+
 | Method | Description |
 | --- | --- |
 | `addTypeHandler(TypeHandlerInterface $handler): self` | Registers a reusable conversion strategy for a specific type. |

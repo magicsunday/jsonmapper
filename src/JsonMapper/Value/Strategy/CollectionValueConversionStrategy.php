@@ -30,6 +30,9 @@ use function is_a;
 
 /**
  * Converts collection values using the configured factory.
+ *
+ * @internal This is not a public extension point. Register conversions through
+ *           {@see \MagicSunday\JsonMapper\Value\TypeHandlerInterface} via JsonMapper::addTypeHandler().
  */
 final readonly class CollectionValueConversionStrategy implements ValueConversionStrategyInterface
 {

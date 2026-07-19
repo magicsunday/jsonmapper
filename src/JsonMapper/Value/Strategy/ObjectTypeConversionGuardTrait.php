@@ -18,6 +18,9 @@ use Symfony\Component\TypeInfo\Type\ObjectType;
 
 /**
  * Provides reusable guards for strategies operating on object types.
+ *
+ * @internal This is not a public extension point. Register conversions through
+ *           {@see \MagicSunday\JsonMapper\Value\TypeHandlerInterface} via JsonMapper::addTypeHandler().
  */
 trait ObjectTypeConversionGuardTrait
 {

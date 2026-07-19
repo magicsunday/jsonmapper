@@ -290,4 +290,18 @@ final class ClassResolverAllowlistTest extends TestCase
 
         $resolver->add(Person::class, static fn (): string => VipPerson::class, ['NotAClass']);
     }
+
+    #[Test]
+    public function itAcceptsAPlainClassStringTarget(): void
+    {
+        // The constructor $classMap already accepts a static SdkFoo => Foo mapping; add() now does
+        // too, rather than forcing a trivial closure wrapper. resolve() has always handled both.
+        $resolver = new ClassResolver();
+        $resolver->add(Person::class, VipPerson::class);
+
+        self::assertSame(
+            VipPerson::class,
+            $resolver->resolve(Person::class, [], new MappingContext([])),
+        );
+    }
 }

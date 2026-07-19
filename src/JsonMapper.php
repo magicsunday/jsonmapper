@@ -277,12 +277,12 @@ final readonly class JsonMapper
      * $allowedTargets drops the list the earlier registration carried, since a list written for one
      * closure must not outlive it. Registration order therefore decides what is enforced.
      *
-     * @param class-string                                                            $className      Fully qualified class name that should be resolved dynamically.
-     * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $closure        Closure that returns the concrete class to instantiate for the provided value.
-     * @param list<string>|null                                                       $allowedTargets Classes the closure may return; null leaves it unrestricted.
+     * @param class-string                                                                         $className      Fully qualified class name that should be resolved dynamically.
+     * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string|class-string $closure        Closure returning the concrete class for the value, or a plain class-string to map to unconditionally.
+     * @param list<string>|null                                                                    $allowedTargets Classes the closure may return; null leaves it unrestricted. Only meaningful for a closure - a static class-string target has no payload-derived choice to constrain.
      *
      * @phpstan-param class-string $className
-     * @phpstan-param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $closure
+     * @phpstan-param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string|class-string $closure
      *
      * @return JsonMapper Returns the mapper instance for fluent configuration.
      *
@@ -290,7 +290,7 @@ final readonly class JsonMapper
      */
     public function addCustomClassMapEntry(
         string $className,
-        Closure $closure,
+        Closure|string $closure,
         ?array $allowedTargets = null,
     ): JsonMapper {
         $this->classResolver->add($className, $closure, $allowedTargets);

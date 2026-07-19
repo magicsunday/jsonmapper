@@ -16,6 +16,9 @@ use Symfony\Component\TypeInfo\Type;
 
 /**
  * Contract for value conversion strategies.
+ *
+ * @internal This is not a public extension point. Register conversions through
+ *           {@see \MagicSunday\JsonMapper\Value\TypeHandlerInterface} via JsonMapper::addTypeHandler().
  */
 interface ValueConversionStrategyInterface
 {

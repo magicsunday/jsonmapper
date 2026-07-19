@@ -17,6 +17,9 @@ use Symfony\Component\TypeInfo\Type;
 
 /**
  * Decides what a null payload means for the declared type.
+ *
+ * @internal This is not a public extension point. Register conversions through
+ *           {@see \MagicSunday\JsonMapper\Value\TypeHandlerInterface} via JsonMapper::addTypeHandler().
  */
 final class NullValueConversionStrategy implements ValueConversionStrategyInterface
 {

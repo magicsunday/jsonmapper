@@ -30,6 +30,9 @@ use function sprintf;
 
 /**
  * Converts ISO-8601 strings and timestamps into date/time value objects.
+ *
+ * @internal This is not a public extension point. Register conversions through
+ *           {@see \MagicSunday\JsonMapper\Value\TypeHandlerInterface} via JsonMapper::addTypeHandler().
  */
 final class DateTimeValueConversionStrategy implements ValueConversionStrategyInterface
 {

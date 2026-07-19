@@ -65,20 +65,34 @@ final class ClassResolver
     /**
      * Adds a custom resolution rule.
      *
-     * @param class-string                                                            $className      Base class or interface the resolver handles.
-     * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $resolver       Callback returning a concrete class based on the JSON payload and optional mapping context.
-     * @param list<string>|null                                                       $allowedTargets Classes the resolver may return. Null leaves it
-     *                                                                                                unrestricted, which is the default for backwards
-     *                                                                                                compatibility - see the note below.
+     * The target may be a resolver closure or a plain class-string, matching what the constructor
+     * $classMap already accepts - a static mapping (SdkFoo::class => Foo::class) could be given at
+     * construction but not at runtime without wrapping it in a trivial closure. resolve() already
+     * handles both.
+     *
+     * @param class-string                                                                         $className      Base class or interface the resolver handles.
+     * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string|class-string $resolver       Resolver closure, or a concrete class-string to map to unconditionally.
+     * @param list<string>|null                                                                    $allowedTargets Classes the resolver may return. Null leaves it
+     *                                                                                                             unrestricted, which is the default for backwards
+     *                                                                                                             compatibility - see the note below. Only
+     *                                                                                                             meaningful for a closure: a static string target
+     *                                                                                                             is returned directly, with no payload choice to
+     *                                                                                                             constrain, so a list beside one is inert.
      *
      * @phpstan-param class-string $className
-     * @phpstan-param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $resolver
+     * @phpstan-param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string|class-string $resolver
      *
-     * @throws DomainException When the base class or a listed target does not exist.
+     * @throws DomainException When the base class, the target, or a listed target does not exist.
      */
-    public function add(string $className, Closure $resolver, ?array $allowedTargets = null): void
+    public function add(string $className, Closure|string $resolver, ?array $allowedTargets = null): void
     {
         $this->assertClassString($className);
+
+        // A plain class-string target is validated on the way in, like the constructor does, so a
+        // typo fails at registration rather than at the first payload.
+        if (is_string($resolver)) {
+            $this->assertClassString($resolver);
+        }
 
         // Everything is validated BEFORE anything is stored, so a rejected list cannot leave the
         // resolver registered without it. Storing first made this fail OPEN: a typo in the list

@@ -16,6 +16,9 @@ use Symfony\Component\TypeInfo\Type;
 
 /**
  * Fallback strategy returning the value unchanged.
+ *
+ * @internal This is not a public extension point. Register conversions through
+ *           {@see \MagicSunday\JsonMapper\Value\TypeHandlerInterface} via JsonMapper::addTypeHandler().
  */
 final class PassthroughValueConversionStrategy implements ValueConversionStrategyInterface
 {
