@@ -23,7 +23,13 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-use function method_exists;
+use function array_map;
+use function array_unique;
+use function array_values;
+use function basename;
+use function glob;
+use function is_subclass_of;
+use function sort;
 
 /**
  * A mapping message embeds the internal class name and the property name the payload supplied, so
@@ -63,54 +69,124 @@ final class StructuredExceptionDataTest extends TestCase
      * Every mapping exception, and the accessors a consumer needs to rebuild the failure without
      * touching getMessage().
      *
-     * @return array<string, array{MappingException, list<string>}>
+     * Each accessor is given as a named closure rather than a method name: calling it is what
+     * proves a consumer can reach the value, and it keeps the call statically checkable.
+     *
+     * @return array<string, array{MappingException, array<string, callable(): string>}>
      */
     public static function structuredAccessorProvider(): array
     {
+        $missingArgument = new MissingConstructorArgumentException('$', 'name', Person::class);
+        $readonly        = new ReadonlyPropertyException('$', 'id', Person::class);
+        $missing         = new MissingPropertyException('$', 'name', Person::class);
+        $unknown         = new UnknownPropertyException('$', 'name', Person::class);
+        $mismatch        = new TypeMismatchException('$', 'int', 'string');
+        $collection      = new CollectionMappingException('$', 'string');
+
         return [
             'missing constructor argument' => [
-                new MissingConstructorArgumentException('$', 'name', Person::class),
-                ['getPath', 'getArgumentName', 'getClassName'],
+                $missingArgument,
+                [
+                    'getPath'         => $missingArgument->getPath(...),
+                    'getArgumentName' => $missingArgument->getArgumentName(...),
+                    'getClassName'    => $missingArgument->getClassName(...),
+                ],
             ],
             'readonly property' => [
-                new ReadonlyPropertyException('$', 'id', Person::class),
-                ['getPath', 'getPropertyName', 'getClassName'],
+                $readonly,
+                [
+                    'getPath'         => $readonly->getPath(...),
+                    'getPropertyName' => $readonly->getPropertyName(...),
+                    'getClassName'    => $readonly->getClassName(...),
+                ],
             ],
             'missing property' => [
-                new MissingPropertyException('$', 'name', Person::class),
-                ['getPath', 'getPropertyName', 'getClassName'],
+                $missing,
+                [
+                    'getPath'         => $missing->getPath(...),
+                    'getPropertyName' => $missing->getPropertyName(...),
+                    'getClassName'    => $missing->getClassName(...),
+                ],
             ],
             'unknown property' => [
-                new UnknownPropertyException('$', 'name', Person::class),
-                ['getPath', 'getPropertyName', 'getClassName'],
+                $unknown,
+                [
+                    'getPath'         => $unknown->getPath(...),
+                    'getPropertyName' => $unknown->getPropertyName(...),
+                    'getClassName'    => $unknown->getClassName(...),
+                ],
             ],
             'type mismatch' => [
-                new TypeMismatchException('$', 'int', 'string'),
-                ['getPath', 'getExpectedType', 'getActualType'],
+                $mismatch,
+                [
+                    'getPath'         => $mismatch->getPath(...),
+                    'getExpectedType' => $mismatch->getExpectedType(...),
+                    'getActualType'   => $mismatch->getActualType(...),
+                ],
             ],
             'collection mapping' => [
-                new CollectionMappingException('$', 'string'),
-                ['getPath', 'getActualType'],
+                $collection,
+                [
+                    'getPath'       => $collection->getPath(...),
+                    'getActualType' => $collection->getActualType(...),
+                ],
             ],
         ];
     }
 
     /**
-     * @param MappingException $exception Exception under inspection
-     * @param list<string>     $accessors Methods a consumer must be able to call
+     * @param MappingException                  $exception Exception under inspection
+     * @param array<string, callable(): string> $accessors Accessors a consumer must be able to use
      */
     #[Test]
     #[DataProvider('structuredAccessorProvider')]
     public function itLetsEveryFailureBeRebuiltFromAccessors(MappingException $exception, array $accessors): void
     {
-        // Asserted as an inventory rather than one test per exception: the guarantee the docs give
-        // is about the whole hierarchy, so a new exception type added without accessors is exactly
-        // what should fail here.
-        foreach ($accessors as $accessor) {
-            self::assertTrue(
-                method_exists($exception, $accessor),
-                $exception::class . ' must expose ' . $accessor . '() so a client message needs no parsing.',
+        foreach ($accessors as $name => $accessor) {
+            // Called, not merely checked for existence: an accessor returning an empty string
+            // would satisfy method_exists() while leaving the consumer nothing to build from.
+            self::assertNotSame(
+                '',
+                $accessor(),
+                $exception::class . '::' . $name . '() must carry a value a client message can use.',
             );
         }
+    }
+
+    #[Test]
+    public function itCoversEveryMappingExceptionInTheHierarchy(): void
+    {
+        // The provider above is hand-written, so on its own it asserts only what someone
+        // remembered to type: a seventh exception added tomorrow with everything in getMessage()
+        // and no accessors would add no row and the suite would stay green, while AGENTS.md claims
+        // this test is what catches that. Derived from the directory, the claim becomes true.
+        $declared = [];
+
+        $files = glob(__DIR__ . '/../../../src/JsonMapper/Exception/*.php');
+
+        self::assertNotFalse($files, 'The exception directory must be readable.');
+
+        foreach ($files as $file) {
+            $candidate = 'MagicSunday\\JsonMapper\\Exception\\' . basename($file, '.php');
+
+            if (is_subclass_of($candidate, MappingException::class)) {
+                $declared[] = $candidate;
+            }
+        }
+
+        $covered = array_map(
+            static fn (array $row): string => $row[0]::class,
+            self::structuredAccessorProvider(),
+        );
+
+        sort($declared);
+        $covered = array_values(array_unique($covered));
+        sort($covered);
+
+        self::assertSame(
+            $declared,
+            $covered,
+            'Every MappingException subclass needs a row here, or the documented guarantee lapses.',
+        );
     }
 }

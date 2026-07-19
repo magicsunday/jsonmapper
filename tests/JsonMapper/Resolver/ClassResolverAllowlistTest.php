@@ -26,7 +26,6 @@ use Stringable;
 
 use function is_array;
 use function is_string;
-use function preg_quote;
 
 /**
  * A discriminator closure decides which class gets instantiated, and its input is the payload. A
@@ -81,10 +80,27 @@ final class ClassResolverAllowlistTest extends TestCase
             [VipPerson::class],
         );
 
-        $this->expectException(DomainException::class);
-        $this->expectExceptionMessageMatches('/' . preg_quote(Base::class, '/') . '/');
+        try {
+            $resolver->resolve(Person::class, ['__type' => Base::class], new MappingContext([]));
 
-        $resolver->resolve(Person::class, ['__type' => Base::class], new MappingContext([]));
+            self::fail('A class the allowlist does not name must be refused.');
+        } catch (DomainException $exception) {
+            // The refused name must NOT appear. A resolver's return value can be a raw payload
+            // string - that is the hazard the allowlist addresses - and this exception escapes past
+            // the mapping report into whatever generic handler the consumer wrote, so echoing it
+            // would put an attacker-chosen string into a response body. Verified with an XSS-shaped
+            // value rather than a class name, because that is what the reflection would carry.
+            self::assertStringNotContainsString(Base::class, $exception->getMessage());
+            self::assertStringContainsString(Person::class, $exception->getMessage(), 'The entry is still identifiable.');
+        }
+
+        try {
+            $resolver->resolve(Person::class, ['__type' => '<img src=x onerror=alert(1)>'], new MappingContext([]));
+
+            self::fail('A payload-supplied name must be refused too.');
+        } catch (DomainException $exception) {
+            self::assertStringNotContainsString('<img', $exception->getMessage(), 'No payload string is reflected.');
+        }
     }
 
     #[Test]

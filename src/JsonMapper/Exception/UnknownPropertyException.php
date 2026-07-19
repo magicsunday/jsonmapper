@@ -38,8 +38,8 @@ final class UnknownPropertyException extends MappingException
     /**
      * Returns the unknown property name as provided by the JSON payload.
      *
-     * Callers can expose the value in validation errors so clients can remove
-     * unsupported fields.
+     * Callers can expose the value in validation errors so clients can remove unsupported fields.
+     * It came from the payload, so escape it for whatever sink it reaches and bound its length.
      *
      * @return string Property name that could not be mapped.
      */
@@ -51,7 +51,8 @@ final class UnknownPropertyException extends MappingException
     /**
      * Provides the class for which the property is unknown.
      *
-     * Consumers may use this to highlight which DTO rejected the incoming property.
+     * Internal information: useful for logs and for deciding what to say, not for saying it. A
+     * response body naming the DTO discloses how the application is laid out.
      *
      * @return class-string Fully qualified class name without the referenced property.
      */

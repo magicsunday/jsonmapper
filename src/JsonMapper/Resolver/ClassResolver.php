@@ -239,11 +239,15 @@ final class ClassResolver
             return;
         }
 
+        // The refused name is NOT echoed. A resolver's return value can be a raw payload string -
+        // that is the whole hazard the allowlist addresses - and this message escapes as a
+        // DomainException, outside the mapping report, into whatever generic handler the consumer
+        // wrote. Reflecting it there would put an attacker-chosen string into a response body. The
+        // base class is enough to find the entry; the payload is in the request log.
         throw new DomainException(
             sprintf(
-                'Class resolver for %s returned %s, which its allowed-target list does not permit.',
+                'Class resolver for %s returned a class its allowed-target list does not permit.',
                 $className,
-                $resolved,
             ),
         );
     }
