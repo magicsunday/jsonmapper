@@ -70,6 +70,52 @@ foreach ($result->getReport()->getErrors() as $error) {
 `getErrors()` returns `MappingError` records, not exceptions: each carries the path, the message and
 the originating exception.
 
+## Security: do not forward a mapping message to a client
+
+A mapping message is written for a developer reading a log. It embeds two things that do not belong
+in a response body:
+
+- **Your internal class names.** `Unknown property $.foo on App\Domain\Billing\InvoiceLine.` tells
+  a client how your DTOs are laid out and named.
+- **A string the payload chose.** The path is built from the payload's own keys, so a message
+  reflects an attacker-supplied value back verbatim. Rendered unescaped, that is a cross-site
+  scripting vector in the consumer's UI, not in the mapper.
+
+The payload's *values* are never included — only `get_debug_type()` of them — so a mapping message
+cannot leak the data itself. That is the one thing it is safe about.
+
+Build client-facing text from the structured accessors instead, and escape what you emit:
+
+```php
+foreach ($result->getReport()->getErrors() as $error) {
+    $exception = $error->getException();
+
+    $clientMessage = match (true) {
+        $exception instanceof UnknownPropertyException  => 'Unsupported field: ' . $exception->getPropertyName(),
+        $exception instanceof MissingPropertyException  => 'Required field missing: ' . $exception->getPropertyName(),
+        $exception instanceof TypeMismatchException     => 'Expected ' . $exception->getExpectedType(),
+        default                                         => 'Invalid value',
+    };
+
+    // The property name still came from the payload. Escape it for wherever it is going.
+    $response[] = ['field' => $error->getPath(), 'message' => $clientMessage];
+}
+```
+
+Every mapping exception exposes what it knows through accessors, so nothing here needs the message
+string parsed:
+
+| Exception | Accessors beyond `getPath()` |
+|-----------|------------------------------|
+| `UnknownPropertyException` | `getPropertyName()`, `getClassName()` |
+| `MissingPropertyException` | `getPropertyName()`, `getClassName()` |
+| `MissingConstructorArgumentException` | `getArgumentName()`, `getClassName()` |
+| `ReadonlyPropertyException` | `getPropertyName()`, `getClassName()` |
+| `TypeMismatchException` | `getExpectedType()`, `getActualType()` |
+| `CollectionMappingException` | `getActualType()` |
+
+`getClassName()` is there for logs and for deciding what to say — not for saying it.
+
 A rejected value for an **object** target never reaches its property. The property keeps whatever it
 had - its default, or nothing at all if it was never initialised - and the failure is in the report
 instead. For a collection, only the offending element is dropped; its valid siblings survive, and
