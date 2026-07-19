@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper\Value;
 
+use DateTime;
 use LogicException;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
@@ -22,6 +23,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\BuiltinType;
+use Symfony\Component\TypeInfo\Type\ObjectType;
 use Symfony\Component\TypeInfo\TypeIdentifier;
 
 /**
@@ -40,26 +42,28 @@ final class StrategyDirectInvocationTest extends TestCase
     {
         $strategy = new BuiltinValueConversionStrategy();
 
+        // The message pins THIS guard: TypeMismatchException is thrown from several sites in the
+        // strategy, and a future refactor routing null down a different one would otherwise keep
+        // this test green while covering the wrong branch. Matches() not Message() - the latter is
+        // deprecated across the PHPUnit majors the constraint spans.
         $this->expectException(TypeMismatchException::class);
+        $this->expectExceptionMessageMatches('/expected int, got null/');
 
         $strategy->convert(new BuiltinType(TypeIdentifier::INT), null, new MappingContext([]));
     }
 
     #[Test]
-    public function theObjectGuardHandsBackAValueForANonObjectType(): void
+    public function theObjectGuardRefusesANullForANonNullableType(): void
     {
-        // The extractObjectType-is-null branch of the shared trait: reached only by a direct call
-        // that skips supports(), which would have returned false for a builtin type. It returns the
-        // value untouched rather than dereferencing a null object type.
+        // The object-trait counterpart of the builtin guard above, and the one the first round of
+        // tests missed. Through the chain a null is claimed by NullValueConversionStrategy first;
+        // a direct call reaches guardNullableValue, which must keep a null off a non-nullable
+        // object target rather than let convertObjectValue return it.
         $strategy = new DateTimeValueConversionStrategy();
 
-        $result = $strategy->convert(
-            new BuiltinType(TypeIdentifier::INT),
-            'left-untouched',
-            new MappingContext([]),
-        );
+        $this->expectException(TypeMismatchException::class);
 
-        self::assertSame('left-untouched', $result);
+        $strategy->convert(new ObjectType(DateTime::class), null, new MappingContext([]));
     }
 
     #[Test]
