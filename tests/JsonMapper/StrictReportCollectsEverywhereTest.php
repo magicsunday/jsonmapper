@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\Test\JsonMapper;
 
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
+use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Context\MappingError;
 use MagicSunday\JsonMapper\Exception\CollectionMappingException;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
@@ -255,6 +256,34 @@ final class StrictReportCollectsEverywhereTest extends TestCase
             'The last rejected candidate is what gets reported.',
         );
         self::assertSame(1, $result->getReport()->getErrorCount(), 'Rejected trials are trimmed away.');
+    }
+
+    #[Test]
+    public function itRecordsAnAbortedFailureExactlyOnceInTheSharedContext(): void
+    {
+        // The abort path records too, and it used to record twice: once at the site that raised
+        // and once at the catch that handles it. Invisible through map()'s own return, since the
+        // exception leaves and nobody reads the report - but a caller who passes its OWN context
+        // in, catches, and inspects it sees both. That is a supported way to use map(), and
+        // AGENTS.md is explicit that a rejected value is recorded exactly once.
+        $configuration = JsonMapperConfiguration::strict();
+        $context       = new MappingContext(['values' => 'not-a-collection'], $configuration->toOptions());
+
+        try {
+            $this->getJsonMapper(config: $configuration)->map(
+                ['values' => 'not-a-collection'],
+                IntListHolder::class,
+                null,
+                $context,
+                $configuration,
+            );
+
+            self::fail('Strict map() must abort on this payload.');
+        } catch (CollectionMappingException) {
+            // Expected - the assertion is about what the context holds afterwards.
+        }
+
+        self::assertSame(1, $context->getErrorCount(), 'One failure, one record, even when aborting.');
     }
 
     #[Test]

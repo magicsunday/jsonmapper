@@ -1004,8 +1004,6 @@ final readonly class JsonMapper
             get_debug_type($json),
         );
 
-        $context->recordException($exception);
-
         // A guard, not a path reached in practice: resolveUnionCandidate() assigns $lastException
         // for every rejected non-null candidate, so reaching here needs a union whose members are
         // all null types - a shape Symfony's TypeInfo does not produce. It stays because the
@@ -1017,6 +1015,8 @@ final readonly class JsonMapper
         if ($context->shouldAbortOnError()) {
             throw $exception;
         }
+
+        $context->recordException($exception);
 
         return $json;
     }
