@@ -56,7 +56,11 @@ final readonly class CollectionValueConversionStrategy implements ValueConversio
      */
     public function supports(Type $type, mixed $value, MappingContext $context): bool
     {
-        return ($type instanceof CollectionType) || ($this->resolveFromClassAnnotation($type) instanceof CollectionType);
+        // Deliberately answers on the class shape alone, without resolving the annotation. A
+        // predicate that raised for a container declaring no element type would decide the
+        // question by throwing, and no strategy registered after this one could ever be asked.
+        // Whether the container can actually be filled is a conversion concern.
+        return ($type instanceof CollectionType) || $this->isCollectionClass($type);
     }
 
     /**
@@ -71,8 +75,6 @@ final readonly class CollectionValueConversionStrategy implements ValueConversio
     public function convert(Type $type, mixed $value, MappingContext $context): mixed
     {
         $collectionType = $type instanceof CollectionType ? $type : $this->resolveFromClassAnnotation($type);
-
-        assert($collectionType instanceof CollectionType);
 
         return $this->collectionFactory->fromCollectionType($collectionType, $value, $context);
     }
@@ -92,23 +94,17 @@ final readonly class CollectionValueConversionStrategy implements ValueConversio
      *
      * @param Type $type Type metadata describing the target property.
      *
-     * @return CollectionType<GenericType<ObjectType<mixed>>>|null Collection type naming the declared class, or null when the type is not a collection class
+     * @return CollectionType<GenericType<ObjectType<mixed>>> Collection type naming the declared class
      */
-    private function resolveFromClassAnnotation(Type $type): ?CollectionType
+    private function resolveFromClassAnnotation(Type $type): CollectionType
     {
-        if (!$type instanceof ObjectType) {
-            return null;
-        }
+        assert($type instanceof ObjectType);
 
         $className = $type->getClassName();
 
-        if (($className === '') || !class_exists($className)) {
-            return null;
-        }
-
-        if (!$this->isCollectionContainer($className)) {
-            return null;
-        }
+        // supports() established this already; repeating it costs a tenth of a microsecond and
+        // keeps the class-string guarantee at the point of use rather than across two calls.
+        assert(class_exists($className));
 
         $collectionType = $this->buildCollectionType($className);
 
@@ -141,12 +137,22 @@ final readonly class CollectionValueConversionStrategy implements ValueConversio
      * A collection wrapper holds its contents in the container it inherits from and declares no
      * state of its own, so its own properties are the discriminator.
      *
-     * @param class-string $className Class backing the target type.
+     * @param Type $type Type metadata describing the target property.
      *
-     * @return bool TRUE when the class is a traversable container without own properties
+     * @return bool TRUE when the type names a traversable container without own properties
      */
-    private function isCollectionContainer(string $className): bool
+    private function isCollectionClass(Type $type): bool
     {
+        if (!$type instanceof ObjectType) {
+            return false;
+        }
+
+        $className = $type->getClassName();
+
+        if (($className === '') || !class_exists($className)) {
+            return false;
+        }
+
         if (!is_a($className, Traversable::class, true) && !is_a($className, ArrayAccess::class, true)) {
             return false;
         }

@@ -89,6 +89,10 @@ final class Article
 }
 ```
 
+The generic docblock is optional here — `public CommentCollection $comments;` maps the same way,
+because `CommentCollection` already declares its element type through its own `@extends`
+annotation. Name it on the property when you want to narrow it further.
+
 ```php
 require __DIR__ . '/vendor/autoload.php';
 
