@@ -139,6 +139,29 @@ final class TagBag implements IteratorAggregate
 
 Extend `ArrayObject` for now. Tracked in issue 97.
 
-Test coverage: `tests/JsonMapper/DocsNestedCollectionsTest.php` and
-`tests/JsonMapper/SinglyNestedCollectionTest.php`.
+## Union and nullable element types
+
+An element type may be a union or nullable. Each element is resolved against it on its own, so a
+list may legitimately mix the members:
+
+```php
+final class Feed
+{
+    /**
+     * @var array<int, Article|null>
+     */
+    public array $entries = [];
+}
+```
+
+`[{"title": "Hello"}, null]` yields one `Article` and one `null`. The same applies to a union of
+two concrete types — every element picks whichever member accepts it.
+
+A union or nullable element type is the only case where a `null` element survives. An element type
+that does not admit null rejects one: the element is dropped and the failure reported, rather than
+being turned into an object built from defaults.
+
+Test coverage: `tests/JsonMapper/DocsNestedCollectionsTest.php`,
+`tests/JsonMapper/SinglyNestedCollectionTest.php` and
+`tests/JsonMapper/UnionCollectionElementTest.php`.
 
