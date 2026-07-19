@@ -236,7 +236,7 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
             $exception = new TypeMismatchException($context->getPath(), $identifier->value, 'null');
             $context->recordException($exception);
 
-            if ($context->isStrictMode()) {
+            if ($context->shouldAbortOnError()) {
                 throw $exception;
             }
 

@@ -453,9 +453,10 @@ final readonly class JsonMapper
                 );
             }
 
-            $collection = $this->collectionFactory->mapIterable($json, $collectionValueType, $context);
-
-            return $this->makeInstance($resolvedCollectionClassName, $collection);
+            return $this->wrapCollection(
+                $resolvedCollectionClassName,
+                $this->collectionFactory->mapIterable($json, $collectionValueType, $context),
+            );
         }
 
         if ($resolvedClassName === null) {
@@ -470,9 +471,10 @@ final readonly class JsonMapper
         $valueType = $collectionValueType ?? new ObjectType($resolvedClassName);
 
         if ($resolvedCollectionClassName !== null) {
-            $collection = $this->collectionFactory->mapIterable($json, $valueType, $context);
-
-            return $this->makeInstance($resolvedCollectionClassName, $collection);
+            return $this->wrapCollection(
+                $resolvedCollectionClassName,
+                $this->collectionFactory->mapIterable($json, $valueType, $context),
+            );
         }
 
         if ($this->isNumericIndexArray($json)) {
@@ -788,6 +790,28 @@ final readonly class JsonMapper
     }
 
     /**
+     * Instantiates the collection wrapper around the mapped elements.
+     *
+     * The elements are null when no collection was produced at all - a null payload that the
+     * configuration does not map to an empty collection. A wrapper's constructor takes an array
+     * and answers null with a native TypeError, which would escape error collection entirely, so
+     * the absence is passed on as an absence instead of being handed over as one.
+     *
+     * @param class-string                    $collectionClassName Fully qualified collection class to instantiate.
+     * @param array<array-key, mixed>|null    $elements            Mapped elements, or null when there was no collection.
+     *
+     * @return object|null Collection instance, or null when there was nothing to wrap.
+     */
+    private function wrapCollection(string $collectionClassName, ?array $elements): ?object
+    {
+        if ($elements === null) {
+            return null;
+        }
+
+        return $this->makeInstance($collectionClassName, $elements);
+    }
+
+    /**
      * Records a mapping exception and decides whether it should stop the mapping process.
      *
      * @param MappingException $exception Exception that occurred while mapping a property.
@@ -963,9 +987,14 @@ final readonly class JsonMapper
 
         $context->recordException($exception);
 
-        // Asked of the context, not the configuration - see handleMappingException(). A union
-        // matching no candidate is the last of the sites that could abort a run the caller asked
-        // to report on.
+        // A guard, not a path reached in practice: resolveUnionCandidate() assigns $lastException
+        // for every rejected non-null candidate, so reaching here needs a union whose members are
+        // all null types - a shape Symfony's TypeInfo does not produce. It stays because the
+        // invariant lives in another method and a future member kind could break it, but it is
+        // deliberately not claimed as covered.
+        //
+        // Asked of the context rather than the configuration for the reason given in
+        // handleMappingException(), so that it cannot become the one site that still aborts.
         if ($context->shouldAbortOnError()) {
             throw $exception;
         }

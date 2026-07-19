@@ -13,9 +13,11 @@ namespace MagicSunday\Test\JsonMapper;
 
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Context\MappingError;
+use MagicSunday\JsonMapper\Exception\MappingException;
 use MagicSunday\JsonMapper\Exception\MissingConstructorArgumentException;
 use MagicSunday\JsonMapper\Exception\MissingPropertyException;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
+use MagicSunday\JsonMapper\Report\MappingResult;
 use MagicSunday\Test\Classes\RequiredConstructorArgumentDto;
 use MagicSunday\Test\Classes\RequiredConstructorArgumentDtoHolder;
 use MagicSunday\Test\Classes\TwoRequiredPropertiesDto;
@@ -95,15 +97,22 @@ final class RootLevelErrorHandlingTest extends TestCase
             RequiredConstructorArgumentDtoHolder::class,
         );
 
-        // What both lanes must agree on is that the failure was RECORDED rather than raised, which
-        // is what this change is about. The record COUNTS deliberately are not compared: the root
-        // yields two (the missing property, then the unbuildable object) and the nested lane only
-        // one, because strict mode never validates the properties of a nested object at all. That
-        // asymmetry predates this change and is tracked in issue #105 - asserting equality here
-        // would pin the defect as intended behaviour, and asserting the current numbers would make
-        // this test fail the moment #105 is fixed for the right reason.
-        self::assertTrue($root->getReport()->hasErrors(), 'Root: recorded, not raised.');
-        self::assertTrue($nested->getReport()->hasErrors(), 'Nested: recorded, not raised.');
+        // Pinned on the exception KIND, not on how many records each lane produced. The counts
+        // genuinely differ - the root yields two (the missing property, then the unbuildable
+        // object), the nested lane one, because strict mode never validates a nested object's
+        // properties at all. That asymmetry predates this change and is tracked in issue #105:
+        // asserting equality would bless the defect, and asserting today's numbers would break
+        // this test the moment #105 is fixed for the right reason. The kind survives either way.
+        self::assertContains(
+            MissingConstructorArgumentException::class,
+            $this->exceptionClasses($root),
+            'Root: the unbuildable object is reported as such.',
+        );
+        self::assertContains(
+            MissingConstructorArgumentException::class,
+            $this->exceptionClasses($nested),
+            'Nested: the same failure kind, one level down.',
+        );
         // The mapped values differ for a documented reason, not an inconsistent one: the root IS
         // the object that could not be constructed, so there is nothing to hand back, whereas the
         // holder itself constructs fine and merely keeps its rejected property unassigned.
@@ -176,12 +185,12 @@ final class RootLevelErrorHandlingTest extends TestCase
 
         $errors = $result->getReport()->getErrors();
 
-        // Two records, and deliberately so: they are two different statements about the payload,
-        // not one failure counted twice. The first says the payload omitted a property strict mode
-        // requires; the second says the object could not be constructed as a consequence. Under
-        // the old throw-on-first behaviour the caller only ever saw the first and had to infer the
-        // rest. Lenient mode still produces the construction record alone.
-        self::assertCount(2, $errors, 'The strict-mode failures are recorded, not thrown.');
+        // The count is PROVISIONAL, not a contract: the second record duplicates the first, since
+        // construction fails for exactly the value strict validation already reported missing.
+        // AGENTS.md says a rejected value is recorded once, so this is a defect - tracked as issue
+        // #106 - and the assertion is here to make its resolution visible rather than to bless it.
+        // What the change under test really claims is the part below: recorded, not thrown.
+        self::assertCount(2, $errors, 'Provisional, pending issue #106: the second record duplicates the first.');
         self::assertInstanceOf(MissingPropertyException::class, $errors[0]->getException());
         self::assertInstanceOf(MissingConstructorArgumentException::class, $errors[1]->getException());
         self::assertSame('$.name', $errors[0]->getPath(), 'The record names the offending property.');
@@ -220,5 +229,30 @@ final class RootLevelErrorHandlingTest extends TestCase
         self::assertInstanceOf(RequiredConstructorArgumentDto::class, $dto);
         self::assertSame('accepted', $dto->name);
         self::assertFalse($result->getReport()->hasErrors());
+    }
+
+    /**
+     * Returns the class name of every recorded exception, for asserting on the KIND of failure
+     * without pinning how many records it happened to produce.
+     *
+     * @param MappingResult $result Result whose report is inspected
+     *
+     * @return list<string> Class names of the recorded exceptions, in record order
+     */
+    private function exceptionClasses(MappingResult $result): array
+    {
+        $classes = [];
+
+        foreach ($result->getReport()->getErrors() as $error) {
+            $exception = $error->getException();
+
+            // A record may carry a message without an exception. Skipped rather than represented
+            // by a placeholder, so that assertContains() cannot match one by accident.
+            if ($exception instanceof MappingException) {
+                $classes[] = $exception::class;
+            }
+        }
+
+        return $classes;
     }
 }

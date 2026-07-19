@@ -90,7 +90,13 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
                 throw $exception;
             }
 
-            return null;
+            // An empty collection, not null. Null is this method's "no collection was asked for"
+            // sentinel - the nullable branch above - and every consumer reads it that way: the
+            // property accessor rejects it for an array-typed property, and a wrapping collection
+            // class receives it as the constructor argument. Handing it back for a RECORDED
+            // failure therefore replaces a reported mapping error with a native one, which is
+            // precisely what a run that promised a report must never do.
+            return [];
         }
 
         $collection = [];
