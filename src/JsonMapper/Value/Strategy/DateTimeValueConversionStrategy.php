@@ -12,7 +12,6 @@ declare(strict_types=1);
 namespace MagicSunday\JsonMapper\Value\Strategy;
 
 use DateInterval;
-use DateTimeImmutable;
 use DateTimeInterface;
 use Exception;
 use MagicSunday\JsonMapper\Context\MappingContext;
@@ -20,13 +19,14 @@ use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\ObjectType;
 
+use function class_exists;
 use function get_debug_type;
 use function is_a;
 use function is_int;
 use function is_string;
 
 /**
- * Converts ISO-8601 strings into immutable date/time value objects.
+ * Converts ISO-8601 strings and timestamps into date/time value objects.
  */
 final class DateTimeValueConversionStrategy implements ValueConversionStrategyInterface
 {
@@ -51,11 +51,22 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
 
         $className = $objectType->getClassName();
 
-        return is_a($className, DateTimeImmutable::class, true) || is_a($className, DateInterval::class, true);
+        if (is_a($className, DateInterval::class, true)) {
+            return true;
+        }
+
+        // Any DateTimeInterface implementation, mutable included - convert() builds whatever class
+        // the property asks for. class_exists() is what keeps the interface itself out: it is
+        // false for an interface, and picking an implementation for a property typed
+        // DateTimeInterface would be the mapper deciding mutability on the caller's behalf.
+        return is_a($className, DateTimeInterface::class, true) && class_exists($className);
     }
 
     /**
      * Converts ISO-8601 strings and timestamps into the desired date/time object.
+     *
+     * The concrete class comes from the property, so a mutable DateTime stays mutable and an
+     * immutable one stays immutable - the caller's choice is not second-guessed.
      *
      * @param Type           $type    Type metadata describing the target property.
      * @param mixed          $value   Raw value coming from the input payload.
