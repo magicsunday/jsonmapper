@@ -551,13 +551,13 @@ final class JsonMapperErrorHandlingTest extends TestCase
     }
 
     /**
-     * @param int|float|bool|string|array<array-key, mixed>|null $payload  Value handed to the mapper.
-     * @param string                                             $expected Type the property must hold afterwards.
+     * @param int|float|bool|string|array<array-key, mixed>|object|null $payload  Value handed to the mapper.
+     * @param string                                                    $expected Type the property must hold afterwards.
      */
     #[Test]
     #[DataProvider('untypedPayloadProvider')]
     public function itPreservesEveryShapeOnAnUntypedProperty(
-        int|float|bool|string|array|null $payload,
+        int|float|bool|string|array|object|null $payload,
         string $expected,
     ): void {
         // An array reaching a string-typed fallback used to emit "Array to string conversion" and
@@ -577,7 +577,7 @@ final class JsonMapperErrorHandlingTest extends TestCase
     }
 
     /**
-     * @return array<string, array{int|float|bool|string|array<array-key, mixed>|null, string}>
+     * @return array<string, array{int|float|bool|string|array<array-key, mixed>|object|null, string}>
      */
     public static function untypedPayloadProvider(): array
     {
@@ -589,6 +589,10 @@ final class JsonMapperErrorHandlingTest extends TestCase
             'bool'              => [true, 'bool'],
             'string'            => ['plain', 'string'],
             'null'              => [null, 'null'],
+            // The shape the issue actually names: json_decode() without associative mode hands
+            // nested objects over as stdClass, so this is the everyday payload for an untyped
+            // property - and the one a provider of scalars and arrays never reaches.
+            'object' => [(object) ['a' => 1], 'stdClass'],
         ];
     }
 
