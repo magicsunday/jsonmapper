@@ -17,7 +17,9 @@ use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\Test\Fixtures\Docs\ErrorHandling\Article;
 use MagicSunday\Test\Fixtures\Docs\ErrorHandling\ImmutableArticle;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use Symfony\Component\TypeInfo\TypeIdentifier;
 
 /**
  * Executes the error-handling recipe as written. The sibling recipes already have such a test;
@@ -74,5 +76,45 @@ final class DocsErrorHandlingTest extends TestCase
         self::assertSame('$.title', $errors[0]->getPath());
         self::assertNotSame('', $errors[0]->getMessage());
         self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
+    }
+
+    /**
+     * @return array<string, array{string, bool}>
+     */
+    public static function expectedTypeShapeProvider(): array
+    {
+        return [
+            'builtin'          => ['int', true],
+            'nullable builtin' => ['int|null', true],
+            'union of two'     => ['int|string', true],
+            'class name'       => ['App\\Domain\\InvoiceLine', false],
+            'mixed union'      => ['int|App\\Domain\\InvoiceLine', false],
+        ];
+    }
+
+    /**
+     * @param string $expectedType Value getExpectedType() can return
+     * @param bool   $isBuiltin    Whether the recipe may echo it to a client
+     */
+    #[Test]
+    #[DataProvider('expectedTypeShapeProvider')]
+    public function itRunsTheDocumentedBuiltinTypeCheck(string $expectedType, bool $isBuiltin): void
+    {
+        // The recipe's guard, executed rather than only read. It is the snippet that decides
+        // whether an internal class name reaches a response body, so shipping it unverified would
+        // be the one procedure in this file that must not be taken on trust - and the first
+        // version used array_all(), which is PHP 8.4 while this package supports 8.3, so it would
+        // have fataled on a third of the supported matrix with nothing to catch it.
+        $isBuiltinType = static function (string $type): bool {
+            foreach (explode('|', $type) as $part) {
+                if (!TypeIdentifier::tryFrom($part) instanceof TypeIdentifier) {
+                    return false;
+                }
+            }
+
+            return true;
+        };
+
+        self::assertSame($isBuiltin, $isBuiltinType($expectedType));
     }
 }

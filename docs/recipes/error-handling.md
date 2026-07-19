@@ -89,10 +89,15 @@ Build client-facing text from the structured accessors instead, and escape what 
 ```php
 use Symfony\Component\TypeInfo\TypeIdentifier;
 
-$isBuiltinType = static fn (string $type): bool => array_all(
-    explode('|', $type),
-    static fn (string $part): bool => TypeIdentifier::tryFrom($part) instanceof TypeIdentifier,
-);
+$isBuiltinType = static function (string $type): bool {
+    foreach (explode('|', $type) as $part) {
+        if (!TypeIdentifier::tryFrom($part) instanceof TypeIdentifier) {
+            return false;
+        }
+    }
+
+    return true;
+};
 
 foreach ($result->getReport()->getErrors() as $error) {
     $exception = $error->getException();

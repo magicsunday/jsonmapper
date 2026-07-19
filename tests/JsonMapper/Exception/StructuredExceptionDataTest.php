@@ -197,6 +197,12 @@ final class StructuredExceptionDataTest extends TestCase
             }
         }
 
+        // A floor, because the derivation can fail SILENTLY: is_subclass_of() autoloads by string
+        // and answers false when a class cannot be loaded, so a namespace that drifts from its
+        // path drops out of the inventory with no signal and the comparison still passes. That is
+        // the vacuous green this test exists to prevent, so it is asserted rather than assumed.
+        self::assertNotSame([], $declared, 'The inventory derivation must find something.');
+
         $covered = array_map(
             static fn (array $row): string => $row[0]::class,
             self::structuredAccessorProvider(),
