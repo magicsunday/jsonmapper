@@ -60,7 +60,9 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
      * @param Type           $valueType Type descriptor for individual collection entries.
      * @param MappingContext $context   Active mapping context providing path and strictness information.
      *
-     * @return array<array-key, mixed>|null Normalised collection data or null when conversion fails.
+     * @return array<array-key, mixed>|null Normalised collection data, or null when no collection was
+     *                                      asked for. A recorded conversion failure yields an empty
+     *                                      array, never null - consumers read null as an absence.
      */
     public function mapIterable(mixed $json, Type $valueType, MappingContext $context): ?array
     {
@@ -81,13 +83,27 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
 
         if (!is_array($source)) {
             $exception = new CollectionMappingException($context->getPath(), get_debug_type($json));
-            $context->recordException($exception);
 
-            if ($context->isStrictMode()) {
+            // Asked of the context, not the configuration: strict mode decides what counts as a
+            // failure, the entry point decides whether one aborts the run. mapWithReport() turns
+            // aborting off, so this has to yield or the report stops after the first failure.
+            //
+            // Thrown BEFORE recording. When the run aborts, the exception reaches a catch site
+            // that records it, so recording here as well files the same failure twice - visible to
+            // a caller that supplies its own context and inspects it after catching.
+            if ($context->shouldAbortOnError()) {
                 throw $exception;
             }
 
-            return null;
+            $context->recordException($exception);
+
+            // An empty collection, not null. Null is this method's "no collection was asked for"
+            // sentinel - the nullable branch above - and every consumer reads it that way: the
+            // property accessor rejects it for an array-typed property, and a wrapping collection
+            // class receives it as the constructor argument. Handing it back for a RECORDED
+            // failure therefore replaces a reported mapping error with a native one, which is
+            // precisely what a run that promised a report must never do.
+            return [];
         }
 
         $collection = [];
@@ -110,11 +126,25 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
                 // An element that cannot be converted is dropped, not propagated: one invalid
                 // entry must not discard its valid siblings, which is what lenient mode exists
                 // for. The error is recorded here because the exception no longer travels up to
-                // the caller that would have recorded it. Strict mode still aborts on the first
-                // failure.
-                $context->recordException($exception);
+                // the caller that would have recorded it.
+                //
+                // Recorded from INSIDE the element's path segment. A record takes its path from
+                // the context, and the context has already left the segment by the time this catch
+                // runs - so recording here filed every element failure under the collection
+                // instead of the element. The exception carried the correct path throughout, which
+                // is exactly why the discrepancy stayed invisible.
+                $context->withPathSegment(
+                    (string) $key,
+                    static function (MappingContext $elementContext) use ($exception): void {
+                        $elementContext->recordException($exception);
+                    },
+                );
 
-                if ($context->isStrictMode()) {
+                // Asked of the context, not the configuration. Rethrowing here means the property
+                // loop above records the very same element failure a second time, so the run has
+                // to be one that aborts - otherwise the caller receives a duplicate and loses the
+                // rejected element's valid siblings along with it.
+                if ($context->shouldAbortOnError()) {
                     throw $exception;
                 }
             }

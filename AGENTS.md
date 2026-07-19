@@ -112,6 +112,11 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
 * A rejected value is recorded exactly once. Recording it and then continuing produces either a
   duplicate record further up or a native crash - throw instead, and let the single catch site
   record it.
+* Whether a recorded failure also aborts the run is the ENTRY POINT's decision, not the
+  configuration's. `map()` raises on the first failure in strict mode; `mapWithReport()` always
+  collects, because returning a report is its entire purpose. Strict mode decides only *what*
+  counts as a failure. The switch is the context option `OPTION_ABORT_ON_ERROR`, deliberately kept
+  out of `JsonMapperConfiguration` so a caller cannot configure a `mapWithReport()` that throws.
 * Never rely on the silence operator, `trigger_error()`, or debugging prints.
 * Partial updates must leave already mapped state consistent when errors occur.
 

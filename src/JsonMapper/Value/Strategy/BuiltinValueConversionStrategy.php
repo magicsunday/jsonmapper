@@ -234,11 +234,14 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
             }
 
             $exception = new TypeMismatchException($context->getPath(), $identifier->value, 'null');
-            $context->recordException($exception);
 
-            if ($context->isStrictMode()) {
+            // Thrown before recording: an aborting run reaches a catch site that records, so
+            // recording here too would file the same failure twice.
+            if ($context->shouldAbortOnError()) {
                 throw $exception;
             }
+
+            $context->recordException($exception);
 
             return;
         }
@@ -248,11 +251,13 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
         }
 
         $exception = new TypeMismatchException($context->getPath(), $identifier->value, get_debug_type($value));
-        $context->recordException($exception);
 
-        if ($context->isStrictMode()) {
+        // Thrown before recording, for the reason given in the null branch above.
+        if ($context->shouldAbortOnError()) {
             throw $exception;
         }
+
+        $context->recordException($exception);
     }
 
     /**

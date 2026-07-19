@@ -88,7 +88,31 @@ Configuration problems are not mapping failures and still surface as exceptions 
 class name that does not exist, or a collection whose element type cannot be resolved, is a defect
 in the call rather than in the payload.
 
-In strict mode the same mapping failures are thrown on the first occurrence rather than collected.
+## Which entry point throws
+
+Strict mode decides *what* counts as a failure. It does **not** decide what happens to one - that is
+the entry point's job:
+
+| Call | Strict mode | Lenient mode |
+|------|-------------|--------------|
+| `map()` | throws on the first failure | collects, returns a partial result |
+| `mapWithReport()` | collects everything into the report | collects everything into the report |
+
+`mapWithReport()` never throws a `MappingException`, whatever configuration it is given. Returning a
+report is the whole reason the method exists, so a configuration that made it throw would leave the
+caller with no way to get one. What `strict()` still changes is the *content* of that report: it adds
+failures lenient mode would never raise, such as a missing or unknown property.
+
+```php
+$strict = JsonMapperConfiguration::strict();
+
+$result = $mapper->mapWithReport([], Article::class, configuration: $strict);
+
+$result->getValue();                      // null - nothing could be built
+$result->getReport()->getErrorCount();    // every strict violation, not just the first
+```
+
+Use `map()` when the first failure should abort. Use `mapWithReport()` when you want the full picture.
 
 ## Lenient mode
 
