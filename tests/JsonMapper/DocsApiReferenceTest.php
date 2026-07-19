@@ -261,13 +261,33 @@ final class DocsApiReferenceTest extends TestCase
     /**
      * Strips the repository root so failure messages name the file the way a reader would.
      *
+     * Both sides are normalised to forward slashes first: realpath() and the directory iterator
+     * hand back backslashes on Windows, which would leave the root unstripped and turn every
+     * lookup in the expectation map into a miss.
+     *
      * @param string $file Absolute path of a documentation file
      *
      * @return string Path relative to the repository root
      */
     private static function toRelativePath(string $file): string
     {
-        return str_replace(self::repositoryRoot() . '/', '', $file);
+        return str_replace(
+            self::toForwardSlashes(self::repositoryRoot()) . '/',
+            '',
+            self::toForwardSlashes($file)
+        );
+    }
+
+    /**
+     * Normalises a path to forward slashes so it can be compared regardless of platform.
+     *
+     * @param string $path Path using either separator
+     *
+     * @return string Path using forward slashes only
+     */
+    private static function toForwardSlashes(string $path): string
+    {
+        return str_replace('\\', '/', $path);
     }
 
     /**
