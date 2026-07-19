@@ -105,12 +105,13 @@ silently — nothing is reported, because nothing was lost:
 | `'42'` | `int` | `42` |
 | `'2.5'` | `float` | `2.5` |
 | `3` | `float` | `3.0` |
+| `2.0` | `int` | `2` |
 | `'true'`, `'1'`, `1` | `bool` | `true` |
 | `'false'`, `'0'`, `0` | `bool` | `false` |
 
-One case is silent **without** being lossless: a `float` reaching an `int` property is truncated —
-`3.9` becomes `3`, and the discarded fraction is not reported. If that precision matters, reject
-such payloads before mapping; checking the report will not tell you.
+A `float` reaching an `int` property is only accepted silently when it *is* that integer — `2.0`
+maps to `2`. A fractional value is a genuine mismatch: it is reported, and coerced only in lenient
+mode. Strict mode raises.
 
 Everything else is a genuine mismatch: the value is cast **and** recorded in the report, so the
 mapping succeeds while the drift stays visible.
