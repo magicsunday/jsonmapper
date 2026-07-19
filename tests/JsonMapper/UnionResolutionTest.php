@@ -12,8 +12,10 @@ declare(strict_types=1);
 namespace MagicSunday\Test\JsonMapper;
 
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
+use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\Test\Classes\UnionObjectHolder;
 use MagicSunday\Test\Classes\UnionScalarHolder;
+use MagicSunday\Test\Classes\UnionThenFailingHolder;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -135,16 +137,16 @@ final class UnionResolutionTest extends TestCase
         self::assertSame(42, $result->value);
     }
 
-    /**
-     * @param bool $collect Whether the configuration collects errors.
-     */
     #[Test]
-    #[DataProvider('errorCollectionProvider')]
-    public function itDoesNotLeakCandidateEvaluationErrorsIntoTheReport(bool $collect): void
+    public function itDoesNotLeakCandidateEvaluationErrorsIntoTheReport(): void
     {
         // Evaluating candidates has to try types that will not match. Those attempts are internal
         // and must not show up as errors for a value that ultimately mapped fine.
-        $result = $this->getJsonMapper(config: JsonMapperConfiguration::lenient()->withErrorCollection($collect))
+        //
+        // Deliberately not parametrised over the error-collection flag: mapWithReport() forces
+        // collection on regardless of what the configuration says, so both rows would be the same
+        // execution and the "regardless of the flag" claim would be unproven here.
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::lenient())
             ->mapWithReport(
                 ['value' => 'a string'],
                 UnionScalarHolder::class,
@@ -155,6 +157,38 @@ final class UnionResolutionTest extends TestCase
         self::assertInstanceOf(UnionScalarHolder::class, $holder);
         self::assertSame('a string', $holder->value);
         self::assertFalse($result->getReport()->hasErrors(), 'A successful union match records nothing.');
+    }
+
+    #[Test]
+    public function itRestoresErrorCollectionAfterResolvingAUnion(): void
+    {
+        // Resolving a union forces error collection on so the candidate attempts can be counted.
+        // The property declared AFTER the union is what makes a missing restore observable: with a
+        // single-property fixture the forced window is the last thing that happens, so a leaked
+        // flag would go unnoticed and a caller who switched collection off would silently start
+        // collecting for the remainder of the run.
+        $config  = JsonMapperConfiguration::lenient()->withErrorCollection(false);
+        $context = new MappingContext([], $config->toOptions());
+
+        $this->getJsonMapper(config: $config)->map(
+            [
+                'value' => ['name' => ['nested' => true]],
+                'count' => ['a'],
+            ],
+            UnionThenFailingHolder::class,
+            null,
+            $context,
+        );
+
+        self::assertSame(
+            0,
+            $context->getErrorCount(),
+            'The failing property after the union must not be recorded while collection is off.',
+        );
+        self::assertFalse(
+            $context->shouldCollectErrors(),
+            'The forced collection must not outlive the union it was forced for.',
+        );
     }
 
     #[Test]

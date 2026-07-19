@@ -52,6 +52,7 @@ final class BuiltinCoercionTest extends TestCase
             'bool to float'           => ['decimal', true, 1.0],
             'non numeric to float'    => ['decimal', 'abc', 0.0],
             'literal true'            => ['flag', 'true', true],
+            'numeric string one'      => ['flag', '1', true],
             'padded mixed case true'  => ['flag', '  TRUE  ', true],
             'non empty to bool'       => ['flag', 'yes', true],
             'int one to bool'         => ['flag', 1, true],
@@ -175,7 +176,11 @@ final class BuiltinCoercionTest extends TestCase
             (new ReflectionProperty($holder, $property))->getValue($holder),
             'A value with no meaningful cast must leave the property untouched.',
         );
-        self::assertSame(1, $result->getReport()->getErrorCount());
+        self::assertSame(
+            1,
+            $result->getReport()->getErrorCount(),
+            'One rejection record, not one per attempted cast.',
+        );
     }
 
     #[Test]
@@ -194,6 +199,10 @@ final class BuiltinCoercionTest extends TestCase
 
         self::assertInstanceOf(BuiltinCoercionHolder::class, $holder);
         self::assertSame('sentinel', $holder->text, 'The Stringable is rejected, not stringified.');
-        self::assertSame(1, $result->getReport()->getErrorCount());
+        self::assertSame(
+            1,
+            $result->getReport()->getErrorCount(),
+            'One rejection record, not one per attempted cast.',
+        );
     }
 }
