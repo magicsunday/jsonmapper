@@ -15,6 +15,7 @@ use DateTimeInterface;
 use MagicSunday\JsonMapper\Exception\MappingException;
 
 use function array_key_exists;
+use function array_replace;
 use function array_slice;
 use function count;
 use function implode;
@@ -283,7 +284,12 @@ final class MappingContext
      */
     public function replaceOptions(array $options): void
     {
-        $this->options = $options;
+        // Merged rather than assigned. The options bag is an extension point: a type handler may
+        // put its own keys there, and toOptions() only knows the mapper's own. Replacing the bag
+        // wholesale therefore wiped every custom key the moment a nested object rebuilt the
+        // configuration from the context - the caller's key was gone from the first nested object
+        // onward, silently.
+        $this->options = array_replace($this->options, $options);
     }
 
     /**
