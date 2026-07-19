@@ -935,12 +935,15 @@ final readonly class JsonMapper
         MappingException $exception,
         MappingContext $context,
     ): void {
-        $context->recordException($exception);
-
+        // NOT recordOrThrow(): this IS the catch site, so it records BEFORE raising. Routing it
+        // through the shared helper would leave an aborting run with no record at all - the helper
+        // exists for sites whose throw is caught here.
+        //
         // Asked of the context rather than the configuration: strict mode decides what counts as
         // a failure, the entry point decides what happens to one. map() raises on the first in
-        // strict mode; mapWithReport() exists to return a report and so collects them all, which
-        // is what its own recipe demonstrates.
+        // strict mode; mapWithReport() exists to return a report and so collects them all.
+        $context->recordException($exception);
+
         if ($context->shouldAbortOnError()) {
             throw $exception;
         }
@@ -1103,14 +1106,7 @@ final readonly class JsonMapper
         // all null types - a shape Symfony's TypeInfo does not produce. It stays because the
         // invariant lives in another method and a future member kind could break it, but it is
         // deliberately not claimed as covered.
-        //
-        // Asked of the context rather than the configuration for the reason given in
-        // handleMappingException(), so that it cannot become the one site that still aborts.
-        if ($context->shouldAbortOnError()) {
-            throw $exception;
-        }
-
-        $context->recordException($exception);
+        $context->recordOrThrow($exception);
 
         return $json;
     }

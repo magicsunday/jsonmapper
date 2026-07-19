@@ -112,6 +112,11 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
 * A rejected value is recorded exactly once. Recording it and then continuing produces either a
   duplicate record further up or a native crash - throw instead, and let the single catch site
   record it.
+* The record-or-throw policy lives in `MappingContext::recordOrThrow()`. A site that has something
+  usable to hand back - an empty collection, an unconverted value - routes through it. The two that
+  do not are marked as such at the call site: the shared catch records BEFORE raising because it is
+  the catch, and the collection element loop records inside the element's own path segment so the
+  record names the element. Finishing the centralisation past those two breaks both.
 * Whether a recorded failure also aborts the run is the ENTRY POINT's decision, not the
   configuration's. `map()` raises on the first failure in strict mode; `mapWithReport()` always
   collects, because returning a report is its entire purpose. Strict mode decides only *what*

@@ -236,6 +236,39 @@ final class MappingContext
     }
 
     /**
+     * Records the failure, or raises it when the run aborts on the first one.
+     *
+     * The policy three sites share verbatim: a failure that leaves the caller something usable to
+     * carry on with - an empty collection, an unconverted value - is recorded when the entry point
+     * collects and raised when it aborts.
+     *
+     * Deliberately NOT used by two other sites, and the reason is worth keeping close to this
+     * method so the next reader does not "finish" the refactoring:
+     *
+     *   - handleMappingException() records BEFORE raising, because it IS the catch site. Routing it
+     *     here would leave an aborting run with no record at all.
+     *   - the collection element loop records inside the element's own path segment, so the record
+     *     names the element rather than the collection. It cannot be moved without losing that.
+     *
+     * @param MappingException $exception Failure to record or raise
+     *
+     * @return void
+     *
+     * @throws MappingException When the entry point aborts on the first failure
+     */
+    public function recordOrThrow(MappingException $exception): void
+    {
+        // Raised BEFORE recording. When the run aborts, the exception reaches a catch site that
+        // records it, so recording here as well files the same failure twice - visible to a caller
+        // that supplies its own context and inspects it after catching.
+        if ($this->shouldAbortOnError()) {
+            throw $exception;
+        }
+
+        $this->recordException($exception);
+    }
+
+    /**
      * Returns collected mapping errors.
      *
      * @return list<string> Error messages collected so far

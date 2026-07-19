@@ -258,14 +258,9 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
             return;
         }
 
-        $exception = new TypeMismatchException($context->getPath(), $identifier->value, get_debug_type($value));
-
-        // Thrown before recording, for the reason given in the null branch above.
-        if ($context->shouldAbortOnError()) {
-            throw $exception;
-        }
-
-        $context->recordException($exception);
+        $context->recordOrThrow(
+            new TypeMismatchException($context->getPath(), $identifier->value, get_debug_type($value)),
+        );
     }
 
     /**

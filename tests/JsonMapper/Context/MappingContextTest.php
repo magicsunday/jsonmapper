@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\Test\JsonMapper\Context;
 
 use MagicSunday\JsonMapper\Context\MappingContext;
+use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -100,5 +101,45 @@ final class MappingContextTest extends TestCase
         self::assertTrue((new MappingContext(['root'], [
             MappingContext::OPTION_ABORT_ON_ERROR => true,
         ]))->shouldAbortOnError(), 'The explicit option overrides lenient mode too.');
+    }
+
+    #[Test]
+    public function itRecordsAFailureWhenTheRunCollects(): void
+    {
+        $context = new MappingContext(['root']);
+
+        $context->recordOrThrow(new TypeMismatchException('$.value', 'int', 'string'));
+
+        self::assertSame(1, $context->getErrorCount());
+    }
+
+    #[Test]
+    public function itRaisesAFailureWhenTheRunAborts(): void
+    {
+        $context = new MappingContext(['root'], [MappingContext::OPTION_ABORT_ON_ERROR => true]);
+
+        try {
+            $context->recordOrThrow(new TypeMismatchException('$.value', 'int', 'string'));
+
+            self::fail('An aborting run must raise.');
+        } catch (TypeMismatchException) {
+            // Expected - what matters is that nothing was recorded on the way out.
+        }
+
+        // Nothing recorded: the catch site that receives the throw records it, so recording here
+        // too would file the same failure twice. That is the whole reason the helper raises first.
+        self::assertSame(0, $context->getErrorCount(), 'The raising path records nothing.');
+    }
+
+    #[Test]
+    public function itFollowsStrictModeWhenTheAbortOptionIsAbsent(): void
+    {
+        // The helper asks shouldAbortOnError(), so it inherits that accessor's fallback rather
+        // than repeating the decision - which is the duplication it exists to remove.
+        $context = new MappingContext(['root'], [MappingContext::OPTION_STRICT_MODE => true]);
+
+        $this->expectException(TypeMismatchException::class);
+
+        $context->recordOrThrow(new TypeMismatchException('$.value', 'int', 'string'));
     }
 }
