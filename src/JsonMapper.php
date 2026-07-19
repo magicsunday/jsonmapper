@@ -173,17 +173,12 @@ final readonly class JsonMapper
         $this->valueConverter->addStrategy(
             new ObjectValueConversionStrategy(
                 $this->classResolver,
-                function (mixed $value, string $resolvedClass, MappingContext $context): mixed {
-                    $configuration = JsonMapperConfiguration::fromContext($context);
-
-                    return $this->map(
-                        $value,
-                        $resolvedClass,
-                        null,
-                        $context,
-                        $configuration
-                    );
-                },
+                // No configuration argument, which is what reduces this to one expression. Passing
+                // one meant rebuilding it from this very context and having map() write it straight
+                // back - a per-nested-object round trip that could only ever restore what was
+                // already there, and the mechanism by which a custom option went missing before #64
+                // made the write a merge. The context already carries the settings.
+                fn (mixed $value, string $resolvedClass, MappingContext $context): mixed => $this->map($value, $resolvedClass, null, $context),
             ),
         );
         $this->valueConverter->addStrategy(new BuiltinValueConversionStrategy());
@@ -384,7 +379,7 @@ final readonly class JsonMapper
             return $this->makeInstance($resolvedClassName);
         }
 
-        return $this->mapSingleObject($json, $resolvedClassName, $context, $configuration);
+        return $this->mapSingleObject($json, $resolvedClassName, $context);
     }
 
     /**
@@ -598,7 +593,6 @@ final readonly class JsonMapper
      * @param array<array-key, mixed>|object $json              Source payload representing the object to map.
      * @param class-string                   $resolvedClassName Fully qualified class name that receives the mapped values.
      * @param MappingContext                 $context           Mapping context forwarded to nested mappings.
-     * @param JsonMapperConfiguration        $configuration     Effective configuration guiding the mapping process.
      *
      * @return object Instantiated and populated object that represents the mapped payload.
      */
@@ -606,7 +600,6 @@ final readonly class JsonMapper
         array|object $json,
         string $resolvedClassName,
         MappingContext $context,
-        JsonMapperConfiguration $configuration,
     ): object {
         $source = $this->toIterableArray($json);
 
@@ -639,7 +632,6 @@ final readonly class JsonMapper
                 &$collectedUnknown,
                 $collectorProperty,
                 $properties,
-                $configuration,
             ): void {
                 if (!is_string($normalizedProperty)) {
                     return;
@@ -662,7 +654,6 @@ final readonly class JsonMapper
                 $validatedProperty = $this->validateAndNormalize(
                     $normalizedProperty,
                     $properties,
-                    $configuration,
                     $propertyContext,
                     $resolvedClassName,
                 );
@@ -731,7 +722,7 @@ final readonly class JsonMapper
             );
         }
 
-        if ($configuration->isStrictMode()) {
+        if ($context->isStrictMode()) {
             foreach ($this->determineMissingProperties($resolvedClassName, $properties, $mappedProperties) as $missingProperty) {
                 $context->withPathSegment($missingProperty, function (MappingContext $propertyContext) use (
                     $resolvedClassName,
@@ -789,7 +780,6 @@ final readonly class JsonMapper
      *
      * @param string                    $normalizedProperty Normalized property name derived from the payload.
      * @param array<int|string, string> $properties         Declared properties available on the target class.
-     * @param JsonMapperConfiguration   $configuration      Effective configuration guiding the mapping process.
      * @param MappingContext            $context            Mapping context scoped to the current property.
      * @param class-string              $resolvedClassName  Fully qualified class name receiving the mapped values.
      *
@@ -798,12 +788,11 @@ final readonly class JsonMapper
     private function validateAndNormalize(
         string $normalizedProperty,
         array $properties,
-        JsonMapperConfiguration $configuration,
         MappingContext $context,
         string $resolvedClassName,
     ): ?string {
         if (!in_array($normalizedProperty, $properties, true)) {
-            if ($configuration->shouldIgnoreUnknownProperties()) {
+            if ($context->shouldIgnoreUnknownProperties()) {
                 return null;
             }
 
