@@ -12,10 +12,14 @@ declare(strict_types=1);
 namespace MagicSunday\Test\JsonMapper;
 
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
+use MagicSunday\JsonMapper\Context\MappingError;
 use MagicSunday\Test\Classes\IntListHolder;
 use MagicSunday\Test\Classes\UnionScalarHolder;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\Test;
+
+use function array_map;
+use function preg_quote;
 
 /**
  * mapWithReport() collects instead of aborting - but that decision has to be taken at EVERY site
@@ -61,6 +65,15 @@ final class StrictReportCollectsEverywhereTest extends TestCase
         );
 
         self::assertSame(1, $result->getReport()->getErrorCount(), 'One bad element, one record.');
+
+        $error = $result->getReport()->getErrors()[0];
+
+        // The record's path is read off the context, and the catch that records sits OUTSIDE the
+        // element's path segment - so an element failure used to be filed under the collection
+        // itself. The exception carried the right path all along, which is what made the
+        // discrepancy invisible: whoever caught it saw $.values.1 while the report said $.values.
+        self::assertSame('$.values.1', $error->getPath(), 'The record names the element, not its collection.');
+        self::assertSame($error->getException()?->getPath(), $error->getPath(), 'Record and exception agree.');
     }
 
     #[Test]
@@ -71,7 +84,12 @@ final class StrictReportCollectsEverywhereTest extends TestCase
             IntListHolder::class,
         );
 
-        self::assertSame(2, $result->getReport()->getErrorCount(), 'Both bad elements are reported.');
+        $paths = array_map(
+            static fn (MappingError $error): string => $error->getPath(),
+            $result->getReport()->getErrors(),
+        );
+
+        self::assertSame(['$.values.0', '$.values.2'], $paths, 'Both bad elements are reported by index.');
     }
 
     #[Test]

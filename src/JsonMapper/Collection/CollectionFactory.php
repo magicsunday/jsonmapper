@@ -114,7 +114,18 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
                 // entry must not discard its valid siblings, which is what lenient mode exists
                 // for. The error is recorded here because the exception no longer travels up to
                 // the caller that would have recorded it.
-                $context->recordException($exception);
+                //
+                // Recorded from INSIDE the element's path segment. A record takes its path from
+                // the context, and the context has already left the segment by the time this catch
+                // runs - so recording here filed every element failure under the collection
+                // instead of the element. The exception carried the correct path throughout, which
+                // is exactly why the discrepancy stayed invisible.
+                $context->withPathSegment(
+                    (string) $key,
+                    static function (MappingContext $elementContext) use ($exception): void {
+                        $elementContext->recordException($exception);
+                    },
+                );
 
                 // Asked of the context, not the configuration. Rethrowing here means the property
                 // loop above records the very same element failure a second time, so the run has
