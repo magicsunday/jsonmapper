@@ -33,7 +33,8 @@ final class CollectionMappingException extends MappingException
     /**
      * Returns the detected type of the value that could not be treated as iterable.
      *
-     * Callers can surface the type to API consumers to explain why the mapper refused
+     * The value is a get_debug_type() token rather than anything from the payload. Callers can
+     * surface the type to API consumers to explain why the mapper refused
      * to process the collection.
      *
      * @return string Type information describing the non-iterable value.

@@ -208,7 +208,12 @@ final class ClassResolver
 
         $this->assertAllowedTarget($className, $resolved);
 
-        return $this->assertClassString($resolved);
+        // echoName: false because THIS string came from a resolver, whose input is the payload.
+        // The allowlist is opt-in, so an entry without one reaches here with whatever the payload
+        // asked for, and this exception escapes past the mapping report into a generic handler.
+        // The other call sites keep the default: they carry a class-map key or value, which is
+        // configuration the consumer wrote and needs echoed back to find the mistake.
+        return $this->assertClassString($resolved, false);
     }
 
     /**
@@ -239,11 +244,15 @@ final class ClassResolver
             return;
         }
 
+        // The refused name is NOT echoed. A resolver's return value can be a raw payload string -
+        // that is the whole hazard the allowlist addresses - and this message escapes as a
+        // DomainException, outside the mapping report, into whatever generic handler the consumer
+        // wrote. Reflecting it there would put an attacker-chosen string into a response body. The
+        // base class is enough to find the entry; the payload is in the request log.
         throw new DomainException(
             sprintf(
-                'Class resolver for %s returned %s, which its allowed-target list does not permit.',
+                'Class resolver for %s returned a class its allowed-target list does not permit.',
                 $className,
-                $resolved,
             ),
         );
     }
@@ -302,14 +311,23 @@ final class ClassResolver
      *
      * @throws DomainException When the name is empty or cannot be resolved by the autoloader.
      */
-    private function assertClassString(string $className): string
+    private function assertClassString(string $className, bool $echoName = true): string
     {
         if ($className === '') {
             throw new DomainException('Resolved class name must not be empty.');
         }
 
         if (!class_exists($className) && !interface_exists($className)) {
-            throw new DomainException(sprintf('Resolved class %s does not exist.', $className));
+            // The name is echoed only when it came from the CALL or the class map - configuration
+            // the consumer wrote and needs to see to find the mistake. A resolver's return value
+            // is payload-influenced, and this exception escapes past the mapping report into a
+            // generic handler, so reflecting it there would put an attacker-chosen string into a
+            // response body. It is also a class-existence oracle, which is worth denying too.
+            throw new DomainException(
+                $echoName
+                    ? sprintf('Resolved class %s does not exist.', $className)
+                    : 'The class a resolver returned does not exist.',
+            );
         }
 
         /** @var class-string $className */

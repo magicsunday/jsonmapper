@@ -40,6 +40,10 @@ final class TypeMismatchException extends MappingException
      * Callers may use the information to build error messages that mirror the
      * DTO or property contract.
      *
+     * Safe to echo to a client only for a BUILTIN target, where it is a token like int or string.
+     * For an object, enum or date target it is the fully qualified class name, so echoing it
+     * discloses the same internal layout getClassName() carries a warning about.
+     *
      * @return string Declared PHP type expected for the JSON value.
      */
     public function getExpectedType(): string

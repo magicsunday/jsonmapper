@@ -103,10 +103,15 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
                 try {
                     $timezone = new DateTimeZone($context->getDefaultTimezone());
                 } catch (Throwable) {
+                    // get_debug_type() rather than the identifier itself: actualType is documented
+                    // as the detected type of the value, consumers are told they may surface it,
+                    // and the timezone is configuration - which an extension point can route
+                    // request-influenced data into. A message slot that sometimes holds a type and
+                    // sometimes holds free-form text is one a consumer cannot treat safely.
                     throw new TypeMismatchException(
                         $context->getPath(),
                         $className,
-                        sprintf('invalid timezone "%s"', $context->getDefaultTimezone()),
+                        'string',
                     );
                 }
 

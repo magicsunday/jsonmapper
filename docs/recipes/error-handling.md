@@ -70,6 +70,88 @@ foreach ($result->getReport()->getErrors() as $error) {
 `getErrors()` returns `MappingError` records, not exceptions: each carries the path, the message and
 the originating exception.
 
+## Security: do not forward a mapping message to a client
+
+A mapping message is written for a developer reading a log. It embeds two things that do not belong
+in a response body:
+
+- **Your internal class names.** `Unknown property $.foo on App\Domain\Billing\InvoiceLine.` tells
+  a client how your DTOs are laid out and named.
+- **A string the payload chose.** The path is built from the payload's own keys, so a message
+  reflects an attacker-supplied value back verbatim. Rendered unescaped, that is a cross-site
+  scripting vector in the consumer's UI, not in the mapper.
+
+The payload's *values* are never included — only `get_debug_type()` of them — so a mapping message
+cannot leak the data itself. That is the one thing it is safe about.
+
+Build client-facing text from the structured accessors instead, and escape what you emit:
+
+```php
+use Symfony\Component\TypeInfo\TypeIdentifier;
+
+$isBuiltinType = static function (string $type): bool {
+    foreach (explode('|', $type) as $part) {
+        if (!TypeIdentifier::tryFrom($part) instanceof TypeIdentifier) {
+            return false;
+        }
+    }
+
+    return true;
+};
+
+foreach ($result->getReport()->getErrors() as $error) {
+    $exception = $error->getException();
+
+    $clientMessage = match (true) {
+        $exception instanceof UnknownPropertyException  => 'Unsupported field: ' . $exception->getPropertyName(),
+        $exception instanceof MissingPropertyException  => 'Required field missing: ' . $exception->getPropertyName(),
+        // getExpectedType() is a builtin name for a scalar target but a fully qualified CLASS NAME
+        // for an object, enum or date target — so echoing it verbatim leaks exactly what this
+        // section warns about. Emit it only when every part of it is a builtin.
+        //
+        // Split on '|': a nullable or union target yields 'int|null' or 'int|string', which no
+        // single-token check can ever match — and a nullable scalar mismatch is among the most
+        // common failures there is, so a naive check silently degrades most messages to
+        // 'Invalid value'. TypeIdentifier is the authority on what a builtin name is, rather than
+        // a hand-kept literal that drifts.
+        $exception instanceof TypeMismatchException     => $isBuiltinType($exception->getExpectedType())
+            ? 'Expected type: ' . $exception->getExpectedType()
+            : 'Invalid value',
+        default                                         => 'Invalid value',
+    };
+
+    // getPath() is built from the payload's own keys, so it is attacker-controlled and unbounded.
+    // Echoing the submitted field name is what a field-error API has to do — but it is untrusted
+    // input on the way out: cap it, and escape it for whatever sink it reaches. JSON encoding is
+    // not enough if the consumer's UI later injects it as HTML.
+    $response[] = [
+        'field'   => mb_substr($error->getPath(), 0, 256),
+        'message' => $clientMessage,
+    ];
+}
+```
+
+Every mapping exception exposes what it knows through accessors, so nothing here needs the message
+string parsed:
+
+| Exception | Accessors beyond `getPath()` |
+|-----------|------------------------------|
+| `UnknownPropertyException` | `getPropertyName()`, `getClassName()` |
+| `MissingPropertyException` | `getPropertyName()`, `getClassName()` |
+| `MissingConstructorArgumentException` | `getArgumentName()`, `getClassName()` |
+| `ReadonlyPropertyException` | `getPropertyName()`, `getClassName()` |
+| `TypeMismatchException` | `getExpectedType()`, `getActualType()` — see the caveat below |
+| `CollectionMappingException` | `getActualType()` |
+
+`getClassName()` is there for logs and for deciding what to say — not for saying it. The same goes
+for `getExpectedType()` whenever the target is an object, an enum or a date type: it returns the
+fully qualified class name then, and only for builtin targets is it a safe token like `int`.
+
+The rule covers **every** exception the mapper raises, not only the `MappingException` hierarchy. A
+configuration defect — an unresolvable collection element type, a class-map resolver returning
+something unusable — escapes as a `DomainException` or `InvalidArgumentException`, past the report
+entirely, into whatever generic handler you wrote. Those messages name internal classes too.
+
 A rejected value for an **object** target never reaches its property. The property keeps whatever it
 had - its default, or nothing at all if it was never initialised - and the failure is in the report
 instead. For a collection, only the offending element is dropped; its valid siblings survive, and

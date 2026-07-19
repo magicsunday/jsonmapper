@@ -117,6 +117,14 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
   collects, because returning a report is its entire purpose. Strict mode decides only *what*
   counts as a failure. The switch is the context option `OPTION_ABORT_ON_ERROR`, deliberately kept
   out of `JsonMapperConfiguration` so a caller cannot configure a `mapWithReport()` that throws.
+* A mapping message is for a developer reading a log, never for a response body: it embeds internal
+  class names and reflects payload-chosen keys verbatim. Every exception therefore exposes what it
+  knows through accessors, so a consumer can build client-facing text without parsing the message.
+  A new exception type without them breaks that guarantee - `StructuredExceptionDataTest` is the
+  inventory that catches it, derived from the directory so it cannot be satisfied by omission.
+  Payload VALUES are never embedded; only `get_debug_type()` of them. That holds for the
+  configuration exceptions too, which escape past the report entirely into a generic handler - a
+  message that echoes a name a RESOLVER produced is echoing the payload.
 * A target class is never derived from payload data. The mapper takes it from the call, from
   property metadata, or from a docblock - never from a value the payload supplied. The one place a
   consumer can break that is a class-map resolver, whose input IS the payload, so its documentation

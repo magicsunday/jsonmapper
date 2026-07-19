@@ -136,6 +136,10 @@ final class DocsApiReferenceTest extends TestCase
             MappingResult::class . '::getValue',
             MappingResult::class . '::getReport',
             MappingReport::class . '::getErrors',
+            // The security section's sample: it reads the report, then rebuilds a client message
+            // from the exception's accessors instead of from getMessage().
+            MappingResult::class . '::getReport',
+            MappingReport::class . '::getErrors',
             MappingResult::class . '::getValue',
             MappingResult::class . '::getReport',
             MappingReport::class . '::getErrorCount',
@@ -150,6 +154,8 @@ final class DocsApiReferenceTest extends TestCase
             MappingError::class . '::getPath',
             MappingError::class . '::getMessage',
             MappingError::class . '::getException',
+            MappingError::class . '::getException',
+            MappingError::class . '::getPath',
             MappingError::class . '::getPath',
             MappingError::class . '::getMessage',
             JsonMapperConfiguration::class . '::strict',

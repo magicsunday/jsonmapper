@@ -50,7 +50,8 @@ final class MissingPropertyException extends MappingException
     /**
      * Provides the class in which the missing property is declared.
      *
-     * Consumers may use the information to scope the validation error when working with nested DTOs.
+     * Internal information: useful for logs and for deciding what to say, not for saying it. A
+     * response body naming the DTO discloses how the application is laid out.
      *
      * @return class-string Fully qualified class name declaring the missing property.
      */
