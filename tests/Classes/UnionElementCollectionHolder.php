@@ -34,6 +34,15 @@ final class UnionElementCollectionHolder
     public array $unionItems = [];
 
     /**
+     * A plain, non-nullable element type - no union involved. The null guard applied on a
+     * top-level property has to apply here too, or the list ends up holding a value its own
+     * docblock forbids.
+     *
+     * @var array<int, string>
+     */
+    public array $names = [];
+
+    /**
      * A union with NO null member. An element type that forbids null is the case that separates
      * "the null strategy claims every null" from "null is checked against the declared type".
      *

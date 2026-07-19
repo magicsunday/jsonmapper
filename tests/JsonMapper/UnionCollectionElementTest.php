@@ -57,6 +57,26 @@ final class UnionCollectionElementTest extends TestCase
     }
 
     #[Test]
+    public function itAppliesTheNullGuardToElementsAsItDoesToProperties(): void
+    {
+        // The two entry points into value conversion gave different guarantees: a null was
+        // rejected on a top-level property of the same declared type and silently accepted as a
+        // collection element. Reporting it is half the contract - the element also has to be
+        // dropped rather than stored, or the list holds a value its own docblock forbids while
+        // the report claims it was handled.
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['names' => ['a', null, 'c']],
+            UnionElementCollectionHolder::class,
+        );
+
+        $holder = $result->getValue();
+
+        self::assertInstanceOf(UnionElementCollectionHolder::class, $holder);
+        self::assertSame(['a', 'c'], $holder->names, 'The rejected element is dropped, its siblings survive.');
+        self::assertCount(1, $result->getReport()->getErrors());
+    }
+
+    #[Test]
     public function itMatchesALaterUnionMemberEvenInStrictMode(): void
     {
         // A candidate trial is an internal question, not a mapping the caller asked for. With
