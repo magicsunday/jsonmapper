@@ -135,6 +135,15 @@ final class JsonMapperConfiguration
     /**
      * Restores a configuration instance based on the provided mapping context.
      *
+     * No longer used inside the mapper: the configuration is translated into the context once at
+     * the entry point, and the context is what travels. It stays because it is published API - a
+     * caller writing a custom strategy receives a context and may want the settings in the shape
+     * the public surface speaks. Kept deliberately rather than left behind: nothing in src/ calls
+     * it, so a reader is entitled to ask.
+     *
+     * Note it reads the mapper's OWN options only. A key a type handler put in the bag does not
+     * survive the trip, which is why the mapper stopped making it.
+     *
      * @return self Configuration aligned with the supplied context options
      */
     public static function fromContext(MappingContext $context): self
