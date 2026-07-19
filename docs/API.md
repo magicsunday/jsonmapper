@@ -84,6 +84,12 @@ Each `with*` method toggles a single option and returns a clone:
 
 Use `toOptions()` to feed configuration data into a `MappingContext`, or `toArray()` to persist settings.
 
+> Date properties may be typed with any `DateTimeInterface` implementation — `DateTimeImmutable`,
+> the mutable `DateTime`, or your own subclass — and the mapper builds whatever class the property
+> declares. `DateInterval` is supported the same way. A property typed by the **interface** is
+> refused: it cannot be instantiated, and choosing an implementation would decide mutability on
+> your behalf.
+
 > To **preserve** unmapped keys instead of skipping (`withIgnoreUnknownProperties`) or reporting them (strict mode), mark one property with the `UnknownPropertyCollector` attribute — it receives the unknown keys as a raw `array<string, mixed>`. See [Using mapper attributes](recipes/using-attributes.md).
 
 ## Property name converters

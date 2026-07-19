@@ -12,13 +12,13 @@ declare(strict_types=1);
 namespace MagicSunday\JsonMapper\Value\Strategy;
 
 use DateInterval;
-use DateTimeImmutable;
 use DateTimeInterface;
-use Exception;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
+use ReflectionClass;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\ObjectType;
+use Throwable;
 
 use function get_debug_type;
 use function is_a;
@@ -26,7 +26,7 @@ use function is_int;
 use function is_string;
 
 /**
- * Converts ISO-8601 strings into immutable date/time value objects.
+ * Converts ISO-8601 strings and timestamps into date/time value objects.
  */
 final class DateTimeValueConversionStrategy implements ValueConversionStrategyInterface
 {
@@ -51,11 +51,33 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
 
         $className = $objectType->getClassName();
 
-        return is_a($className, DateTimeImmutable::class, true) || is_a($className, DateInterval::class, true);
+        if (is_a($className, DateInterval::class, true)) {
+            return true;
+        }
+
+        if (!is_a($className, DateTimeInterface::class, true)) {
+            return false;
+        }
+
+        // Any DateTimeInterface implementation, mutable included - convert() builds whatever class
+        // the property asks for. It has to be instantiable, though: an interface extending
+        // DateTimeInterface, or an abstract subclass, would reach `new $className` and raise a
+        // native Error that no MappingException catch can collect, turning a reportable mapping
+        // failure into a fatal. Claiming neither leaves them to the object strategy, which refuses
+        // them as a recorded mismatch. Picking an implementation for a property typed by the
+        // interface would also be the mapper deciding mutability on the caller's behalf.
+        //
+        // No class_exists() guard: the is_a() above already answers false for a symbol that does
+        // not exist, and ReflectionClass handles an interface perfectly well - it simply reports
+        // it as not instantiable, which is the answer wanted here.
+        return (new ReflectionClass($className))->isInstantiable();
     }
 
     /**
      * Converts ISO-8601 strings and timestamps into the desired date/time object.
+     *
+     * The concrete class comes from the property, so a mutable DateTime stays mutable and an
+     * immutable one stays immutable - the caller's choice is not second-guessed.
      *
      * @param Type           $type    Type metadata describing the target property.
      * @param mixed          $value   Raw value coming from the input payload.
@@ -81,7 +103,7 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
 
                     try {
                         return new $className($value);
-                    } catch (Exception) {
+                    } catch (Throwable) {
                         throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
                     }
                 }
@@ -98,7 +120,12 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
 
                 try {
                     return new $className($formatted);
-                } catch (Exception) {
+                } catch (Throwable) {
+                    // Throwable rather than Exception: a subclass whose constructor demands
+                    // something else raises a TypeError, and an unparsable value can reach a
+                    // constructor that rejects it outright. Both are native Errors, which no
+                    // MappingException catch upstream collects - they would leave the caller with
+                    // a fatal where a report entry was promised.
                     throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
                 }
             }
