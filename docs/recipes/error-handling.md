@@ -97,15 +97,19 @@ For tolerant APIs combine `JsonMapperConfiguration::lenient()` with `->withIgnor
 
 Lenient mode absorbs a *scalar* that arrives with the wrong type, and it does so in two distinct
 ways. Where the payload is a recognisable **representation** of the target type, it is normalised
-silently — nothing is reported, because nothing was wrong:
+silently — nothing is reported, because nothing was lost:
 
 | Payload | Target | Result |
 |---------|--------|--------|
 | `'42'` | `int` | `42` |
-| `3.9` | `int` | `3` — truncated, and **not** reported |
 | `'2.5'` | `float` | `2.5` |
+| `3` | `float` | `3.0` |
 | `'true'`, `'1'`, `1` | `bool` | `true` |
 | `'false'`, `'0'`, `0` | `bool` | `false` |
+
+One case is silent **without** being lossless: a `float` reaching an `int` property is truncated —
+`3.9` becomes `3`, and the discarded fraction is not reported. If that precision matters, reject
+such payloads before mapping; checking the report will not tell you.
 
 Everything else is a genuine mismatch: the value is cast **and** recorded in the report, so the
 mapping succeeds while the drift stays visible.

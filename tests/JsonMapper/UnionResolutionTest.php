@@ -13,12 +13,15 @@ namespace MagicSunday\Test\JsonMapper;
 
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Context\MappingContext;
+use MagicSunday\JsonMapper\Context\MappingError;
 use MagicSunday\Test\Classes\UnionObjectHolder;
 use MagicSunday\Test\Classes\UnionScalarHolder;
 use MagicSunday\Test\Classes\UnionThenFailingHolder;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+
+use function array_map;
 
 /**
  * Union candidate selection used to be decided by counting recorded errors. With error collection
@@ -167,18 +170,48 @@ final class UnionResolutionTest extends TestCase
         // single-property fixture the forced window is the last thing that happens, so a leaked
         // flag would go unnoticed and a caller who switched collection off would silently start
         // collecting for the remainder of the run.
+        $payload = [
+            'value' => ['name' => ['nested' => true]],
+            'count' => ['a'],
+        ];
+
+        // Positive control first. Without it the assertion below passes for three different
+        // reasons - the restore worked, 'count' never failed, or mapping stopped before reaching
+        // it - and only the first is the contract. This proves the trailing property really does
+        // fail and really is recordable.
+        $collectingConfig  = JsonMapperConfiguration::lenient()->withErrorCollection(true);
+        $collectingContext = new MappingContext([], $collectingConfig->toOptions());
+
+        $this->getJsonMapper(config: $collectingConfig)->map(
+            $payload,
+            UnionThenFailingHolder::class,
+            null,
+            $collectingContext,
+        );
+
+        $recordedPaths = array_map(
+            static fn (MappingError $error): string => $error->getPath(),
+            $collectingContext->getErrorRecords(),
+        );
+
+        // Both the rejected union and the trailing property are recorded when collection is on.
+        // Asserting the paths rather than a bare count states which failures are expected.
+        self::assertSame(['$.value', '$.count'], $recordedPaths);
+
         $config  = JsonMapperConfiguration::lenient()->withErrorCollection(false);
         $context = new MappingContext([], $config->toOptions());
 
-        $this->getJsonMapper(config: $config)->map(
-            [
-                'value' => ['name' => ['nested' => true]],
-                'count' => ['a'],
-            ],
+        $holder = $this->getJsonMapper(config: $config)->map(
+            $payload,
             UnionThenFailingHolder::class,
             null,
             $context,
         );
+
+        // Anchors that the fixture still behaves as designed: without this the test also passes
+        // if 'count' were silently coerced, leaving nothing to record in the first place.
+        self::assertInstanceOf(UnionThenFailingHolder::class, $holder);
+        self::assertSame(-1, $holder->count, 'The failing property kept its default.');
 
         self::assertSame(
             0,
@@ -188,6 +221,27 @@ final class UnionResolutionTest extends TestCase
         self::assertFalse(
             $context->shouldCollectErrors(),
             'The forced collection must not outlive the union it was forced for.',
+        );
+    }
+
+    #[Test]
+    public function itDoesNotMaterialiseAnOptionTheCallerNeverSet(): void
+    {
+        // The other arm of the restore. Every context the library builds comes from
+        // toOptions(), which always writes the key, so only a directly constructed context
+        // reaches this path. shouldCollectErrors() cannot tell the two arms apart - it reads
+        // true whether the key is absent or was left behind as true - so the raw option bag is
+        // the only discriminator, which is exactly why the restore distinguishes them.
+        $context = new MappingContext([]);
+
+        self::assertTrue($context->shouldCollectErrors(), 'Collection is on by default.');
+
+        $context->withForcedErrorCollection(static fn (): bool => true);
+
+        self::assertArrayNotHasKey(
+            MappingContext::OPTION_COLLECT_ERRORS,
+            $context->getOptions(),
+            'An option that was never set must not be materialised by the forced window.',
         );
     }
 
