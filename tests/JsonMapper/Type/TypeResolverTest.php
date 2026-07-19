@@ -28,14 +28,14 @@ use Symfony\Component\TypeInfo\Type\NullableType;
 use Symfony\Component\TypeInfo\Type\UnionType;
 use Symfony\Component\TypeInfo\TypeIdentifier;
 
+use function array_filter;
 use function array_key_exists;
 use function array_keys;
-use function array_map;
 use function array_values;
 use function hash;
 use function str_replace;
+use function str_starts_with;
 use function strlen;
-use function substr;
 
 /**
  * @internal
@@ -130,10 +130,13 @@ final class TypeResolverTest extends TestCase
         $storedKeys = $cache->storedKeys();
 
         self::assertCount(2, $storedKeys, 'The primed legacy entry plus one freshly written key.');
-        self::assertContains(
-            'jsonmapper.pt.v3.',
-            array_map(static fn (string $key): string => substr($key, 0, 17), $storedKeys),
-            'The resolver stores the freshly resolved type under a schema-versioned key.',
+        self::assertCount(
+            1,
+            array_filter(
+                $storedKeys,
+                static fn (string $key): bool => str_starts_with($key, 'jsonmapper.pt.v3.'),
+            ),
+            'Exactly one of them - the fresh entry - carries the schema-versioned prefix.',
         );
     }
 
