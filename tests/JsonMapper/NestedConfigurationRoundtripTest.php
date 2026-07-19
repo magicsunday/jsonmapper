@@ -29,6 +29,12 @@ use function array_map;
  * configuration is translated into the context once, at the entry point, and nothing rebuilds it
  * per object.
  *
+ * These are characterization tests, not regression tests for that removal - they pass on the
+ * revision before it too, because the removal is behaviour-preserving. What they pin is the
+ * property the round trip endangered, so that a future change reintroducing one has to face it:
+ * restore the round trip AND the replace-instead-of-merge semantics it was written against, and
+ * the first of them fails.
+ *
  * @internal
  */
 final class NestedConfigurationRoundtripTest extends TestCase
