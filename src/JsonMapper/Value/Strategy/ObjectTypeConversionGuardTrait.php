@@ -60,6 +60,10 @@ trait ObjectTypeConversionGuardTrait
             return;
         }
 
+        // Reached only by a DIRECT call to a strategy using this trait. Through the value
+        // converter's chain a null is claimed by NullValueConversionStrategy first, so it never
+        // arrives; the guard defends the public-SPI case where a strategy is invoked outside the
+        // chain, keeping a null off a non-nullable object target.
         throw new TypeMismatchException($context->getPath(), $type->getClassName(), 'null');
     }
 
@@ -77,6 +81,9 @@ trait ObjectTypeConversionGuardTrait
     {
         $objectType = $this->extractObjectType($type);
 
+        // Unreachable through the chain: supports() returns false for a non-object type, so convert()
+        // is not called for one. Kept for a DIRECT call that skips supports() - it hands the value
+        // back untouched rather than dereferencing a null object type.
         if ($objectType === null) {
             return $value;
         }
