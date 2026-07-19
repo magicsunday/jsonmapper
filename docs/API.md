@@ -54,9 +54,13 @@ var_dump($mapper::class);
 | --- | --- |
 | `addTypeHandler(TypeHandlerInterface $handler): self` | Registers a reusable conversion strategy for a specific type. |
 | `addType(string $type, Closure $closure): self` | Deprecated shortcut for registering closure-based handlers. Prefer `addTypeHandler()`. |
-| `addCustomClassMapEntry(string $className, Closure $resolver): self` | Adds or replaces a class map entry. The resolver receives JSON data (and optionally the current `MappingContext`). |
+| `addCustomClassMapEntry(string $className, Closure $resolver, ?array $allowedTargets = null): self` | Adds or replaces a class map entry. The resolver receives JSON data (and optionally the current `MappingContext`). `$allowedTargets` restricts what it may return — see the security note in [Type converters](recipes/type-converters.md). |
 | `map(mixed $json, ?string $className = null, ?string $collectionClassName = null, ?MappingContext $context = null, ?JsonMapperConfiguration $configuration = null): mixed` | Maps the provided JSON payload to the requested class or collection. |
 | `mapWithReport(mixed $json, ?string $className = null, ?string $collectionClassName = null, ?JsonMapperConfiguration $configuration = null): MappingResult` | Maps data and returns a `MappingResult` containing both the mapped value and an error report. |
+
+> **Security:** `$className` selects the class to instantiate — never derive it from request data.
+> The same applies to what a class-map resolver returns; see the note in
+> [Type converters](recipes/type-converters.md).
 
 > `map()` and `mapWithReport()` accept JSON decoded into arrays or objects (`json_decode(..., associative: false)` is recommended). Collections require either an explicit collection class name or collection PHPDoc (`@extends`) metadata.
 

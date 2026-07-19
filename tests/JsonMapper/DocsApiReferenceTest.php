@@ -174,6 +174,13 @@ final class DocsApiReferenceTest extends TestCase
         'docs/recipes/type-converters.md' => [
             JsonMapper::class . '::map',
             JsonMapper::class . '::addCustomClassMapEntry',
+            // The security note adds three samples and TWO of them land here: the naive resolver
+            // it warns against, and the allowlist form. The middle one - the recommended fixed-set
+            // resolver - spans several lines with a nested match(), a shape the argument pattern
+            // does not span, so it is not counted. Recorded rather than silently absorbed: the
+            // method itself is checked three times over, so the uncovered sample cannot hide a
+            // renamed method, and widening the pattern to multi-line arguments is its own change.
+            JsonMapper::class . '::addCustomClassMapEntry',
         ],
         // Prose only - it documents attributes, not calls.
         'docs/recipes/using-attributes.md' => [],

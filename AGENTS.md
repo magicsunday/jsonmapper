@@ -117,6 +117,10 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
   collects, because returning a report is its entire purpose. Strict mode decides only *what*
   counts as a failure. The switch is the context option `OPTION_ABORT_ON_ERROR`, deliberately kept
   out of `JsonMapperConfiguration` so a caller cannot configure a `mapWithReport()` that throws.
+* A target class is never derived from payload data. The mapper takes it from the call, from
+  property metadata, or from a docblock - never from a value the payload supplied. The one place a
+  consumer can break that is a class-map resolver, whose input IS the payload, so its documentation
+  carries the warning and it accepts an allowlist that enforces what the warning asks for.
 * Never rely on the silence operator, `trigger_error()`, or debugging prints.
 * Partial updates must leave already mapped state consistent when errors occur.
 * Mapping is deterministic: the same payload and configuration produce the same result on every
