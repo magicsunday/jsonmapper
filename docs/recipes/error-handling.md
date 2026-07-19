@@ -75,9 +75,10 @@ had - its default, or nothing at all if it was never initialised - and the failu
 instead. For a collection, only the offending element is dropped; its valid siblings survive, and
 list keys stay gap-free.
 
-For a **builtin** target the value is currently still coerced and assigned after the mismatch has
-been recorded, so a `string` property can end up holding `'Array'`. Check the report before trusting
-such a value. Aligning this with the object behaviour is tracked in issue 63.
+A **builtin** target behaves the same way when the value has no meaningful cast: a composite
+reaching a scalar property is rejected rather than assigned, so a `string` property can no longer
+end up holding `'Array'`. A scalar that merely arrives as the wrong scalar type is still coerced -
+see the coercion contract below for which conversions happen silently and which are reported.
 
 A scalar payload against an object target is rejected only when the target actually needs
 constructor arguments. A class whose constructor can be called without any still yields an instance,

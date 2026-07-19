@@ -133,12 +133,19 @@ final class DocsApiReferenceTest extends TestCase
         'docs/recipes/custom-name-converter.md' => [],
         'docs/recipes/error-handling.md'        => [
             MappingResult::class . '::getValue',
+            MappingResult::class . '::getValue',
+            MappingResult::class . '::getReport',
+            MappingReport::class . '::getErrors',
             MappingResult::class . '::getReport',
             MappingReport::class . '::hasErrors',
             MappingResult::class . '::getReport',
             MappingReport::class . '::getErrors',
             JsonMapper::class . '::mapWithReport',
             JsonMapper::class . '::mapWithReport',
+            JsonMapper::class . '::mapWithReport',
+            MappingError::class . '::getPath',
+            MappingError::class . '::getMessage',
+            MappingError::class . '::getException',
             MappingError::class . '::getPath',
             MappingError::class . '::getMessage',
             JsonMapperConfiguration::class . '::strict',
@@ -165,6 +172,21 @@ final class DocsApiReferenceTest extends TestCase
         ],
         // Prose only - it documents attributes, not calls.
         'docs/recipes/using-attributes.md' => [],
+    ];
+
+    /**
+     * Method names the documentation names in prose rather than calling.
+     *
+     * An API reference lists its surface as `withErrorCollection(` inside backticks, which is not
+     * a call and therefore invisible to the chain patterns above. Dropping this shape when the
+     * chain following was introduced would have silently stopped guarding the reference listing -
+     * the largest single block of documented names in the package.
+     *
+     * @var array<string, class-string>
+     */
+    private const array PROSE_MENTIONS = [
+        '/`(with[A-Za-z]+)\(/'                                => JsonMapperConfiguration::class,
+        '/`(map|mapWithReport|addType|createWithDefaults)\(/' => JsonMapper::class,
     ];
 
     /**
@@ -377,6 +399,36 @@ final class DocsApiReferenceTest extends TestCase
                 $relative
             )
         );
+    }
+
+    /**
+     * Fails when a listed documentation file was removed or renamed, or an existing one is
+     * unlisted.
+     */
+    /**
+     * Fails when the documentation names a method in prose that does not exist.
+     *
+     * @param string $file Absolute path of the markdown file under inspection.
+     */
+    #[Test]
+    #[DataProvider('documentationFileProvider')]
+    public function itOnlyNamesMethodsThatExist(string $file): void
+    {
+        $relative      = self::toRelativePath($file);
+        $documentation = file_get_contents($file);
+
+        self::assertIsString($documentation, sprintf('%s could not be read.', $relative));
+
+        foreach (self::PROSE_MENTIONS as $pattern => $className) {
+            preg_match_all($pattern, $documentation, $matches);
+
+            foreach ($matches[1] as $method) {
+                self::assertTrue(
+                    method_exists($className, $method),
+                    sprintf('%s names %s::%s(), which does not exist.', $relative, $className, $method)
+                );
+            }
+        }
     }
 
     /**
