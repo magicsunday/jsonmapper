@@ -482,6 +482,17 @@ final readonly class JsonMapper
         }
 
         if (!$this->isIterableWithArraysOrObjects($json)) {
+            // A null is not a scalar and is not handled here. It means "no collection", which the
+            // generic lane above answers by honouring treatNullAsEmptyCollection - and letting the
+            // guard below swallow it made that option silently inert on this lane, so the same
+            // payload and the same configuration produced an empty collection or a hard failure
+            // depending only on whether an element class was also passed.
+            if (($json === null) && ($resolvedCollectionClassName !== null)) {
+                return $context->shouldTreatNullAsEmptyCollection()
+                    ? $this->wrapCollection($resolvedCollectionClassName, [])
+                    : null;
+            }
+
             // A SCALAR against a requested collection is refused. It can be neither the collection
             // nor an element of it, yet the collection class was dropped silently and a bare
             // element built from nothing came back - so a caller who type-hinted the collection got
@@ -493,10 +504,12 @@ final readonly class JsonMapper
             // pinned that since long before this change. Only the shape that can satisfy neither
             // reading is rejected.
             //
-            // Thrown rather than routed through handleMappingException(): returning afterwards
-            // would let map() fall through to the single-object lane and build the very element
-            // this rejects, and recording here as well as at the catch that receives it would file
-            // the failure twice.
+            // Thrown rather than routed through handleMappingException(), and so not consulting
+            // shouldAbortOnError() the way the collection factory's guard does. That guard has a
+            // partial answer to offer - an empty collection - so it can record and carry on. This
+            // one has none: returning after recording would let map() fall through to the
+            // single-object lane and build the very element being rejected. The catch that
+            // receives the throw records it exactly once.
             if (($resolvedCollectionClassName !== null) && !is_array($json) && !is_object($json)) {
                 throw new CollectionMappingException($context->getPath(), get_debug_type($json));
             }
