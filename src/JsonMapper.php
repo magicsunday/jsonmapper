@@ -323,13 +323,16 @@ final readonly class JsonMapper
         ?MappingContext $context = null,
         ?JsonMapperConfiguration $configuration = null,
     ): mixed {
+        // Two branches, not three. The third rebuilt a configuration from the context for callers
+        // that supplied only a context - which is every nested object - and nothing read it once
+        // the two questions the mapper asks moved to the context. That was the READ half of the
+        // round trip, and leaving it would have kept eight accessor calls and an allocation per
+        // nested object to produce a value thrown away on the next line.
         if (!$context instanceof MappingContext) {
             $configuration ??= $this->createDefaultConfiguration();
             $context = new MappingContext($json, $configuration->toOptions());
         } elseif ($configuration instanceof JsonMapperConfiguration) {
             $context->replaceOptions($configuration->toOptions());
-        } else {
-            $configuration = JsonMapperConfiguration::fromContext($context);
         }
 
         $resolvedClassName = $className === null

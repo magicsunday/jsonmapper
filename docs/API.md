@@ -82,7 +82,7 @@ The `JsonMapperConfiguration` class encapsulates mapping options. All configurat
 * `JsonMapperConfiguration::lenient()` – default, tolerant configuration.
 * `JsonMapperConfiguration::strict()` – enables strict mode (missing and unknown properties raise `MappingException`).
 * `JsonMapperConfiguration::fromArray(array $data)` – rebuilds a configuration from persisted values.
-* `JsonMapperConfiguration::fromContext(MappingContext $context)` – reconstructs a configuration for an existing mapping run.
+* `JsonMapperConfiguration::fromContext(MappingContext $context)` – reconstructs a configuration for an existing mapping run. Useful in a custom strategy, which receives a context. Note it reads the mapper's own options only: a key your own code put in the bag does not survive the trip, so read those from the context directly.
 
 ### Withers
 Each `with*` method toggles a single option and returns a clone:
