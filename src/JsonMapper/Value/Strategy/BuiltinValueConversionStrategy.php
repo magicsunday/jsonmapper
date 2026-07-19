@@ -25,6 +25,7 @@ use function in_array;
 use function is_array;
 use function is_bool;
 use function is_callable;
+use function is_finite;
 use function is_float;
 use function is_int;
 use function is_object;
@@ -36,6 +37,8 @@ use function trim;
 use const FILTER_NULL_ON_FAILURE;
 use const FILTER_VALIDATE_FLOAT;
 use const FILTER_VALIDATE_INT;
+use const PHP_INT_MAX;
+use const PHP_INT_MIN;
 
 /**
  * Converts scalar values to the requested builtin type.
@@ -112,7 +115,11 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
         if (
             ($normalized !== null)
             && !$this->isCompatibleValue($normalized, $identifier)
-            && (!$isCastable || $this->isCompositeTargetingScalar($normalized, $identifier))
+            && (
+                !$isCastable
+                || $this->isCompositeTargetingScalar($normalized, $identifier)
+                || $this->isUnrepresentableFloatTargetingInt($normalized, $identifier)
+            )
         ) {
             // Two cases have no conversion worth attempting. An identifier settype() does not know
             // - mixed, iterable, callable, the literal types - cannot be cast at all. And a
@@ -205,11 +212,12 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
             }
         }
 
-        // Only an integer-valued float is a representation of an int. A fractional one is not,
-        // so it is left alone and reaches the compatibility guard, which reports the mismatch
-        // instead of quietly discarding the fraction - the truncation happened before any check
-        // ran, so it was invisible even in strict mode.
-        if (($identifier === 'int') && is_float($value) && (floor($value) === $value)) {
+        // Only a float the int type can actually hold is a representation of an int. Anything else
+        // is left alone and reaches the compatibility guard, which reports the mismatch instead of
+        // quietly discarding what was lost - the conversion happened before any check ran, so it
+        // was invisible even in strict mode.
+        //
+        if (($identifier === 'int') && is_float($value) && $this->isIntRepresentable($value) && (floor($value) === $value)) {
             return (int) $value;
         }
 
@@ -270,6 +278,51 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
     private function allowsNull(BuiltinType $type): bool
     {
         return $type->isNullable();
+    }
+
+    /**
+     * Determines whether a float targets the int type without being representable as one.
+     *
+     * Rejected rather than cast, for the same reason a composite reaching a scalar is: the result
+     * would carry no information from the payload. 9.3e18 exceeds PHP_INT_MAX, so casting wraps it
+     * to a negative number - a sign flip presented as a successful coercion - and PHP emits a "not
+     * representable as an int" warning while doing it. INF and NAN are the same class of value.
+     *
+     * A merely fractional float is NOT covered here: 3.9 reaching an int property is a genuine
+     * coercion that loses only the fraction, and lenient mode exists to absorb it (recorded, so
+     * the loss stays visible).
+     *
+     * @param mixed          $value      Normalized value used during conversion.
+     * @param TypeIdentifier $identifier Identifier of the builtin type to check against.
+     *
+     * @return bool TRUE when a float cannot be represented as the targeted int.
+     */
+    private function isUnrepresentableFloatTargetingInt(mixed $value, TypeIdentifier $identifier): bool
+    {
+        return ($identifier === TypeIdentifier::INT)
+            && is_float($value)
+            && !$this->isIntRepresentable($value);
+    }
+
+    /**
+     * Determines whether a float can be cast to int without overflowing.
+     *
+     * Tested WITHOUT casting. The obvious round-trip, (float) (int) $value === $value, performs
+     * the very cast being guarded against, so it emits the overflow warning on exactly the inputs
+     * it is meant to reject. Comparing against the limits as floats stays silent.
+     *
+     * The upper bound is exclusive because (float) PHP_INT_MAX rounds UP to 2^63 - one past the
+     * largest representable int - so an inclusive test would let that boundary value through.
+     *
+     * @param float $value Value checked for representability.
+     *
+     * @return bool TRUE when the value fits into an int.
+     */
+    private function isIntRepresentable(float $value): bool
+    {
+        return is_finite($value)
+            && ($value >= (float) PHP_INT_MIN)
+            && ($value < (float) PHP_INT_MAX);
     }
 
     /**

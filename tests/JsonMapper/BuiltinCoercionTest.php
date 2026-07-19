@@ -82,11 +82,12 @@ final class BuiltinCoercionTest extends TestCase
     }
 
     /**
-     * Payloads with no meaningful cast. settype() would not refuse them: the string target writes
-     * the literal 'Array' and warns, the bool/int/float targets silently yield true/1/1.0. Both
-     * kinds are rejected instead of handed to the caller.
+     * Payloads with no meaningful cast. settype() would not refuse them: for a composite, the
+     * string target writes the literal 'Array' and warns while the bool/int/float targets silently
+     * yield true/1/1.0; for an out-of-range float, the int target wraps around. None of those
+     * results carries information from the payload, so all are rejected instead of handed over.
      *
-     * @return array<string, array{string, array<int, string>|object}>
+     * @return array<string, array{string, array<int, string>|object|float}>
      */
     public static function rejectedValueProvider(): array
     {
@@ -103,6 +104,14 @@ final class BuiltinCoercionTest extends TestCase
             'object to int'    => ['number', (object) ['a' => 1]],
             'object to float'  => ['decimal', (object) ['a' => 1]],
             'object to bool'   => ['flag', (object) ['a' => 1]],
+
+            // Not a composite, but the same failure mode: a float the int type cannot hold. The
+            // cast wraps 9.3e18 to a negative number - a sign flip presented as a coercion - and
+            // PHP warns while doing it. A merely fractional float is NOT here: 3.9 loses only its
+            // fraction and is coerced and recorded, which the provider above pins.
+            'float above int range' => ['number', 9.3e18],
+            'float below int range' => ['number', -9.3e18],
+            'infinite float to int' => ['number', INF],
         ];
     }
 
@@ -242,13 +251,15 @@ final class BuiltinCoercionTest extends TestCase
     }
 
     /**
-     * @param string                    $property Property receiving the payload value.
-     * @param array<int, string>|object $payload  Composite value with no meaningful cast.
+     * @param string                          $property Property receiving the payload value.
+     * @param array<int, string>|object|float $payload  Value with no meaningful cast.
      */
     #[Test]
     #[DataProvider('rejectedValueProvider')]
-    public function itRejectsACompositeValueOnAScalarProperty(string $property, array|object $payload): void
-    {
+    public function itRejectsAValueWithNoMeaningfulCastOnAScalarProperty(
+        string $property,
+        array|object|float $payload,
+    ): void {
         $holderDefaults = new BuiltinCoercionHolder();
 
         $result = $this->getJsonMapper()->mapWithReport(
