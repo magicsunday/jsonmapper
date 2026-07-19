@@ -11,13 +11,17 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper;
 
+use InvalidArgumentException;
+use MagicSunday\Test\Fixtures\Docs\NestedCollections\CollectionShapesHolder;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\IterableDataObjectHolder;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\SinglyNestedArticle;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\Tag;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 
+use function array_keys;
 use function array_map;
+use function preg_quote;
 
 /**
  * A property typed with a collection class whose element type is advertised by the class's own
@@ -78,5 +82,83 @@ final class SinglyNestedCollectionTest extends TestCase
         self::assertInstanceOf(IterableDataObjectHolder::class, $holder);
         self::assertSame('hello', $holder->payload->title);
         self::assertSame(7, $holder->payload->count);
+    }
+
+    #[Test]
+    public function itKeepsTheKeyTypeDeclaredByTheClassAnnotation(): void
+    {
+        // The int-keyed case is fed a JSON list, so its keys are indistinguishable from positions.
+        // Dropping or reordering the annotation's type parameters during the re-wrap would pass
+        // there and only surface here.
+        $holder = $this->getJsonMapper()->map(
+            $this->getJsonAsObject('{"keyed": {"php": {"name": "php"}, "json": {"name": "json"}}}'),
+            CollectionShapesHolder::class,
+        );
+
+        self::assertInstanceOf(CollectionShapesHolder::class, $holder);
+        self::assertSame(['php', 'json'], array_keys($holder->keyed->getArrayCopy()));
+        self::assertContainsOnlyInstancesOf(Tag::class, $holder->keyed);
+    }
+
+    #[Test]
+    public function itNamesTheMissingAnnotationOnAContainerThatDeclaresNoElementType(): void
+    {
+        // A container that never says what it holds cannot be filled. Falling through handed the
+        // raw array to the property accessor, which rejected it with a Symfony exception naming
+        // neither the annotation nor what to do about it. This is a defect in the class
+        // definition rather than in the payload, so it surfaces as an exception in both modes -
+        // the same one, with the same guidance, that the top-level entry point already gives.
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches(
+            '/' . preg_quote('Define an "@extends" annotation', '/') . '/',
+        );
+
+        $this->getJsonMapper()->map(
+            $this->getJsonAsObject('{"unannotated": [{"name": "php"}]}'),
+            CollectionShapesHolder::class,
+        );
+    }
+
+    #[Test]
+    public function itMapsAnEmptyPayloadToAnEmptyCollection(): void
+    {
+        $holder = $this->getJsonMapper()->map(
+            $this->getJsonAsObject('{"tags": []}'),
+            CollectionShapesHolder::class,
+        );
+
+        self::assertInstanceOf(CollectionShapesHolder::class, $holder);
+        self::assertCount(0, $holder->tags, 'An empty list yields an empty collection instance.');
+    }
+
+    #[Test]
+    public function itLeavesANullPayloadToTheNullStrategy(): void
+    {
+        // The null strategy is registered before this one, so it has to win even though the
+        // collection strategy would now claim the type.
+        $holder = $this->getJsonMapper()->map(
+            $this->getJsonAsObject('{"optional": null}'),
+            CollectionShapesHolder::class,
+        );
+
+        self::assertInstanceOf(CollectionShapesHolder::class, $holder);
+        self::assertNull($holder->optional);
+    }
+
+    #[Test]
+    public function itReportsAnElementThatCannotBeMapped(): void
+    {
+        // The other half of the defect. The foreign InvalidTypeException was not a MappingException,
+        // so mapWithReport() could not collect it. A failure inside this shape must now surface as
+        // a report entry rather than escaping.
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['tags' => [['name' => ['nested' => true]]]],
+            CollectionShapesHolder::class,
+        );
+
+        self::assertTrue(
+            $result->getReport()->hasErrors(),
+            'A failing element is reported rather than raising a foreign exception.',
+        );
     }
 }

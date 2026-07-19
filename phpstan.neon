@@ -42,6 +42,14 @@ parameters:
             message: '#^Property MagicSunday\\Test\\Classes\\BuiltinCoercionHolder\:\:\$bag type has no value type specified in iterable type array\.$#'
             path: %currentWorkingDirectory%/tests/Classes/BuiltinCoercionHolder.php
 
+        # The missing generic types ARE the fixture's purpose: it pins that a container which
+        # never declares what it holds is refused with actionable guidance instead of handing the
+        # raw payload to the property accessor. Specifying them would delete the test case.
+        -
+            identifier: missingType.generics
+            message: '#^Class MagicSunday\\Test\\Fixtures\\Docs\\NestedCollections\\UnannotatedCollection extends generic class ArrayObject but does not specify its types\: TKey, TValue$#'
+            path: %currentWorkingDirectory%/tests/Fixtures/Docs/NestedCollections/UnannotatedCollection.php
+
         # The unused parameter IS the fixture's purpose: it pins that a non-promoted constructor
         # parameter sharing a property name must not supply that property's default.
         -
