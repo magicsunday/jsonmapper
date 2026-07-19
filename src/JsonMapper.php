@@ -601,24 +601,15 @@ final readonly class JsonMapper
         string $resolvedClassName,
         MappingContext $context,
     ): object {
-        // An orchestration of four phases, each in its own method below. The phases were already
-        // marked by comment blocks in a single 180-line body; the state they hand along -
-        // converted values, the names actually mapped, the diverted unknown keys - travels by
-        // return rather than by shared locals.
+        // Orchestrates the phases below; the state they hand along travels by return rather than
+        // by shared locals.
         $metadata = $this->classMetadataFactory->forClass($resolvedClassName);
 
-        [$convertedValues, $mappedProperties, $collectedUnknown] = $this->collectConvertedValues(
+        [$convertedValues, $mappedProperties] = $this->collectConvertedValues(
             $this->toIterableArray($json),
             $resolvedClassName,
             $metadata,
             $context,
-        );
-
-        [$convertedValues, $mappedProperties] = $this->applyUnknownCollector(
-            $metadata,
-            $convertedValues,
-            $mappedProperties,
-            $collectedUnknown,
         );
 
         if ($context->isStrictMode()) {
@@ -632,17 +623,19 @@ final readonly class JsonMapper
      * Converts every payload value once, keyed by the property it maps to.
      *
      * Whether a value ends up a constructor argument or is assigned afterwards, it goes through
-     * the exact same conversion, replace-property, replace-null and error-handling pipeline. A key
-     * matching no declared property is diverted to the collector rather than converted, and
-     * returned separately for {@see applyUnknownCollector()} to merge.
+     * the exact same conversion, replace-property, replace-null and error-handling pipeline.
+     *
+     * A key matching no declared property is not converted but diverted to the nominated collector,
+     * and the gathered keys are merged into it once the loop completes - the two halves of the one
+     * unknown-key concern, kept together.
      *
      * @param array<array-key, mixed> $source            Payload as an associative array.
      * @param class-string            $resolvedClassName Class the values are mapped onto.
      * @param ClassMetadata           $metadata          The class's derived shape.
      * @param MappingContext          $context           Active mapping context.
      *
-     * @return array{0: array<string, mixed>, 1: list<string>, 2: array<string, mixed>} Converted
-     *                                                                                  values by property, the names actually mapped, and the diverted unknown keys.
+     * @return array{0: array<string, mixed>, 1: list<string>} Converted values by property, and the
+     *                                                         names actually mapped.
      */
     private function collectConvertedValues(
         array $source,
@@ -743,34 +736,13 @@ final readonly class JsonMapper
             });
         }
 
-        return [$convertedValues, $mappedProperties, $collectedUnknown];
-    }
-
-    /**
-     * Merges the diverted unknown keys into the collector property.
-     *
-     * The gathered keys are handed to the nominated collector as the raw associative array of
-     * normalized name to unconverted value, bypassing the per-value conversion pipeline (its
-     * element type is deliberately open). Left untouched when nothing was gathered, so the property
-     * keeps its constructor default. Any explicitly mapped value for the same property is merged in
-     * rather than overwritten, so a payload that carries both the collector key and unknown keys
-     * loses neither. array_replace (not array_merge) preserves numeric keys instead of re-indexing.
-     *
-     * @param ClassMetadata        $metadata         The class's derived shape.
-     * @param array<string, mixed> $convertedValues  Values collected so far.
-     * @param list<string>         $mappedProperties Names actually mapped so far.
-     * @param array<string, mixed> $collectedUnknown Diverted unknown keys.
-     *
-     * @return array{0: array<string, mixed>, 1: list<string>} Updated values and mapped names.
-     */
-    private function applyUnknownCollector(
-        ClassMetadata $metadata,
-        array $convertedValues,
-        array $mappedProperties,
-        array $collectedUnknown,
-    ): array {
-        $collectorProperty = $metadata->collectorProperty;
-
+        // Merge the diverted unknown keys into the collector, the tail of the same concern that
+        // diverted them above. They go in as the raw associative array of normalized name to
+        // unconverted value, bypassing the per-value pipeline (the collector's element type is
+        // deliberately open). Left untouched when nothing was gathered, so the property keeps its
+        // constructor default. Any explicitly mapped value for the same property is merged in
+        // rather than overwritten, so a payload carrying both the collector key and unknown keys
+        // loses neither. array_replace (not array_merge) preserves numeric keys.
         if (($collectorProperty !== null) && ($collectedUnknown !== [])) {
             $mappedProperties[] = $collectorProperty;
             $existingValue      = $convertedValues[$collectorProperty] ?? [];
@@ -826,7 +798,7 @@ final readonly class JsonMapper
      * @param array<string, mixed> $convertedValues   Values to hydrate with.
      * @param MappingContext       $context           Active mapping context.
      *
-     * @return object The built and populated object
+     * @return object The built and populated object.
      */
     private function hydrate(
         string $resolvedClassName,
