@@ -12,9 +12,13 @@ declare(strict_types=1);
 namespace MagicSunday\JsonMapper\Configuration;
 
 use DateTimeInterface;
+use DateTimeZone;
+use InvalidArgumentException;
 use MagicSunday\JsonMapper\Context\MappingContext;
+use Throwable;
 
 use function is_string;
+use function sprintf;
 
 /**
  * Defines all configurable options available for JsonMapper.
@@ -49,6 +53,28 @@ final class JsonMapperConfiguration
         private bool $allowScalarToObjectCasting = false,
         private string $defaultTimezone = self::DEFAULT_TIMEZONE,
     ) {
+    }
+
+    /**
+     * Determines whether the identifier names a timezone DateTimeZone accepts.
+     *
+     * @param string $timezone Identifier to check
+     *
+     * @return bool True when the identifier can be used
+     */
+    private static function isKnownTimezone(string $timezone): bool
+    {
+        if ($timezone === '') {
+            return false;
+        }
+
+        try {
+            new DateTimeZone($timezone);
+        } catch (Throwable) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -88,7 +114,10 @@ final class JsonMapperConfiguration
 
         $defaultTimezone = $data['defaultTimezone'] ?? self::DEFAULT_TIMEZONE;
 
-        if (!is_string($defaultTimezone) || $defaultTimezone === '') {
+        // Sanitised rather than rejected, matching how defaultDateFormat is handled here: fromArray
+        // restores persisted settings, and a restore should not fail on a value that can be
+        // defaulted.
+        if (!is_string($defaultTimezone) || !self::isKnownTimezone($defaultTimezone)) {
             $defaultTimezone = self::DEFAULT_TIMEZONE;
         }
 
@@ -312,12 +341,28 @@ final class JsonMapperConfiguration
      * Only applies where the configured format carries no zone of its own; a payload stating its
      * own offset always wins.
      *
-     * @param string $timezone Timezone identifier accepted by {@see \DateTimeZone}
+     * @param string $timezone Timezone identifier accepted by {@see DateTimeZone}
      *
      * @return self Cloned configuration using the provided timezone
      */
     public function withDefaultTimezone(string $timezone): self
     {
+        // Rejected here rather than when a date is parsed: DateTimeZone raises
+        // DateInvalidTimeZoneException, which is no MappingException, so an unknown identifier
+        // would escape mid-run - after partial state had already been written - past a report the
+        // caller was promised. A typo in a configuration file is an ordinary way to produce one.
+        //
+        // Constructed rather than checked against listIdentifiers(): the latter excludes plain
+        // offsets such as "+09:00", which DateTimeZone accepts and which are a legitimate way to
+        // state a fixed zone.
+        try {
+            new DateTimeZone($timezone);
+        } catch (Throwable) {
+            throw new InvalidArgumentException(
+                sprintf('Unknown timezone identifier "%s".', $timezone),
+            );
+        }
+
         $clone                  = clone $this;
         $clone->defaultTimezone = $timezone;
 

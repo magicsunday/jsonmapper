@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\Test\JsonMapper;
 
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
+use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\Test\Classes\DateTimeHolder;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -32,7 +33,7 @@ use function date_default_timezone_set;
  */
 final class DateTimeDeterminismTest extends TestCase
 {
-    private string $originalTimezone = 'UTC';
+    private string $originalTimezone;
 
     protected function setUp(): void
     {
@@ -85,26 +86,46 @@ final class DateTimeDeterminismTest extends TestCase
         );
     }
 
+    #[Test]
+    public function itLetsAZoneInThePayloadWinOverTheConfiguredOne(): void
+    {
+        // The reason the timezone can be passed unconditionally: when the format carries a zone,
+        // PHP ignores the argument. Reading the payload as UTC would be worse than the
+        // host-dependent behaviour this replaces - it would discard what the payload stated.
+        //
+        // The configured zone is deliberately NOT UTC, and the host is a third zone again. With
+        // the configured zone left at its UTC default, an argument that DID override the payload
+        // would still be caught only by accident, and only for payloads that happen not to be UTC.
+        date_default_timezone_set('America/New_York');
+
+        $result = $this->getJsonMapper(
+            config: JsonMapperConfiguration::lenient()->withDefaultTimezone('Europe/Berlin'),
+        )->map(['createdAt' => '2024-01-01T12:00:00+09:00'], DateTimeHolder::class);
+
+        self::assertInstanceOf(DateTimeHolder::class, $result);
+        self::assertSame('2024-01-01T12:00:00+09:00', $result->createdAt->format('c'));
+    }
+
     /**
      * @param string $hostTimezone Timezone the process runs in while mapping
      */
     #[Test]
     #[DataProvider('hostTimezoneProvider')]
-    public function itHonoursAZoneCarriedByThePayloadOnEveryHost(string $hostTimezone): void
+    public function itParsesAStringThatMissesTheFormatIdenticallyOnEveryHost(string $hostTimezone): void
     {
         date_default_timezone_set($hostTimezone);
 
-        // The counterpart, and the reason the timezone can be passed unconditionally: when the
-        // format carries a zone, PHP ignores the argument. Reading this as UTC would be worse than
-        // the host-dependent behaviour it replaces - it would discard information the payload
-        // actually supplied.
+        // The OTHER host-dependent route, and the more common one: a string that does not match
+        // the configured format falls through to the constructor, which reads the process default
+        // unless told otherwise. Under the default ATOM format that is every zoneless string, so
+        // fixing only createFromFormat() left the likelier path broken.
         $result = $this->getJsonMapper()->map(
-            ['createdAt' => '2024-01-01T12:00:00+09:00'],
+            ['createdAt' => '2024-01-01 12:00:00'],
             DateTimeHolder::class,
         );
 
         self::assertInstanceOf(DateTimeHolder::class, $result);
-        self::assertSame('2024-01-01T12:00:00+09:00', $result->createdAt->format('c'));
+        self::assertSame('2024-01-01T12:00:00+00:00', $result->createdAt->format('c'));
     }
 
     #[Test]
@@ -147,14 +168,36 @@ final class DateTimeDeterminismTest extends TestCase
         self::assertSame('000000', $result->createdAt->format('u'));
     }
 
-    #[Test]
-    public function itRejectsANonFiniteTimestamp(): void
+    /**
+     * @return array<string, array{float}>
+     */
+    public static function unusableTimestampProvider(): array
     {
-        // INF and NAN format as literal "inf"/"nan", which no date constructor understands. They
-        // have to be refused as a mapping failure rather than reaching one.
-        $result = $this->getJsonMapper()->mapWithReport(['createdAt' => INF], DateTimeHolder::class);
+        return [
+            'infinite'     => [INF],
+            'not a number' => [NAN],
+            'out of range' => [1.0e20],
+        ];
+    }
 
-        self::assertTrue($result->getReport()->hasErrors(), 'A non-finite timestamp is reported.');
+    /**
+     * @param float $timestamp Value the date constructor cannot represent
+     */
+    #[Test]
+    #[DataProvider('unusableTimestampProvider')]
+    public function itReportsAFloatNoDateCanRepresent(float $timestamp): void
+    {
+        // These reach the constructor and fail there, which the catch turns into a mapping error
+        // rather than letting a native one escape. Pinned as a group because they share exactly
+        // that route - an earlier guard rejecting them separately would be a branch producing the
+        // identical record, and so unobservable.
+        $result = $this->getJsonMapper()->mapWithReport(['createdAt' => $timestamp], DateTimeHolder::class);
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors, 'One unusable value, one record.');
+        self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
+        self::assertSame('$.createdAt', $errors[0]->getPath());
     }
 
     #[Test]
@@ -166,9 +209,14 @@ final class DateTimeDeterminismTest extends TestCase
 
         self::assertInstanceOf(DateTimeHolder::class, $result);
 
-        // A leading @ makes the value an absolute instant, so it is UTC by definition and the host
-        // cannot shift it. Pinned so that a future rewrite of the timestamp path cannot quietly
-        // reintroduce the host dependency this class exists to remove.
-        self::assertSame('1700000000', $result->createdAt->format('U'));
+        // Asserted on the OFFSET, not on format('U'): the latter is timezone-invariant by
+        // definition, so it returns the same string whatever zone the instance carries and could
+        // not detect a host dependency if one were reintroduced.
+        //
+        // The offset rather than the zone NAME, because a leading @ produces a fixed-offset zone
+        // reported as "+00:00" rather than "UTC" - the same instant, a different label, and
+        // pinning the label would make this test about PHP's naming instead of about the host.
+        self::assertSame(0, $result->createdAt->getOffset(), 'A timestamp is an absolute instant.');
+        self::assertSame('2023-11-14T22:13:20+00:00', $result->createdAt->format('c'));
     }
 }

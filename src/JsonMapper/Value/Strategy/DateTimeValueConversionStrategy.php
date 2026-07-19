@@ -23,7 +23,6 @@ use Throwable;
 
 use function get_debug_type;
 use function is_a;
-use function is_finite;
 use function is_float;
 use function is_int;
 use function is_string;
@@ -96,13 +95,27 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
             $context,
             $value,
             static function (string $className, mixed $value) use ($context) {
+                // Resolved once per value and guarded: DateTimeZone raises
+                // DateInvalidTimeZoneException for an identifier it does not know, and that is no
+                // MappingException - it would escape a run that promised a report. The
+                // configuration validates on the way in, but the option bag is an extension point
+                // that can be populated directly, so the strategy cannot assume it was.
+                try {
+                    $timezone = new DateTimeZone($context->getDefaultTimezone());
+                } catch (Throwable) {
+                    throw new TypeMismatchException($context->getPath(), $className, 'invalid timezone');
+                }
+
                 // A float is accepted as a timestamp: a JSON number with a fraction is an
                 // ordinary way to express sub-second precision, and it used to be refused
                 // outright, leaving the property uninitialised so that reading it back raised an
-                // Error rather than reporting a failure. Non-finite values are excluded here
-                // because they format as the literals "inf"/"nan", which no date constructor
-                // understands - they would reach it and fail there on a message naming neither.
-                if (!is_string($value) && !is_int($value) && !(is_float($value) && is_finite($value))) {
+                // Error rather than reporting a failure.
+                //
+                // No is_finite() guard. INF and NAN format as literals no date constructor
+                // understands, so they raise there and the catch below reports them - as the same
+                // TypeMismatchException, at the same path, naming the same type. A guard would be
+                // a branch nothing could observe.
+                if (!is_string($value) && !is_int($value) && !is_float($value)) {
                     throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
                 }
 
@@ -127,7 +140,7 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
                     $parsed = $className::createFromFormat(
                         $context->getDefaultDateFormat(),
                         $value,
-                        new DateTimeZone($context->getDefaultTimezone()),
+                        $timezone,
                     );
 
                     if ($parsed instanceof DateTimeInterface) {
@@ -135,10 +148,8 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
                     }
                 }
 
-                // Six decimals because that is the precision DateTime keeps; %F rather than %f so
-                // a large timestamp is never rendered in exponential notation, which the leading
-                // @ syntax does not accept. A leading @ makes the value an absolute instant, so it
-                // is UTC by definition and no host can shift it.
+                // Six decimals because that is the precision DateTime keeps. A leading @ makes the
+                // value an absolute instant, so it is UTC by definition and no host can shift it.
                 $formatted = match (true) {
                     is_int($value)   => '@' . $value,
                     is_float($value) => '@' . sprintf('%.6F', $value),
@@ -146,7 +157,12 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
                 };
 
                 try {
-                    return new $className($formatted);
+                    // The timezone reaches this constructor too. It is the route a string takes
+                    // when it does not match the configured format - which, under the default
+                    // ATOM, is every zoneless string - so leaving it out would have kept the host
+                    // dependency on the more common of the two paths while fixing the rarer one.
+                    // As with createFromFormat(), a value stating its own offset keeps it.
+                    return new $className($formatted, $timezone);
                 } catch (Throwable) {
                     // Throwable rather than Exception: a subclass whose constructor demands
                     // something else raises a TypeError, and an unparsable value can reach a
