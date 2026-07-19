@@ -33,35 +33,45 @@ final class BuiltinCoercionTest extends TestCase
      * Payloads that lenient mode converts rather than rejects. A scalar reaching a differently
      * typed scalar property is exactly the schema drift lenient mode exists to absorb.
      *
-     * @return array<string, array{string, int|float|bool|string, int|float|bool|string}>
+     * The last column says whether the conversion shows up in the report, and the split is not
+     * cosmetic. normalizeValue() recognises a payload as a *representation* of the target type -
+     * the string '42' IS the number 42 - and rewrites it before the compatibility guard ever runs,
+     * so nothing is recorded. Everything else reaches the guard as a genuine mismatch, gets
+     * recorded, and is then cast. Documenting the whole table as "recorded" would be wrong for
+     * more than half of it.
+     *
+     * @return array<string, array{string, int|float|bool|string, int|float|bool|string, bool}>
      */
     public static function coercedValueProvider(): array
     {
         return [
-            'int to string'           => ['text', 42, '42'],
-            'float to string'         => ['text', 1.5, '1.5'],
-            'bool true to string'     => ['text', true, '1'],
-            'bool false to string'    => ['text', false, ''],
-            'numeric to int'          => ['number', '42', 42],
-            'bool true to int'        => ['number', true, 1],
-            'bool false to int'       => ['number', false, 0],
-            'float truncates to int'  => ['number', 3.9, 3],
-            'non numeric to int'      => ['number', 'abc', 0],
-            'int to float'            => ['decimal', 3, 3.0],
-            'numeric to float'        => ['decimal', '2.5', 2.5],
-            'bool to float'           => ['decimal', true, 1.0],
-            'non numeric to float'    => ['decimal', 'abc', 0.0],
-            'literal true'            => ['flag', 'true', true],
-            'numeric string one'      => ['flag', '1', true],
-            'padded mixed case true'  => ['flag', '  TRUE  ', true],
-            'non empty to bool'       => ['flag', 'yes', true],
-            'int one to bool'         => ['flag', 1, true],
-            'int to bool'             => ['flag', 5, true],
-            'literal false'           => ['flagSeededTrue', 'false', false],
-            'padded mixed case false' => ['flagSeededTrue', '  FALSE  ', false],
-            'numeric string zero'     => ['flagSeededTrue', '0', false],
-            'int zero to bool'        => ['flagSeededTrue', 0, false],
-            'float zero to bool'      => ['flagSeededTrue', 0.0, false],
+            // Normalised silently - the payload is a representation of the target type.
+            'numeric to int'          => ['number', '42', 42, false],
+            'float truncates to int'  => ['number', 3.9, 3, false],
+            'int to float'            => ['decimal', 3, 3.0, false],
+            'numeric to float'        => ['decimal', '2.5', 2.5, false],
+            'literal true'            => ['flag', 'true', true, false],
+            'numeric string one'      => ['flag', '1', true, false],
+            'padded mixed case true'  => ['flag', '  TRUE  ', true, false],
+            'int one to bool'         => ['flag', 1, true, false],
+            'literal false'           => ['flagSeededTrue', 'false', false, false],
+            'padded mixed case false' => ['flagSeededTrue', '  FALSE  ', false, false],
+            'numeric string zero'     => ['flagSeededTrue', '0', false, false],
+            'int zero to bool'        => ['flagSeededTrue', 0, false, false],
+
+            // Cast and recorded - a genuine mismatch the guard sees.
+            'int to string'        => ['text', 42, '42', true],
+            'float to string'      => ['text', 1.5, '1.5', true],
+            'bool true to string'  => ['text', true, '1', true],
+            'bool false to string' => ['text', false, '', true],
+            'bool true to int'     => ['number', true, 1, true],
+            'bool false to int'    => ['number', false, 0, true],
+            'non numeric to int'   => ['number', 'abc', 0, true],
+            'bool to float'        => ['decimal', true, 1.0, true],
+            'non numeric to float' => ['decimal', 'abc', 0.0, true],
+            'non empty to bool'    => ['flag', 'yes', true, true],
+            'int to bool'          => ['flag', 5, true, true],
+            'float zero to bool'   => ['flagSeededTrue', 0.0, false, true],
         ];
     }
 
@@ -87,6 +97,7 @@ final class BuiltinCoercionTest extends TestCase
      * @param string                $property Property receiving the payload value.
      * @param int|float|bool|string $payload  Value handed to the mapper.
      * @param int|float|bool|string $expected Value the property must hold afterwards.
+     * @param bool                  $recorded Whether the conversion appears in the report.
      */
     #[Test]
     #[DataProvider('coercedValueProvider')]
@@ -94,6 +105,7 @@ final class BuiltinCoercionTest extends TestCase
         string $property,
         int|float|bool|string $payload,
         int|float|bool|string $expected,
+        bool $recorded,
     ): void {
         $result = $this->getJsonMapper()->mapWithReport(
             [$property => $payload],
@@ -104,6 +116,38 @@ final class BuiltinCoercionTest extends TestCase
 
         self::assertInstanceOf(BuiltinCoercionHolder::class, $holder);
         self::assertSame($expected, (new ReflectionProperty($holder, $property))->getValue($holder));
+
+        // The value arriving is only half the contract. A cast that the guard saw has to stay
+        // visible in the report; a payload that normalizeValue() recognised outright must not
+        // produce noise. Without this both directions could regress unnoticed.
+        self::assertSame(
+            $recorded ? 1 : 0,
+            $result->getReport()->getErrorCount(),
+            $recorded
+                ? 'A cast the guard saw stays visible in the report.'
+                : 'A recognised representation is not a mismatch and must not be reported.',
+        );
+    }
+
+    #[Test]
+    public function itLeavesANoDefaultPropertyUninitialisedWhenRejected(): void
+    {
+        // Every property in rejectedValueProvider() carries a default, so none of those rows can
+        // show what happens without one. The documentation promises the property is left
+        // uninitialised rather than filled with something invented.
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['required' => ['a']],
+            BuiltinCoercionHolder::class,
+        );
+
+        $holder = $result->getValue();
+
+        self::assertInstanceOf(BuiltinCoercionHolder::class, $holder);
+        self::assertFalse(
+            (new ReflectionProperty($holder, 'required'))->isInitialized($holder),
+            'A rejected value must not be substituted by a fabricated one.',
+        );
+        self::assertSame(1, $result->getReport()->getErrorCount());
     }
 
     #[Test]

@@ -13,111 +13,102 @@ namespace MagicSunday\Test\JsonMapper;
 
 use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
+use MagicSunday\JsonMapper\Context\MappingError;
+use MagicSunday\JsonMapper\Report\MappingReport;
 use MagicSunday\JsonMapper\Report\MappingResult;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 use function file_get_contents;
+use function glob;
 use function method_exists;
 use function preg_match_all;
 use function sprintf;
+use function str_replace;
 
 /**
- * Reads the documentation and checks that the API it names actually exists.
+ * The documentation is only useful while it still describes the real API. A renamed or removed
+ * method leaves the samples silently broken - a reader copies them and gets a fatal error, and
+ * nothing in the suite notices, because no test reads the markdown.
  *
- * A test that transcribes a documented snippet by hand proves nothing about the document: the
- * transcription is what runs, and the markdown could say anything. These checks take the method
- * names out of the documentation itself, so a rename in either direction fails CI.
+ * This walks the committed samples and checks every method call made on a variable whose type the
+ * samples fix by convention. It caught `MappingResult::getMappedValue()`, which never existed.
  *
  * @internal
  */
 final class DocsApiReferenceTest extends TestCase
 {
-    private const string DOCS_PATH = __DIR__ . '/../../docs/';
-
     /**
-     * Documentation files and the class whose API they describe.
+     * Variable names the documentation uses consistently, mapped to the class they hold. A sample
+     * that introduces a new variable for one of these types has to be added here, otherwise its
+     * calls go unchecked.
      *
-     * @return array<string, array{string, class-string, string}>
+     * @var array<string, class-string>
      */
-    public static function documentedConfigurationApiProvider(): array
+    private const array VARIABLE_TYPES = [
+        'result'        => MappingResult::class,
+        'report'        => MappingReport::class,
+        'mapper'        => JsonMapper::class,
+        'configuration' => JsonMapperConfiguration::class,
+        'error'         => MappingError::class,
+    ];
+
+    /**
+     * Every committed markdown file, so a newly added recipe is covered without further wiring.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function documentationFileProvider(): array
     {
-        return [
-            'API reference withers' => [
-                'API.md',
-                JsonMapperConfiguration::class,
-                '/`(with[A-Za-z]+)\(/',
-            ],
-        ];
+        $files = [];
+
+        foreach (['/../../docs/**/*.md', '/../../docs/*.md', '/../../*.md'] as $pattern) {
+            $matches = glob(__DIR__ . $pattern);
+
+            if ($matches !== false) {
+                $files = [...$files, ...$matches];
+            }
+        }
+
+        $cases = [];
+
+        foreach ($files as $file) {
+            $cases[str_replace(__DIR__ . '/../../', '', $file)] = [$file];
+        }
+
+        return $cases;
     }
 
     /**
-     * @param string       $file      Documentation file relative to the docs directory.
-     * @param class-string $className Class the documented methods must exist on.
-     * @param string       $pattern   Pattern capturing the documented method names.
+     * @param string $file Absolute path of the markdown file under inspection.
      */
     #[Test]
-    #[DataProvider('documentedConfigurationApiProvider')]
-    public function itOnlyDocumentsMethodsThatExist(string $file, string $className, string $pattern): void
+    #[DataProvider('documentationFileProvider')]
+    public function itOnlyDocumentsMethodsThatExist(string $file): void
     {
-        $documentation = file_get_contents(self::DOCS_PATH . $file);
+        $documentation = file_get_contents($file);
 
-        self::assertIsString($documentation, sprintf('Documentation file %s must be readable.', $file));
+        self::assertIsString($documentation, sprintf('%s could not be read.', $file));
 
-        preg_match_all($pattern, $documentation, $matches);
-
-        $documented = $matches[1];
-
-        self::assertNotSame([], $documented, sprintf('No method names found in %s - has the format changed?', $file));
-
-        foreach ($documented as $method) {
-            self::assertTrue(
-                method_exists($className, $method),
-                sprintf('%s documents %s::%s(), which does not exist.', $file, $className, $method),
+        foreach (self::VARIABLE_TYPES as $variable => $className) {
+            preg_match_all(
+                sprintf('/\$%s->([A-Za-z_][A-Za-z0-9_]*)\(/', $variable),
+                $documentation,
+                $matches
             );
-        }
-    }
 
-    #[Test]
-    public function itDocumentsTheResultAccessorsThatExist(): void
-    {
-        $recipe = file_get_contents(self::DOCS_PATH . 'recipes/error-handling.md');
-
-        self::assertIsString($recipe);
-
-        preg_match_all('/\$result->([A-Za-z]+)\(/', $recipe, $matches);
-
-        $documented = $matches[1];
-
-        self::assertNotSame([], $documented, 'The recipe must demonstrate at least one result accessor.');
-
-        foreach ($documented as $method) {
-            self::assertTrue(
-                method_exists(MappingResult::class, $method),
-                sprintf('The error-handling recipe calls %s::%s(), which does not exist.', MappingResult::class, $method),
-            );
-        }
-    }
-
-    #[Test]
-    public function itDocumentsMapperMethodsThatExist(): void
-    {
-        $reference = file_get_contents(self::DOCS_PATH . 'API.md');
-
-        self::assertIsString($reference);
-
-        preg_match_all('/`(map|mapWithReport|addType|createWithDefaults)\(/', $reference, $matches);
-
-        $documented = $matches[1];
-
-        self::assertNotSame([], $documented, 'The API reference must name the mapper entry points.');
-
-        foreach ($documented as $method) {
-            self::assertTrue(
-                method_exists(JsonMapper::class, $method),
-                sprintf('The API reference documents %s::%s(), which does not exist.', JsonMapper::class, $method),
-            );
+            foreach ($matches[1] as $method) {
+                self::assertTrue(
+                    method_exists($className, $method),
+                    sprintf(
+                        '%s documents %s::%s(), which does not exist.',
+                        str_replace(__DIR__ . '/../../', '', $file),
+                        $className,
+                        $method
+                    )
+                );
+            }
         }
     }
 }

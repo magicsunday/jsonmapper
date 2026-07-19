@@ -46,4 +46,11 @@ final class BuiltinCoercionHolder
     public array $bag = ['sentinel' => 'sentinel'];
 
     public object $thing;
+
+    /**
+     * Deliberately without a default. A rejected value leaves the property uninitialised rather
+     * than falling back to anything, which is what the documentation promises and what every
+     * other property here - all of them defaulted - is unable to demonstrate.
+     */
+    public string $required;
 }

@@ -95,23 +95,33 @@ For tolerant APIs combine `JsonMapperConfiguration::lenient()` with `->withIgnor
 
 ### What lenient mode coerces, and what it refuses
 
-Lenient mode absorbs a *scalar* that arrives with the wrong type. The value is converted and the
-conversion is recorded in the report, so the mapping succeeds and the drift stays visible:
+Lenient mode absorbs a *scalar* that arrives with the wrong type, and it does so in two distinct
+ways. Where the payload is a recognisable **representation** of the target type, it is normalised
+silently — nothing is reported, because nothing was wrong:
+
+| Payload | Target | Result |
+|---------|--------|--------|
+| `'42'` | `int` | `42` |
+| `3.9` | `int` | `3` (truncated) |
+| `'2.5'` | `float` | `2.5` |
+| `'true'`, `'1'`, `1` | `bool` | `true` |
+| `'false'`, `'0'`, `0` | `bool` | `false` |
+
+Everything else is a genuine mismatch: the value is cast **and** recorded in the report, so the
+mapping succeeds while the drift stays visible.
 
 | Payload | Target | Result |
 |---------|--------|--------|
 | `42` | `string` | `'42'` |
-| `'42'` | `int` | `42` |
-| `3.9` | `int` | `3` (truncated) |
-| `'true'`, `'1'`, `'yes'` | `bool` | `true` |
-| `'false'`, `'0'`, `0` | `bool` | `false` |
+| `true` | `string` | `'1'` |
 | `'abc'` | `int` | `0` |
+| `'yes'`, `5` | `bool` | `true` |
 
-An `array` or an object reaching a **scalar** property is refused instead. PHP would not object —
-casting an array to `string` yields the literal `'Array'` plus a warning, and casting it to `bool`,
-`int` or `float` silently yields `true`, `1` or `1.0`. None of those carry information from the
-payload, so the mapper records a `TypeMismatchException` and leaves the property at its default
-rather than handing back a plausible-looking value derived from nothing.
+An `array` or an object reaching a **scalar** property is refused instead of cast. PHP itself would
+not object in every case — casting a non-empty array to `string` yields the literal `'Array'` plus a
+warning, while casting it to `bool`, `int` or `float` silently yields `true`, `1` or `1.0`. None of
+those carry information from the payload, so the mapper records a `TypeMismatchException` rather
+than handing back a plausible-looking value derived from nothing.
 
 This applies to objects with a `__toString()` method as well: the decision is made on the target
 type, not on what the value happens to be capable of.
@@ -119,8 +129,10 @@ type, not on what the value happens to be capable of.
 Composites reaching an `array` or `object` property are *not* affected — those casts are
 meaningful and still happen.
 
-A refused value is recorded exactly once. Where the property has no default, it is left
-uninitialised, so read it back only after checking the report:
+A refused value is recorded exactly once. A declared property keeps its default; one declared
+without a default is left uninitialised, so read it back only after checking the report. (A value
+required by the constructor is a different case — that raises `MissingConstructorArgumentException`
+instead.)
 
 ```php
 $result = $mapper->mapWithReport($payload, Article::class);
