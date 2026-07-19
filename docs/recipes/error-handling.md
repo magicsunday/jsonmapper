@@ -84,6 +84,9 @@ A scalar payload against an object target is rejected only when the target actua
 constructor arguments. A class whose constructor can be called without any still yields an instance,
 with no error recorded - the scalar simply supplies nothing.
 
+A property that declares no type at all is not coerced: it makes no claim about its value, so the
+decoded payload is assigned unchanged - array, object, scalar or null alike, with nothing reported.
+
 Configuration problems are not mapping failures and still surface as exceptions in both modes: a
 class name that does not exist, or a collection whose element type cannot be resolved, is a defect
 in the call rather than in the payload.
