@@ -39,4 +39,6 @@ final class MutableDateTimeHolder
     public ?CustomDateTimeInterface $byCustomInterface = null;
 
     public ?AbstractCustomDateTime $byAbstract = null;
+
+    public ?WeirdConstructorDateTime $weird = null;
 }

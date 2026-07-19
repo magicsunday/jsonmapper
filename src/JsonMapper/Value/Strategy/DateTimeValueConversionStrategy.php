@@ -13,12 +13,12 @@ namespace MagicSunday\JsonMapper\Value\Strategy;
 
 use DateInterval;
 use DateTimeInterface;
-use Exception;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use ReflectionClass;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\ObjectType;
+use Throwable;
 
 use function class_exists;
 use function get_debug_type;
@@ -100,7 +100,7 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
 
                     try {
                         return new $className($value);
-                    } catch (Exception) {
+                    } catch (Throwable) {
                         throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
                     }
                 }
@@ -117,7 +117,12 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
 
                 try {
                     return new $className($formatted);
-                } catch (Exception) {
+                } catch (Throwable) {
+                    // Throwable rather than Exception: a subclass whose constructor demands
+                    // something else raises a TypeError, and an unparsable value can reach a
+                    // constructor that rejects it outright. Both are native Errors, which no
+                    // MappingException catch upstream collects - they would leave the caller with
+                    // a fatal where a report entry was promised.
                     throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
                 }
             }

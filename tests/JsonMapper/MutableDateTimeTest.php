@@ -141,6 +141,25 @@ final class MutableDateTimeTest extends TestCase
         );
     }
 
+    #[Test]
+    public function itReportsASubclassWhoseConstructorRejectsTheValue(): void
+    {
+        // createFromFormat() bypasses the constructor, so this only surfaces when a value does not
+        // parse and the fallback reaches `new`. PHP then raises a TypeError - a native Error, which
+        // no MappingException catch upstream collects, so it escaped as a fatal rather than being
+        // reported.
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['weird' => 'not a parsable date'],
+            MutableDateTimeHolder::class,
+        );
+
+        $holder = $result->getValue();
+
+        self::assertInstanceOf(MutableDateTimeHolder::class, $holder);
+        self::assertNull($holder->weird);
+        self::assertCount(1, $result->getReport()->getErrors());
+    }
+
     /**
      * @return array<string, array{string}>
      */
