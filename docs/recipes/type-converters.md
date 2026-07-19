@@ -110,10 +110,23 @@ Use `JsonMapper::addCustomClassMapEntry()` when the target class depends on runt
 > ```
 >
 > A resolution outside that list raises a `DomainException` naming the class it refused. The list is
-> validated when you register it, so a typo fails immediately rather than silently narrowing what is
-> permitted. It is opt-in because the class map is also used for plain class replacement between
-> unrelated types — see [Manual instantiation](manual-instantiation.md) — which an enforced list
-> would break.
+> validated when you register it — a typo, an empty list, or an interface fails immediately, and a
+> rejected list leaves nothing registered, so a failed guard cannot leave the entry live and
+> unrestricted. Any spelling PHP accepts works: `Circle::class`, `'\Circle'` and `'circle'` are the
+> same class to the check, as they are to `new`.
+>
+> It is opt-in because the class map is also used for plain class replacement between unrelated
+> types — see [Manual instantiation](manual-instantiation.md) — which an enforced list would break.
+> Note that a closure passed through the **constructor** `$classMap` cannot carry a list; re-register
+> it with `addCustomClassMapEntry()` to restrict it.
+>
+> **What the allowlist does not do.** It bounds which class is built. It does not make the payload
+> trusted: constructor arguments and property values still come from it, so every class you list must
+> itself be safe to construct from untrusted data. And it constrains one entry — a nested object
+> property resolves through its own entry, with its own list or none.
+>
+> The same caution applies to `map()`'s own `$className`: it selects the class to instantiate, so
+> deriving it from request data is the same sink reached more directly, and no allowlist covers it.
 
 ```php
 require __DIR__ . '/vendor/autoload.php';

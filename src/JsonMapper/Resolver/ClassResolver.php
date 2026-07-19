@@ -23,7 +23,9 @@ use function get_debug_type;
 use function in_array;
 use function interface_exists;
 use function is_string;
+use function ltrim;
 use function sprintf;
+use function strtolower;
 
 /**
  * Resolves class names using the configured class map.
@@ -41,7 +43,11 @@ final class ClassResolver
      * Classes each resolver entry is permitted to return, keyed by the base class it handles. An
      * entry absent from this map is unrestricted.
      *
-     * @var array<class-string, list<class-string>>
+     * Stored as normalised COMPARISON forms rather than class-strings - lower-cased and without a
+     * leading backslash - because that is what makes two spellings of the same class compare equal.
+     * They are never used as class names, only compared against one.
+     *
+     * @var array<class-string, list<string>>
      */
     private array $allowedTargets = [];
 
@@ -72,21 +78,96 @@ final class ClassResolver
     public function add(string $className, Closure $resolver, ?array $allowedTargets = null): void
     {
         $this->assertClassString($className);
+
+        // Everything is validated BEFORE anything is stored, so a rejected list cannot leave the
+        // resolver registered without it. Storing first made this fail OPEN: a typo in the list
+        // threw, and the entry it was meant to restrict stayed live and unrestricted - the exact
+        // surface the allowlist exists to close, reached by getting the guard slightly wrong. A
+        // caller that logs and continues past configuration errors would never learn of it.
+        //
+        // Validated on registration rather than on resolution for the same reason a typo must not
+        // pass: otherwise it narrows the list silently and the resolver starts refusing a class the
+        // consumer believes it permitted, at request time, on a payload that looks fine.
+        $validatedTargets = $allowedTargets === null
+            ? null
+            : $this->validateAllowedTargets($className, $allowedTargets);
+
         $this->classMap[$className] = $resolver;
 
-        if ($allowedTargets === null) {
+        if ($validatedTargets === null) {
+            // An entry is replaced wholesale, so a list written for the previous closure must not
+            // outlive it.
             unset($this->allowedTargets[$className]);
 
             return;
         }
 
-        // Validated on registration rather than on resolution: a typo in the list would otherwise
-        // narrow it silently, and the resolver would start refusing a class the consumer believes
-        // it permitted - at request time, on a payload that looks fine.
-        $this->allowedTargets[$className] = array_map(
-            $this->assertClassString(...),
+        $this->allowedTargets[$className] = $validatedTargets;
+    }
+
+    /**
+     * Validates an allowed-target list and returns it in the form the check compares against.
+     *
+     * @param class-string $className      Base class the list belongs to.
+     * @param list<string> $allowedTargets Classes the resolver may return.
+     *
+     * @return list<string> Normalised list
+     *
+     * @throws DomainException When the list is empty, or names something that is not a class.
+     */
+    private function validateAllowedTargets(string $className, array $allowedTargets): array
+    {
+        if ($allowedTargets === []) {
+            // Not treated as "nothing is permitted": no caller wants a resolver that can never
+            // succeed, and an empty list realistically arrives from a config lookup that found
+            // nothing or a filter that removed everything. Left alone it would be the extreme case
+            // of the silent narrowing this validation exists to catch, surfacing only at request
+            // time.
+            throw new DomainException(
+                sprintf(
+                    'Allowed-target list for %s is empty; omit it to leave the resolver unrestricted.',
+                    $className,
+                ),
+            );
+        }
+
+        return array_map(
+            function (string $target) use ($className): string {
+                // class_exists() only, unlike assertClassString(): an interface can never be what a
+                // resolver returns for instantiation, so listing one is always a mistake and one
+                // that would show up as an unexplained refusal.
+                if (!class_exists($target)) {
+                    throw new DomainException(
+                        sprintf(
+                            'Allowed target %s for %s is not an existing class.',
+                            $target,
+                            $className,
+                        ),
+                    );
+                }
+
+                return $this->normalizeClassName($target);
+            },
             $allowedTargets,
         );
+    }
+
+    /**
+     * Reduces a class name to the form two spellings of the same class share.
+     *
+     * PHP class names are case-insensitive and tolerate a leading backslash, so '\Circle',
+     * 'circle' and Circle::class all instantiate the same class. A strict comparison is therefore
+     * narrower than PHP's own resolution - which fails safe, but rejects payloads that are in fact
+     * permitted, at request time. Comparing normalised forms makes the check agree with what
+     * actually gets instantiated.
+     *
+     * @param string $className Class name in any accepted spelling.
+     *
+     * @return string Comparable form
+     */
+    private function normalizeClassName(string $className): string
+    {
+        return strtolower(ltrim($className, '\\'));
     }
 
     /**
@@ -151,7 +232,7 @@ final class ClassResolver
             return;
         }
 
-        if (in_array($resolved, $this->allowedTargets[$className], true)) {
+        if (in_array($this->normalizeClassName($resolved), $this->allowedTargets[$className], true)) {
             return;
         }
 

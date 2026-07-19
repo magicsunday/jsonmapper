@@ -19,6 +19,7 @@ use MagicSunday\Test\Classes\Person;
 use MagicSunday\Test\Classes\VipPerson;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Stringable;
 
 use function is_array;
 use function is_string;
@@ -110,6 +111,96 @@ final class ClassResolverAllowlistTest extends TestCase
             Base::class,
             $resolver->resolve(Person::class, [], new MappingContext([])),
         );
+    }
+
+    #[Test]
+    public function itLeavesNothingRegisteredWhenTheAllowlistIsRejected(): void
+    {
+        // The guard failing OPEN, which is the worst way for a guard to fail. Registering the
+        // resolver before validating the list meant a typo threw AND left the entry live with no
+        // restriction at all - the exact surface the allowlist closes, reached by getting the
+        // allowlist slightly wrong. A caller that logs and continues past configuration errors
+        // would never learn of it.
+        $resolver = new ClassResolver();
+
+        try {
+            $resolver->add(
+                Person::class,
+                static fn (): string => Base::class,
+                [VipPerson::class, 'Typo\Nope'],
+            );
+
+            self::fail('An allowlist naming a missing class must be rejected.');
+        } catch (DomainException) {
+            // Expected - what matters is the state left behind.
+        }
+
+        // Nothing was registered, so the base class resolves to itself rather than through a
+        // resolver nobody managed to restrict.
+        self::assertSame(
+            Person::class,
+            $resolver->resolve(Person::class, [], new MappingContext([])),
+        );
+    }
+
+    #[Test]
+    public function itRejectsAnEmptyAllowlist(): void
+    {
+        // An empty list would make every resolution fail, which no caller intends. It arrives from
+        // a config lookup that found nothing or a filter that removed everything, and left alone it
+        // is the extreme case of the silent narrowing registration-time validation exists to catch.
+        $resolver = new ClassResolver();
+
+        $this->expectException(DomainException::class);
+        $this->expectExceptionMessageMatches('/empty/');
+
+        $resolver->add(Person::class, static fn (): string => VipPerson::class, []);
+    }
+
+    #[Test]
+    public function itAcceptsAnyValidSpellingOfAnAllowedClass(): void
+    {
+        // PHP resolves '\Circle', 'circle' and Circle::class to one class, so a strict string
+        // comparison is narrower than instantiation itself. That direction is safe but wrong: it
+        // refuses payloads that are in fact permitted, at request time, and a resolver composing a
+        // name from parts produces the leading-backslash form as a matter of course.
+        $resolver = new ClassResolver();
+        $resolver->add(Person::class, static fn (): string => '\\' . VipPerson::class, [VipPerson::class]);
+
+        self::assertSame(
+            '\\' . VipPerson::class,
+            $resolver->resolve(Person::class, [], new MappingContext([])),
+        );
+    }
+
+    #[Test]
+    public function itDropsAnAllowlistWhenTheEntryIsReplacedWithoutOne(): void
+    {
+        // An entry is replaced wholesale, so a list written for the previous closure must not
+        // outlive it - a closure paired with somebody else's allowlist is a state neither party
+        // asked for. The consequence is that re-registering widens, so registration order matters;
+        // pinned here so that is a decision rather than a surprise.
+        $resolver = new ClassResolver();
+        $resolver->add(Person::class, static fn (): string => VipPerson::class, [VipPerson::class]);
+        $resolver->add(Person::class, static fn (): string => Base::class);
+
+        self::assertSame(
+            Base::class,
+            $resolver->resolve(Person::class, [], new MappingContext([])),
+        );
+    }
+
+    #[Test]
+    public function itRejectsAnAllowlistNamingAnInterface(): void
+    {
+        // An interface can never be what a resolver returns for instantiation, so listing one is
+        // always a mistake - and one that would otherwise surface as an unexplained refusal of a
+        // class the consumer believes they permitted.
+        $resolver = new ClassResolver();
+
+        $this->expectException(DomainException::class);
+
+        $resolver->add(Person::class, static fn (): string => VipPerson::class, [Stringable::class]);
     }
 
     #[Test]

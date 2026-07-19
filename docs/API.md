@@ -58,6 +58,10 @@ var_dump($mapper::class);
 | `map(mixed $json, ?string $className = null, ?string $collectionClassName = null, ?MappingContext $context = null, ?JsonMapperConfiguration $configuration = null): mixed` | Maps the provided JSON payload to the requested class or collection. |
 | `mapWithReport(mixed $json, ?string $className = null, ?string $collectionClassName = null, ?JsonMapperConfiguration $configuration = null): MappingResult` | Maps data and returns a `MappingResult` containing both the mapped value and an error report. |
 
+> **Security:** `$className` selects the class to instantiate — never derive it from request data.
+> The same applies to what a class-map resolver returns; see the note in
+> [Type converters](recipes/type-converters.md).
+
 > `map()` and `mapWithReport()` accept JSON decoded into arrays or objects (`json_decode(..., associative: false)` is recommended). Collections require either an explicit collection class name or collection PHPDoc (`@extends`) metadata.
 
 > **What the payload's shape decides.** Given both an element class and a collection class, a list

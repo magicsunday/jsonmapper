@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday;
 
 use Closure;
+use DomainException;
 use InvalidArgumentException;
 use MagicSunday\JsonMapper\Attribute\ReplaceNullWithDefaultValue;
 use MagicSunday\JsonMapper\Attribute\ReplaceProperty;
@@ -288,6 +289,8 @@ final readonly class JsonMapper
      * @phpstan-param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $closure
      *
      * @return JsonMapper Returns the mapper instance for fluent configuration.
+     *
+     * @throws DomainException When $allowedTargets is empty or names something that is not a class.
      */
     public function addCustomClassMapEntry(
         string $className,
@@ -301,6 +304,10 @@ final readonly class JsonMapper
 
     /**
      * Maps the JSON to the specified class entity.
+     *
+     * SECURITY: $className selects the class to instantiate. Never derive it from request data -
+     * that is object injection by the shortest route, and no class-map allowlist covers it, since
+     * allowlists are keyed by class-map entry.
      *
      * @param mixed                        $json                Source data to map into PHP objects.
      * @param class-string|null            $className           Fully qualified class name that should be instantiated for mapped objects.
@@ -378,6 +385,10 @@ final readonly class JsonMapper
 
     /**
      * Maps the JSON structure and returns a detailed mapping report.
+     *
+     * SECURITY: $className selects the class to instantiate. Never derive it from request data -
+     * that is object injection by the shortest route, and no class-map allowlist covers it, since
+     * allowlists are keyed by class-map entry.
      *
      * @param mixed                        $json                Source data to map into PHP objects.
      * @param class-string|null            $className           Fully qualified class name that should be instantiated for mapped objects.
