@@ -24,6 +24,7 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
 
+use function array_push;
 use function count;
 use function file_get_contents;
 use function method_exists;
@@ -188,7 +189,7 @@ final class DocsApiReferenceTest extends TestCase
             );
 
             foreach ($matches[1] as $chain) {
-                $calls = [...$calls, ...self::walkChain($className, $chain)];
+                array_push($calls, ...self::walkChain($className, $chain));
             }
         }
 
@@ -282,9 +283,12 @@ final class DocsApiReferenceTest extends TestCase
         foreach (self::collectDocumentationFiles() as $file) {
             $documentation = file_get_contents($file);
 
-            if ($documentation === false) {
-                continue;
-            }
+            // Skipping an unreadable file would lower the count and report it as a shrunken
+            // guard, sending the next reader after a documentation change that never happened.
+            self::assertIsString(
+                $documentation,
+                sprintf('%s could not be read.', self::toRelativePath($file)),
+            );
 
             $guarded += count(self::extractDocumentedCalls($documentation));
         }
