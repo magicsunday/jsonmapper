@@ -41,6 +41,9 @@ use const PHP_INT_MIN;
 
 /**
  * Converts scalar values to the requested builtin type.
+ *
+ * @internal This is not a public extension point. Register conversions through
+ *           {@see \MagicSunday\JsonMapper\Value\TypeHandlerInterface} via JsonMapper::addTypeHandler().
  */
 final class BuiltinValueConversionStrategy implements ValueConversionStrategyInterface
 {

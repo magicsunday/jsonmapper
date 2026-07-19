@@ -29,6 +29,9 @@ use function is_string;
 /**
  * Converts scalar JSON values into enum cases. A backed enum is addressed by case value, a pure
  * enum by case name.
+ *
+ * @internal This is not a public extension point. Register conversions through
+ *           {@see \MagicSunday\JsonMapper\Value\TypeHandlerInterface} via JsonMapper::addTypeHandler().
  */
 final class EnumValueConversionStrategy implements ValueConversionStrategyInterface
 {

@@ -52,6 +52,11 @@ var_dump($mapper::class);
 
 | Method | Description |
 | --- | --- |
+> The built-in `Value\Strategy\*` classes are `@internal`: they are the conversion chain's
+> implementation, not an extension point, and there is no public way to register one. A
+> `TypeHandlerInterface` added through `addTypeHandler()` is consulted ahead of them, which is the
+> supported way to change how a type converts.
+
 | `addTypeHandler(TypeHandlerInterface $handler): self` | Registers a reusable conversion strategy for a specific type. |
 | `addType(string $type, Closure $closure): self` | Deprecated shortcut for registering closure-based handlers. Prefer `addTypeHandler()`. |
 | `addCustomClassMapEntry(string $className, Closure $resolver, ?array $allowedTargets = null): self` | Adds or replaces a class map entry. The resolver receives JSON data (and optionally the current `MappingContext`). `$allowedTargets` restricts what it may return — see the security note in [Type converters](recipes/type-converters.md). |

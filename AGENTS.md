@@ -206,7 +206,7 @@ List changed API surfaces and relevant attributes/converters in the “Reference
 ## 7) Domain cheat sheet
 
 * **Property Info:** Use Symfony’s extractor stack (reflection, PHPDoc, type info). Respect the ordering and fallbacks.
-* **Type handlers:** Implement `MagicSunday\JsonMapper\Value\TypeHandlerInterface`; handlers are stateless and must honour the `supports()`/`convert()` contract.
+* **Type handlers:** Implement `MagicSunday\JsonMapper\Value\TypeHandlerInterface`; handlers are stateless and must honour the `supports()`/`convert()` contract. This is the ONE public extension point for value conversion. The `Value\Strategy\*` classes and `ValueConversionStrategyInterface` are `@internal` - the conversion chain's order is an implementation detail, not a contract, and there is no public hook to register a strategy. Their `supports()` carries a `MappingContext` the handler contract does not; the two are not meant to align, since one is internal and one is public.
 * **Attributes:**
     * `ReplaceNullWithDefaultValue` — only applies when a default exists.
     * `ReplaceProperty` — supports multiple alias names. They are collected into a map keyed by

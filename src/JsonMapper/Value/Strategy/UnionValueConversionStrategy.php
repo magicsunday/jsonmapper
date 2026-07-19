@@ -26,6 +26,9 @@ use function assert;
  * elements being the case that mattered - matched no strategy for a union element type and handed
  * the raw payload back unconverted, without recording anything. Registering the resolution as a
  * strategy puts it where every consumer of the converter reaches it.
+ *
+ * @internal This is not a public extension point. Register conversions through
+ *           {@see \MagicSunday\JsonMapper\Value\TypeHandlerInterface} via JsonMapper::addTypeHandler().
  */
 final readonly class UnionValueConversionStrategy implements ValueConversionStrategyInterface
 {

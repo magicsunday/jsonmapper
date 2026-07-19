@@ -20,6 +20,9 @@ use function sprintf;
 
 /**
  * Converts JSON values according to the registered strategies.
+ *
+ * @internal This is not a public extension point. Register conversions through
+ *           {@see TypeHandlerInterface} via JsonMapper::addTypeHandler().
  */
 final class ValueConverter
 {

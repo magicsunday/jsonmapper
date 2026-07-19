@@ -17,6 +17,9 @@ use Symfony\Component\TypeInfo\Type;
 
 /**
  * Handles conversion of registered custom types.
+ *
+ * @internal This is not a public extension point. Register conversions through
+ *           {@see \MagicSunday\JsonMapper\Value\TypeHandlerInterface} via JsonMapper::addTypeHandler().
  */
 final readonly class CustomTypeValueConversionStrategy implements ValueConversionStrategyInterface
 {

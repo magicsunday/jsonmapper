@@ -25,6 +25,9 @@ use function is_object;
 
 /**
  * Converts object values by delegating to the mapper callback.
+ *
+ * @internal This is not a public extension point. Register conversions through
+ *           {@see \MagicSunday\JsonMapper\Value\TypeHandlerInterface} via JsonMapper::addTypeHandler().
  */
 final readonly class ObjectValueConversionStrategy implements ValueConversionStrategyInterface
 {
