@@ -12,15 +12,25 @@ declare(strict_types=1);
 namespace MagicSunday\JsonMapper\Configuration;
 
 use DateTimeInterface;
+use DateTimeZone;
+use InvalidArgumentException;
 use MagicSunday\JsonMapper\Context\MappingContext;
+use Throwable;
 
 use function is_string;
+use function sprintf;
 
 /**
  * Defines all configurable options available for JsonMapper.
  */
 final class JsonMapperConfiguration
 {
+    /**
+     * Timezone assumed for a date format that carries none of its own. UTC rather than the host
+     * default, so the same payload yields the same instant wherever it is mapped.
+     */
+    private const string DEFAULT_TIMEZONE = 'UTC';
+
     /**
      * Creates a new configuration instance with optional overrides.
      *
@@ -31,6 +41,7 @@ final class JsonMapperConfiguration
      * @param bool   $treatNullAsEmptyCollection Whether null collections are replaced with empty collections
      * @param string $defaultDateFormat          Default `DateTimeInterface` format used for serialization/deserialization
      * @param bool   $allowScalarToObjectCasting Whether scalars can be coerced into objects when supported
+     * @param string $defaultTimezone            Timezone applied to date formats that carry none of their own
      */
     public function __construct(
         private bool $strictMode = false,
@@ -40,7 +51,29 @@ final class JsonMapperConfiguration
         private bool $treatNullAsEmptyCollection = false,
         private string $defaultDateFormat = DateTimeInterface::ATOM,
         private bool $allowScalarToObjectCasting = false,
+        private string $defaultTimezone = self::DEFAULT_TIMEZONE,
     ) {
+    }
+
+    /**
+     * Determines whether the identifier names a timezone DateTimeZone accepts.
+     *
+     * @param string $timezone Identifier to check
+     *
+     * @return bool True when the identifier can be used
+     */
+    private static function isKnownTimezone(string $timezone): bool
+    {
+        // Constructed rather than checked against listIdentifiers(): the latter excludes plain
+        // offsets such as "+09:00", which DateTimeZone accepts and which are a legitimate way to
+        // state a fixed zone. An empty string needs no separate branch - DateTimeZone rejects it.
+        try {
+            new DateTimeZone($timezone);
+        } catch (Throwable) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -78,6 +111,15 @@ final class JsonMapperConfiguration
             $defaultDateFormat = DateTimeInterface::ATOM;
         }
 
+        $defaultTimezone = $data['defaultTimezone'] ?? self::DEFAULT_TIMEZONE;
+
+        // Sanitised rather than rejected, matching how defaultDateFormat is handled here: fromArray
+        // restores persisted settings, and a restore should not fail on a value that can be
+        // defaulted.
+        if (!is_string($defaultTimezone) || !self::isKnownTimezone($defaultTimezone)) {
+            $defaultTimezone = self::DEFAULT_TIMEZONE;
+        }
+
         return new self(
             (bool) ($data['strictMode'] ?? false),
             (bool) ($data['collectErrors'] ?? true),
@@ -86,6 +128,7 @@ final class JsonMapperConfiguration
             (bool) ($data['treatNullAsEmptyCollection'] ?? false),
             $defaultDateFormat,
             (bool) ($data['allowScalarToObjectCasting'] ?? false),
+            $defaultTimezone,
         );
     }
 
@@ -104,6 +147,7 @@ final class JsonMapperConfiguration
             $context->shouldTreatNullAsEmptyCollection(),
             $context->getDefaultDateFormat(),
             $context->shouldAllowScalarToObjectCasting(),
+            $context->getDefaultTimezone(),
         );
     }
 
@@ -122,6 +166,7 @@ final class JsonMapperConfiguration
             'treatNullAsEmptyCollection' => $this->treatNullAsEmptyCollection,
             'defaultDateFormat'          => $this->defaultDateFormat,
             'allowScalarToObjectCasting' => $this->allowScalarToObjectCasting,
+            'defaultTimezone'            => $this->defaultTimezone,
         ];
     }
 
@@ -140,6 +185,7 @@ final class JsonMapperConfiguration
             MappingContext::OPTION_TREAT_NULL_AS_EMPTY_COLLECTION => $this->treatNullAsEmptyCollection,
             MappingContext::OPTION_DEFAULT_DATE_FORMAT            => $this->defaultDateFormat,
             MappingContext::OPTION_ALLOW_SCALAR_TO_OBJECT_CASTING => $this->allowScalarToObjectCasting,
+            MappingContext::OPTION_DEFAULT_TIMEZONE               => $this->defaultTimezone,
         ];
     }
 
@@ -286,6 +332,45 @@ final class JsonMapperConfiguration
         $clone->treatNullAsEmptyCollection = $enabled;
 
         return $clone;
+    }
+
+    /**
+     * Returns a copy with a different timezone for zoneless date formats.
+     *
+     * Only applies where the configured format carries no zone of its own; a payload stating its
+     * own offset always wins.
+     *
+     * @param string $timezone Timezone identifier accepted by {@see DateTimeZone}
+     *
+     * @return self Cloned configuration using the provided timezone
+     */
+    public function withDefaultTimezone(string $timezone): self
+    {
+        // Rejected here rather than when a date is parsed: DateTimeZone raises
+        // DateInvalidTimeZoneException, which is no MappingException, so an unknown identifier
+        // would escape mid-run - after partial state had already been written - past a report the
+        // caller was promised. A typo in a configuration file is an ordinary way to produce one.
+        //
+        if (!self::isKnownTimezone($timezone)) {
+            throw new InvalidArgumentException(
+                sprintf('Unknown timezone identifier "%s".', $timezone),
+            );
+        }
+
+        $clone                  = clone $this;
+        $clone->defaultTimezone = $timezone;
+
+        return $clone;
+    }
+
+    /**
+     * Returns the timezone applied to date formats that carry none of their own.
+     *
+     * @return string Timezone identifier
+     */
+    public function getDefaultTimezone(): string
+    {
+        return $this->defaultTimezone;
     }
 
     /**

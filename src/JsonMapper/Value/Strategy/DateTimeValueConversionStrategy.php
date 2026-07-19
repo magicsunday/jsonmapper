@@ -13,6 +13,7 @@ namespace MagicSunday\JsonMapper\Value\Strategy;
 
 use DateInterval;
 use DateTimeInterface;
+use DateTimeZone;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use ReflectionClass;
@@ -22,8 +23,10 @@ use Throwable;
 
 use function get_debug_type;
 use function is_a;
+use function is_float;
 use function is_int;
 use function is_string;
+use function sprintf;
 
 /**
  * Converts ISO-8601 strings and timestamps into date/time value objects.
@@ -92,7 +95,31 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
             $context,
             $value,
             static function (string $className, mixed $value) use ($context) {
-                if (!is_string($value) && !is_int($value)) {
+                // Resolved once per value and guarded: DateTimeZone raises
+                // DateInvalidTimeZoneException for an identifier it does not know, and that is no
+                // MappingException - it would escape a run that promised a report. The
+                // configuration validates on the way in, but the option bag is an extension point
+                // that can be populated directly, so the strategy cannot assume it was.
+                try {
+                    $timezone = new DateTimeZone($context->getDefaultTimezone());
+                } catch (Throwable) {
+                    throw new TypeMismatchException(
+                        $context->getPath(),
+                        $className,
+                        sprintf('invalid timezone "%s"', $context->getDefaultTimezone()),
+                    );
+                }
+
+                // A float is accepted as a timestamp: a JSON number with a fraction is an
+                // ordinary way to express sub-second precision, and it used to be refused
+                // outright, leaving the property uninitialised so that reading it back raised an
+                // Error rather than reporting a failure.
+                //
+                // No is_finite() guard. INF and NAN format as literals no date constructor
+                // understands, so they raise there and the catch below reports them - as the same
+                // TypeMismatchException, at the same path, naming the same type. A guard would be
+                // a branch nothing could observe.
+                if (!is_string($value) && !is_int($value) && !is_float($value)) {
                     throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
                 }
 
@@ -109,17 +136,42 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
                 }
 
                 if (is_string($value)) {
-                    $parsed = $className::createFromFormat($context->getDefaultDateFormat(), $value);
+                    // The timezone is passed unconditionally. PHP applies it only when the FORMAT
+                    // carries none of its own, so a payload that states its offset keeps it, while
+                    // a zoneless format stops falling back to the host default - which made the
+                    // same JSON decode to a different instant on every differently configured
+                    // deployment, silently.
+                    // The leading ! resets every field the format does not mention. Without it
+                    // they are filled from the CURRENT CLOCK, so a format like 'Y-m-d' produced a
+                    // different instant on every invocation - the same class of ambient-input
+                    // defect as the timezone fallback, and just as invisible. A format that does
+                    // state a zone still keeps it; the reset applies to the fields, not the zone.
+                    $parsed = $className::createFromFormat(
+                        '!' . $context->getDefaultDateFormat(),
+                        $value,
+                        $timezone,
+                    );
 
                     if ($parsed instanceof DateTimeInterface) {
                         return $parsed;
                     }
                 }
 
-                $formatted = is_int($value) ? '@' . $value : $value;
+                // Six decimals because that is the precision DateTime keeps. A leading @ makes the
+                // value an absolute instant, so it is UTC by definition and no host can shift it.
+                $formatted = match (true) {
+                    is_int($value)   => '@' . $value,
+                    is_float($value) => '@' . sprintf('%.6F', $value),
+                    default          => $value,
+                };
 
                 try {
-                    return new $className($formatted);
+                    // The timezone reaches this constructor too. It is the route a string takes
+                    // when it does not match the configured format - which, under the default
+                    // ATOM, is every zoneless string - so leaving it out would have kept the host
+                    // dependency on the more common of the two paths while fixing the rarer one.
+                    // As with createFromFormat(), a value stating its own offset keeps it.
+                    return new $className($formatted, $timezone);
                 } catch (Throwable) {
                     // Throwable rather than Exception: a subclass whose constructor demands
                     // something else raises a TypeError, and an unparsable value can reach a

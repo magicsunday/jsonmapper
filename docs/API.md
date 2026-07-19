@@ -80,6 +80,7 @@ Each `with*` method toggles a single option and returns a clone:
 | `withIgnoreUnknownProperties(bool $enabled)` | Skip unmapped JSON keys. |
 | `withTreatNullAsEmptyCollection(bool $enabled)` | Replace `null` collections with their default value. |
 | `withDefaultDateFormat(string $format)` | Configure the default `DateTimeInterface` parsing format. |
+| `withDefaultTimezone(string $timezone)` | Timezone assumed when the date format carries none. Defaults to `UTC`. |
 | `withScalarToObjectCasting(bool $enabled)` | Allow casting scalar values to object types when possible. |
 
 Use `toOptions()` to feed configuration data into a `MappingContext`, or `toArray()` to persist settings.
@@ -89,6 +90,19 @@ Use `toOptions()` to feed configuration data into a `MappingContext`, or `toArra
 > declares. `DateInterval` is supported the same way. A property typed by the **interface** is
 > refused: it cannot be instantiated, and choosing an implementation would decide mutability on
 > your behalf.
+
+> A date **format that carries no timezone** — `Y-m-d H:i:s`, say — is read as UTC rather than in
+> the host's timezone, so the same payload yields the same instant on every deployment. Use
+> `withDefaultTimezone()` when your zoneless payloads are wall-clock times in a known region. A
+> payload that states its own offset always wins; the default format, `ATOM`, carries one, so this
+> setting does not affect it.
+
+> A field the format does not mention — the time of day under `Y-m-d`, say — is **reset**, not taken
+> from the clock, so the same payload maps to the same instant however often it is mapped.
+
+> A **timestamp** may be an integer or a float. A fraction is kept as microseconds
+> (`1700000000.5` → `.500000`), and a timestamp is an absolute instant, so the host's timezone
+> cannot shift it either.
 
 > To **preserve** unmapped keys instead of skipping (`withIgnoreUnknownProperties`) or reporting them (strict mode), mark one property with the `UnknownPropertyCollector` attribute — it receives the unknown keys as a raw `array<string, mixed>`. See [Using mapper attributes](recipes/using-attributes.md).
 

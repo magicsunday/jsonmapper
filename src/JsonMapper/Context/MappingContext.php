@@ -41,6 +41,15 @@ final class MappingContext
     public const string OPTION_ALLOW_SCALAR_TO_OBJECT_CASTING = 'allow_scalar_to_object_casting';
 
     /**
+     * Timezone applied when a date format carries none of its own.
+     *
+     * Without it, parsing such a format falls back to the process default, so the same payload
+     * decodes to a different instant on every differently configured host. PHP ignores the
+     * timezone when the format does supply one, so this never overrides what a payload states.
+     */
+    public const string OPTION_DEFAULT_TIMEZONE = 'default_timezone';
+
+    /**
      * Whether a mapping failure aborts the run.
      *
      * Not part of JsonMapperConfiguration: it is not a mapping preference but the difference
@@ -49,6 +58,12 @@ final class MappingContext
      * still decides WHAT counts as a failure either way.
      */
     public const string OPTION_ABORT_ON_ERROR = 'abort_on_error';
+
+    /**
+     * Timezone assumed for a zoneless date format. UTC rather than the host default, so that the
+     * same payload yields the same instant wherever it is mapped.
+     */
+    private const string DEFAULT_TIMEZONE = 'UTC';
 
     /**
      * @var list<string>
@@ -297,6 +312,22 @@ final class MappingContext
         }
 
         return $format;
+    }
+
+    /**
+     * Returns the timezone applied to date formats that carry none of their own.
+     *
+     * @return string Timezone identifier accepted by {@see \DateTimeZone}
+     */
+    public function getDefaultTimezone(): string
+    {
+        $timezone = $this->options[self::OPTION_DEFAULT_TIMEZONE] ?? self::DEFAULT_TIMEZONE;
+
+        if (!is_string($timezone) || $timezone === '') {
+            return self::DEFAULT_TIMEZONE;
+        }
+
+        return $timezone;
     }
 
     /**
