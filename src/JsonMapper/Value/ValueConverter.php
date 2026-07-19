@@ -57,6 +57,10 @@ final class ValueConverter
             }
         }
 
+        // Unreachable while PassthroughValueConversionStrategy is registered: its supports()
+        // always returns true and it is added last, so the loop always finds a strategy. Kept as an
+        // invariant guard - a future change that removed or misordered the passthrough would
+        // otherwise fall off the end of this method returning null implicitly.
         throw new LogicException(
             sprintf('No conversion strategy available for type %s.', $type::class)
         );

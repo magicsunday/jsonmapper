@@ -245,6 +245,11 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
                 return;
             }
 
+            // Reached only by a DIRECT call to convert() on this strategy. Through the value
+            // converter's chain a null never arrives here, because NullValueConversionStrategy is
+            // registered first and claims every null - but the strategy classes are public SPI, so
+            // this defends the case where one is invoked outside the chain.
+            //
             // Throw rather than record-and-continue: recording it here and returning anyway
             // leaves the caller to store a null the declared type forbids. On a property that
             // means a value contradicting its own docblock; in a collection it means the offending

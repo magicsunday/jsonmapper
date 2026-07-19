@@ -483,6 +483,11 @@ final readonly class JsonMapper
         $isGenericCollectionMapping = $resolvedClassName === null && $collectionValueType instanceof Type;
 
         if ($isGenericCollectionMapping) {
+            // Not reachable at runtime: extractCollectionType() returns a Type only when the
+            // collection class is set, so $collectionValueType being one already implies a non-null
+            // collection class here. Kept because it also narrows ?string to string for the calls
+            // below - PHPStan max fails without it - so it is a load-bearing assertion, not merely
+            // a runtime guard.
             if ($resolvedCollectionClassName === null) {
                 throw new InvalidArgumentException(
                     'A collection class name must be provided when mapping without an element class.'
