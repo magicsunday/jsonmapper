@@ -50,4 +50,9 @@ final class CollectionShapesHolder
      * @var AuthorCollection
      */
     public AuthorCollection $authors;
+
+    /**
+     * @var InterfaceTagCollection
+     */
+    public InterfaceTagCollection $polymorphic;
 }

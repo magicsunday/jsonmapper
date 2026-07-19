@@ -12,6 +12,8 @@ declare(strict_types=1);
 namespace MagicSunday\JsonMapper\Value\Strategy;
 
 use ArrayAccess;
+use ArrayIterator;
+use ArrayObject;
 use MagicSunday\JsonMapper\Collection\CollectionDocBlockTypeResolver;
 use MagicSunday\JsonMapper\Collection\CollectionFactoryInterface;
 use MagicSunday\JsonMapper\Context\MappingContext;
@@ -146,10 +148,20 @@ final readonly class CollectionValueConversionStrategy implements ValueConversio
             return false;
         }
 
+        // A subclass of one of the array containers is a collection by construction - its storage
+        // is inherited, so properties it declares are helpers rather than mapped state. Judging it
+        // by its own properties would refuse a perfectly ordinary collection that keeps a counter.
+        if (is_a($className, ArrayObject::class, true) || is_a($className, ArrayIterator::class, true)) {
+            return true;
+        }
+
         if (!is_a($className, Traversable::class, true) && !is_a($className, ArrayAccess::class, true)) {
             return false;
         }
 
+        // Anything else is judged by whether it declares state of its own: a data object that
+        // merely implements IteratorAggregate keeps its properties and must not be hydrated from
+        // the payload's elements.
         return (new ReflectionClass($className))->getProperties() === [];
     }
 }

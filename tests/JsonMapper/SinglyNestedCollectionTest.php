@@ -20,6 +20,7 @@ use MagicSunday\Test\Fixtures\Docs\NestedCollections\MoneyBagTypeHandler;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\MoneyHolder;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\SinglyNestedArticle;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\Tag;
+use MagicSunday\Test\Fixtures\Docs\NestedCollections\TagInterface;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -208,6 +209,21 @@ final class SinglyNestedCollectionTest extends TestCase
         self::assertInstanceOf(CollectionShapesHolder::class, $holder);
         self::assertContainsOnlyInstancesOf(Tag::class, $holder->tags);
         self::assertContainsOnlyInstancesOf(Author::class, $holder->authors);
+    }
+
+    #[Test]
+    public function itAcceptsAnInterfaceAsTheElementType(): void
+    {
+        // A polymorphic collection names an interface and lets a class map pick the concrete
+        // class at mapping time. Testing the element type with class_exists() alone refused it
+        // here, before the map ever got a say.
+        $holder = $this->getJsonMapper(classMap: [TagInterface::class => Tag::class])->map(
+            $this->getJsonAsObject('{"polymorphic": [{"name": "php"}]}'),
+            CollectionShapesHolder::class,
+        );
+
+        self::assertInstanceOf(CollectionShapesHolder::class, $holder);
+        self::assertContainsOnlyInstancesOf(Tag::class, $holder->polymorphic);
     }
 
     #[Test]

@@ -28,6 +28,7 @@ use Symfony\Component\TypeInfo\Type\TemplateType;
 use Symfony\Component\TypeInfo\TypeIdentifier;
 
 use function array_key_exists;
+use function interface_exists;
 use function sprintf;
 
 /**
@@ -127,7 +128,12 @@ final class CollectionDocBlockTypeResolver
         // declaring namespace, which simply does not exist. Testing for TemplateType alone
         // therefore never fired, and the unusable element type reached the factory and failed
         // there on a message naming neither the annotation nor the fix. Both forms are checked.
-        $namesUnknownClass = ($valueType instanceof ObjectType) && !class_exists($valueType->getClassName());
+        // interface_exists() as well as class_exists(): a collection of an interface is the
+        // ordinary shape for a polymorphic list, resolved through a class map at mapping time.
+        // Testing only for a class would refuse it here, before the map ever gets a say.
+        $namesUnknownClass = ($valueType instanceof ObjectType)
+            && !class_exists($valueType->getClassName())
+            && !interface_exists($valueType->getClassName());
 
         if (($valueType instanceof TemplateType) || $namesUnknownClass) {
             throw new InvalidArgumentException(
