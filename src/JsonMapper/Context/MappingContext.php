@@ -41,6 +41,16 @@ final class MappingContext
     public const string OPTION_ALLOW_SCALAR_TO_OBJECT_CASTING = 'allow_scalar_to_object_casting';
 
     /**
+     * Whether a mapping failure aborts the run.
+     *
+     * Not part of JsonMapperConfiguration: it is not a mapping preference but the difference
+     * between the two entry points. map() raises on the first failure in strict mode; the whole
+     * purpose of mapWithReport() is to hand back a report, so it collects instead. Strict mode
+     * still decides WHAT counts as a failure either way.
+     */
+    public const string OPTION_ABORT_ON_ERROR = 'abort_on_error';
+
+    /**
      * @var list<string>
      */
     private array $pathSegments = [];
@@ -194,6 +204,16 @@ final class MappingContext
     public function shouldCollectErrors(): bool
     {
         return (bool) ($this->options[self::OPTION_COLLECT_ERRORS] ?? true);
+    }
+
+    /**
+     * Indicates whether a mapping failure should abort the run rather than be collected.
+     *
+     * @return bool True when the first failure raises
+     */
+    public function shouldAbortOnError(): bool
+    {
+        return (bool) ($this->options[self::OPTION_ABORT_ON_ERROR] ?? $this->isStrictMode());
     }
 
     /**

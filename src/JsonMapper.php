@@ -348,7 +348,10 @@ final readonly class JsonMapper
         ?JsonMapperConfiguration $configuration = null,
     ): MappingResult {
         $configuration = ($configuration ?? $this->createDefaultConfiguration())->withErrorCollection(true);
-        $context       = new MappingContext($json, $configuration->toOptions());
+        $context       = new MappingContext(
+            $json,
+            $configuration->toOptions() + [MappingContext::OPTION_ABORT_ON_ERROR => false],
+        );
 
         try {
             $value = $this->map(
@@ -363,7 +366,7 @@ final readonly class JsonMapper
             // used to escape this method while the identical failure one level down was collected
             // - the same error meaning different things depending on nesting depth. Routing it
             // through the shared handler makes both lanes agree; strict mode still rethrows.
-            $this->handleMappingException($exception, $context, $configuration);
+            $this->handleMappingException($exception, $context);
 
             $value = null;
         }
@@ -579,7 +582,7 @@ final readonly class JsonMapper
                 try {
                     $value = $this->convertValue($preparedValue, $type, $propertyContext);
                 } catch (MappingException $exception) {
-                    $this->handleMappingException($exception, $propertyContext, $configuration);
+                    $this->handleMappingException($exception, $propertyContext);
 
                     return;
                 }
@@ -617,12 +620,10 @@ final readonly class JsonMapper
                 $context->withPathSegment($missingProperty, function (MappingContext $propertyContext) use (
                     $resolvedClassName,
                     $missingProperty,
-                    $configuration,
                 ): void {
                     $this->handleMappingException(
                         new MissingPropertyException($propertyContext->getPath(), $missingProperty, $resolvedClassName),
                         $propertyContext,
-                        $configuration,
                     );
                 });
             }
@@ -655,12 +656,11 @@ final readonly class JsonMapper
                 $entity,
                 $property,
                 $value,
-                $configuration,
             ): void {
                 try {
                     $this->setProperty($entity, $property, $value, $propertyContext);
                 } catch (ReadonlyPropertyException $exception) {
-                    $this->handleMappingException($exception, $propertyContext, $configuration);
+                    $this->handleMappingException($exception, $propertyContext);
                 }
             });
         }
@@ -694,7 +694,6 @@ final readonly class JsonMapper
             $this->handleMappingException(
                 new UnknownPropertyException($context->getPath(), $normalizedProperty, $resolvedClassName),
                 $context,
-                $configuration,
             );
 
             return null;
@@ -785,19 +784,21 @@ final readonly class JsonMapper
     /**
      * Records a mapping exception and decides whether it should stop the mapping process.
      *
-     * @param MappingException        $exception     Exception that occurred while mapping a property.
-     * @param MappingContext          $context       Context collecting the error information.
-     * @param JsonMapperConfiguration $configuration Configuration that controls strict-mode behaviour.
+     * @param MappingException $exception Exception that occurred while mapping a property.
+     * @param MappingContext   $context   Context collecting the error information and deciding
+     *                                    whether a failure aborts the run.
      */
     private function handleMappingException(
         MappingException $exception,
         MappingContext $context,
-        JsonMapperConfiguration $configuration,
     ): void {
         $context->recordException($exception);
 
-        // Strict mode propagates the failure immediately to abort mapping on the first error.
-        if ($configuration->isStrictMode()) {
+        // Asked of the context rather than the configuration: strict mode decides what counts as
+        // a failure, the entry point decides what happens to one. map() raises on the first in
+        // strict mode; mapWithReport() exists to return a report and so collects them all, which
+        // is what its own recipe demonstrates.
+        if ($context->shouldAbortOnError()) {
             throw $exception;
         }
     }

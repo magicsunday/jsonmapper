@@ -136,6 +136,9 @@ final class DocsApiReferenceTest extends TestCase
             MappingResult::class . '::getValue',
             MappingResult::class . '::getReport',
             MappingReport::class . '::getErrors',
+            MappingResult::class . '::getValue',
+            MappingResult::class . '::getReport',
+            MappingReport::class . '::getErrorCount',
             MappingResult::class . '::getReport',
             MappingReport::class . '::hasErrors',
             MappingResult::class . '::getReport',
@@ -150,6 +153,7 @@ final class DocsApiReferenceTest extends TestCase
             MappingError::class . '::getMessage',
             JsonMapperConfiguration::class . '::strict',
             JsonMapperConfiguration::class . '::withErrorCollection',
+            JsonMapperConfiguration::class . '::strict',
             JsonMapperConfiguration::class . '::lenient',
         ],
         'docs/recipes/manual-instantiation.md' => [

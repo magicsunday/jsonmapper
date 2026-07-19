@@ -12,13 +12,18 @@ declare(strict_types=1);
 namespace MagicSunday\Test\JsonMapper;
 
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
+use MagicSunday\JsonMapper\Context\MappingError;
 use MagicSunday\JsonMapper\Exception\MissingConstructorArgumentException;
 use MagicSunday\JsonMapper\Exception\MissingPropertyException;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\Test\Classes\RequiredConstructorArgumentDto;
 use MagicSunday\Test\Classes\RequiredConstructorArgumentDtoHolder;
+use MagicSunday\Test\Classes\TwoRequiredPropertiesDto;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\Test;
+
+use function array_map;
+use function preg_quote;
 
 /**
  * A mapping failure on the ROOT object escaped mapWithReport() instead of being recorded, while
@@ -104,21 +109,64 @@ final class RootLevelErrorHandlingTest extends TestCase
     }
 
     #[Test]
-    public function itStillThrowsInStrictMode(): void
+    public function itStillThrowsInStrictModeOnMap(): void
     {
-        // Recording at the root must not swallow the failure when the caller asked for strictness.
-        // The concrete type is pinned deliberately: which exception a strict-mode caller catches is
-        // part of the contract, and here it is the missing PROPERTY rather than the missing
-        // constructor argument, because strict mode validates the payload before construction is
-        // attempted. Should that order ever change, this fails loudly and gets decided on purpose
-        // instead of drifting.
+        // map() is the lane that raises. The concrete type is pinned deliberately: which exception
+        // a strict-mode caller catches is part of the contract, and here it is the missing
+        // PROPERTY rather than the missing constructor argument, because strict mode validates the
+        // payload before construction is attempted. Should that order ever change, this fails
+        // loudly and gets decided on purpose instead of drifting.
         $this->expectException(MissingPropertyException::class);
         $this->expectExceptionMessageMatches('/' . preg_quote('$.name', '/') . '/');
 
-        $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
+        $this->getJsonMapper(config: JsonMapperConfiguration::strict())->map(
             [],
             RequiredConstructorArgumentDto::class,
         );
+    }
+
+    #[Test]
+    public function itCollectsInStrictModeOnMapWithReport(): void
+    {
+        // The counterpart, and the contract decided in issue #65: mapWithReport() exists to hand
+        // back a report, so it collects even under strict(). Strict mode still decides WHAT counts
+        // as a failure - the record below is a MissingPropertyException, an error lenient mode
+        // would never have produced - it just no longer decides whether the run aborts.
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
+            [],
+            RequiredConstructorArgumentDto::class,
+        );
+
+        $errors = $result->getReport()->getErrors();
+
+        // Two records, and deliberately so: they are two different statements about the payload,
+        // not one failure counted twice. The first says the payload omitted a property strict mode
+        // requires; the second says the object could not be constructed as a consequence. Under
+        // the old throw-on-first behaviour the caller only ever saw the first and had to infer the
+        // rest. Lenient mode still produces the construction record alone.
+        self::assertCount(2, $errors, 'The strict-mode failures are recorded, not thrown.');
+        self::assertInstanceOf(MissingPropertyException::class, $errors[0]->getException());
+        self::assertInstanceOf(MissingConstructorArgumentException::class, $errors[1]->getException());
+        self::assertNull($result->getValue());
+    }
+
+    #[Test]
+    public function itCollectsEveryStrictModeFailureRatherThanOnlyTheFirst(): void
+    {
+        // The defect issue #65 actually reports: aborting on the first failure made the report a
+        // single-entry list at best. Two independent violations must both appear, which is what
+        // distinguishes collect-all from "throws, caught one level up".
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
+            [],
+            TwoRequiredPropertiesDto::class,
+        );
+
+        $paths = array_map(
+            static fn (MappingError $error): string => $error->getPath(),
+            $result->getReport()->getErrors(),
+        );
+
+        self::assertSame(['$.first', '$.second'], $paths, 'Both missing properties are reported.');
     }
 
     #[Test]
