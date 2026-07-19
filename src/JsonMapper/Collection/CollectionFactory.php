@@ -82,7 +82,7 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
         };
 
         if (!is_array($source)) {
-            $context->recordOrThrow(
+            $context->throwOrRecord(
                 new CollectionMappingException($context->getPath(), get_debug_type($json)),
             );
 
@@ -129,9 +129,11 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
                     },
                 );
 
-                // NOT recordOrThrow(): the record above had to happen inside the element's path
-                // segment so it names the element rather than the collection, and the shared
-                // helper records at whatever path the context currently carries.
+                // NOT throwOrRecord(): this site records BEFORE raising, and the helper does the
+                // opposite. Routing it there would leave an aborting run with no record of the
+                // element at all. (The path is not the obstacle - withPathSegment() restores it in
+                // a finally, so a throw from inside the closure propagates cleanly. What the
+                // segment buys is that the record names the element rather than the collection.)
                 //
                 // Rethrowing here means the property loop above records the very same element
                 // failure a second time, so the run has to be one that aborts - otherwise the

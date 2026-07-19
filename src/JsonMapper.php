@@ -542,12 +542,11 @@ final readonly class JsonMapper
             // pinned that since long before this change. Only the shape that can satisfy neither
             // reading is rejected.
             //
-            // Thrown rather than routed through handleMappingException(), and so not consulting
-            // shouldAbortOnError() the way the collection factory's guard does. That guard has a
-            // partial answer to offer - an empty collection - so it can record and carry on. This
-            // one has none: returning after recording would let map() fall through to the
-            // single-object lane and build the very element being rejected. The catch that
-            // receives the throw records it exactly once.
+            // Thrown rather than routed through throwOrRecord(). That helper is for a site with a
+            // partial answer to hand back - the collection factory's guard returns an empty
+            // collection - so it can record and carry on. This one has none: returning after
+            // recording would let map() fall through to the single-object lane and build the very
+            // element being rejected. The catch that receives the throw records it exactly once.
             // A LIST whose entries are not mappable is refused for the same reason, and the scalar
             // test alone does not catch it because such a payload IS an array. A list of scalars
             // cannot be a collection of objects, so it fell through to the single-object lane and
@@ -935,9 +934,8 @@ final readonly class JsonMapper
         MappingException $exception,
         MappingContext $context,
     ): void {
-        // NOT recordOrThrow(): this IS the catch site, so it records BEFORE raising. Routing it
-        // through the shared helper would leave an aborting run with no record at all - the helper
-        // exists for sites whose throw is caught here.
+        // NOT throwOrRecord(): routing it through the helper would leave an aborting run with no
+        // record at all, because this IS the catch site the helper's throw is caught by.
         //
         // Asked of the context rather than the configuration: strict mode decides what counts as
         // a failure, the entry point decides what happens to one. map() raises on the first in
@@ -1106,7 +1104,7 @@ final readonly class JsonMapper
         // all null types - a shape Symfony's TypeInfo does not produce. It stays because the
         // invariant lives in another method and a future member kind could break it, but it is
         // deliberately not claimed as covered.
-        $context->recordOrThrow($exception);
+        $context->throwOrRecord($exception);
 
         return $json;
     }

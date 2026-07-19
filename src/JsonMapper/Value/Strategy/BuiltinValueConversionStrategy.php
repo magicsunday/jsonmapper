@@ -249,7 +249,7 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
             // leaves the caller to store a null the declared type forbids. On a property that
             // means a value contradicting its own docblock; in a collection it means the offending
             // element is kept instead of dropped. The caller records the throw exactly once, which
-            // is why this branch does not consult shouldAbortOnError() the way the mismatch below
+            // is why this branch does not go through throwOrRecord() the way the mismatch below
             // does - it never records, so it cannot double-record.
             throw new TypeMismatchException($context->getPath(), $identifier->value, 'null');
         }
@@ -258,7 +258,7 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
             return;
         }
 
-        $context->recordOrThrow(
+        $context->throwOrRecord(
             new TypeMismatchException($context->getPath(), $identifier->value, get_debug_type($value)),
         );
     }

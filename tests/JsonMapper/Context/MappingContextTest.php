@@ -108,7 +108,7 @@ final class MappingContextTest extends TestCase
     {
         $context = new MappingContext(['root']);
 
-        $context->recordOrThrow(new TypeMismatchException('$.value', 'int', 'string'));
+        $context->throwOrRecord(new TypeMismatchException('$.value', 'int', 'string'));
 
         self::assertSame(1, $context->getErrorCount());
     }
@@ -119,7 +119,7 @@ final class MappingContextTest extends TestCase
         $context = new MappingContext(['root'], [MappingContext::OPTION_ABORT_ON_ERROR => true]);
 
         try {
-            $context->recordOrThrow(new TypeMismatchException('$.value', 'int', 'string'));
+            $context->throwOrRecord(new TypeMismatchException('$.value', 'int', 'string'));
 
             self::fail('An aborting run must raise.');
         } catch (TypeMismatchException) {
@@ -140,6 +140,6 @@ final class MappingContextTest extends TestCase
 
         $this->expectException(TypeMismatchException::class);
 
-        $context->recordOrThrow(new TypeMismatchException('$.value', 'int', 'string'));
+        $context->throwOrRecord(new TypeMismatchException('$.value', 'int', 'string'));
     }
 }
