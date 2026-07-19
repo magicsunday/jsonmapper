@@ -58,9 +58,11 @@ final class MutableDateTimeTest extends TestCase
     #[Test]
     public function itKeepsTheResultMutable(): void
     {
-        // The distinguishing property of the type the caller asked for. Handing back a
-        // DateTimeImmutable would satisfy every assertion above while breaking the one thing a
-        // caller chooses DateTime for.
+        // Pins the user-facing contract, and only that. It does NOT discriminate what the
+        // strategy returns: Symfony's property accessor converts a DateTimeImmutable into a
+        // DateTime when the declared property type demands one, value intact - verified by
+        // returning an immutable instance from the strategy, which left this green. The declared
+        // type is what guarantees mutability, so a change there is what this would catch.
         $holder = $this->getJsonMapper()->map(
             $this->getJsonAsObject('{"when": "2020-05-05T10:00:00+00:00"}'),
             MutableDateTimeHolder::class,
