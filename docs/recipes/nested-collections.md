@@ -123,6 +123,22 @@ holding its contents in the type it inherits from. A data object that merely imp
 `IteratorAggregate` and annotates what it yields keeps its own properties and is mapped as the
 object it is.
 
+### Current limitation
+
+Recognition requires the class to declare no properties of its own, which holds for `ArrayObject`
+and `ArrayIterator` subclasses because their storage is not visible to reflection. A hand-rolled
+collection that keeps its elements in a declared property is therefore **not** recognised yet:
+
+```php
+final class TagBag implements IteratorAggregate
+{
+    /** @var array<int, Tag> */
+    private array $items = [];   // visible to reflection, so not recognised as a container
+}
+```
+
+Extend `ArrayObject` for now. Tracked in issue 97.
+
 Test coverage: `tests/JsonMapper/DocsNestedCollectionsTest.php` and
 `tests/JsonMapper/SinglyNestedCollectionTest.php`.
 
