@@ -104,7 +104,9 @@ caller with no way to get one. What `strict()` still changes is the *content* of
 failures lenient mode would never raise, such as a missing or unknown property.
 
 ```php
-$result = $mapper->mapWithReport([], Article::class, configuration: JsonMapperConfiguration::strict());
+$strict = JsonMapperConfiguration::strict();
+
+$result = $mapper->mapWithReport([], Article::class, configuration: $strict);
 
 $result->getValue();                      // null - nothing could be built
 $result->getReport()->getErrorCount();    // every strict violation, not just the first

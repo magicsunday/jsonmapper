@@ -146,6 +146,7 @@ final class DocsApiReferenceTest extends TestCase
             JsonMapper::class . '::mapWithReport',
             JsonMapper::class . '::mapWithReport',
             JsonMapper::class . '::mapWithReport',
+            JsonMapper::class . '::mapWithReport',
             MappingError::class . '::getPath',
             MappingError::class . '::getMessage',
             MappingError::class . '::getException',

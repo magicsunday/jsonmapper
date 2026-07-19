@@ -75,4 +75,30 @@ final class MappingContextTest extends TestCase
         self::assertSame('d.m.Y', $context->getDefaultDateFormat());
         self::assertTrue($context->shouldAllowScalarToObjectCasting());
     }
+
+    #[Test]
+    public function itDefersTheAbortDecisionToStrictModeUntilOverridden(): void
+    {
+        // The only accessor with a non-constant default: absent, it answers with strict mode, so
+        // map() keeps aborting without anyone having to set the option. Both fallback directions
+        // are pinned - a default of plain false would leave strict map() collecting silently, and
+        // a default of plain true would make mapWithReport()'s override the only thing standing
+        // between a lenient caller and an exception.
+        self::assertTrue((new MappingContext(['root'], [
+            MappingContext::OPTION_STRICT_MODE => true,
+        ]))->shouldAbortOnError(), 'Absent option defers to strict mode.');
+
+        self::assertFalse((new MappingContext(['root']))->shouldAbortOnError(), 'Lenient never aborts.');
+
+        // Set explicitly, it wins over strict mode in BOTH directions - that override is the whole
+        // mechanism by which mapWithReport() collects what map() would have raised.
+        self::assertFalse((new MappingContext(['root'], [
+            MappingContext::OPTION_STRICT_MODE       => true,
+            MappingContext::OPTION_ABORT_ON_ERROR    => false,
+        ]))->shouldAbortOnError(), 'The explicit option overrides strict mode.');
+
+        self::assertTrue((new MappingContext(['root'], [
+            MappingContext::OPTION_ABORT_ON_ERROR => true,
+        ]))->shouldAbortOnError(), 'The explicit option overrides lenient mode too.');
+    }
 }

@@ -79,6 +79,43 @@ final class RootLevelErrorHandlingTest extends TestCase
     }
 
     #[Test]
+    public function itTreatsTheRootTheSameWayAsANestedObjectInStrictMode(): void
+    {
+        // The parity thesis has to hold in strict mode too, and that lane changed: strict failures
+        // are now collected rather than thrown. A regression leaving only the NESTED lane aborting
+        // would restore exactly the root-versus-nested asymmetry this file exists to prevent, and
+        // the lenient arm above would not notice.
+        $root = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
+            [],
+            RequiredConstructorArgumentDto::class,
+        );
+
+        $nested = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
+            ['dto' => []],
+            RequiredConstructorArgumentDtoHolder::class,
+        );
+
+        // What both lanes must agree on is that the failure was RECORDED rather than raised, which
+        // is what this change is about. The record COUNTS deliberately are not compared: the root
+        // yields two (the missing property, then the unbuildable object) and the nested lane only
+        // one, because strict mode never validates the properties of a nested object at all. That
+        // asymmetry predates this change and is tracked in issue #105 - asserting equality here
+        // would pin the defect as intended behaviour, and asserting the current numbers would make
+        // this test fail the moment #105 is fixed for the right reason.
+        self::assertTrue($root->getReport()->hasErrors(), 'Root: recorded, not raised.');
+        self::assertTrue($nested->getReport()->hasErrors(), 'Nested: recorded, not raised.');
+        // The mapped values differ for a documented reason, not an inconsistent one: the root IS
+        // the object that could not be constructed, so there is nothing to hand back, whereas the
+        // holder itself constructs fine and merely keeps its rejected property unassigned.
+        self::assertNull($root->getValue(), 'Root: nothing could be built.');
+        self::assertInstanceOf(
+            RequiredConstructorArgumentDtoHolder::class,
+            $nested->getValue(),
+            'Nested: the holder survives, only the rejected property is left unassigned.',
+        );
+    }
+
+    #[Test]
     public function itRecordsAScalarPayloadOnTheRootObject(): void
     {
         // The counterpart from the scalar-payload guard: it used to escape here as well.
@@ -147,6 +184,7 @@ final class RootLevelErrorHandlingTest extends TestCase
         self::assertCount(2, $errors, 'The strict-mode failures are recorded, not thrown.');
         self::assertInstanceOf(MissingPropertyException::class, $errors[0]->getException());
         self::assertInstanceOf(MissingConstructorArgumentException::class, $errors[1]->getException());
+        self::assertSame('$.name', $errors[0]->getPath(), 'The record names the offending property.');
         self::assertNull($result->getValue());
     }
 
