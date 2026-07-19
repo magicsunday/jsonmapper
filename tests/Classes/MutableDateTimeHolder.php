@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\Classes;
 
+use DateInterval;
 use DateTime;
 use DateTimeInterface;
 
@@ -41,4 +42,8 @@ final class MutableDateTimeHolder
     public ?AbstractCustomDateTime $byAbstract = null;
 
     public ?WeirdConstructorDateTime $weird = null;
+
+    public ?DateInterval $interval = null;
+
+    public ?WeirdConstructorInterval $weirdInterval = null;
 }

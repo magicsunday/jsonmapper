@@ -13,6 +13,7 @@ namespace MagicSunday\Test\JsonMapper;
 
 use DateTime;
 use DateTimeInterface;
+use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Context\MappingError;
 use MagicSunday\Test\Classes\CustomDateTime;
 use MagicSunday\Test\Classes\MutableDateTimeHolder;
@@ -157,6 +158,67 @@ final class MutableDateTimeTest extends TestCase
 
         self::assertInstanceOf(MutableDateTimeHolder::class, $holder);
         self::assertNull($holder->weird);
+        self::assertCount(1, $result->getReport()->getErrors());
+    }
+
+    #[Test]
+    public function itParsesWithTheConfiguredFormatRatherThanGuessing(): void
+    {
+        // The one case that proves the configured format is used at all. Every other date string
+        // in the suite is one PHP's heuristic parser reads identically, so deleting the
+        // createFromFormat() branch entirely left everything green - while a caller configuring
+        // d/m/Y and sending "05/06/2020" would silently get 2020-05-06 instead of 2020-06-05.
+        $config = JsonMapperConfiguration::lenient()->withDefaultDateFormat('d/m/Y');
+
+        $holder = $this->getJsonMapper(config: $config)->map(
+            $this->getJsonAsObject('{"when": "05/06/2020"}'),
+            MutableDateTimeHolder::class,
+        );
+
+        self::assertInstanceOf(MutableDateTimeHolder::class, $holder);
+        self::assertSame(
+            '2020-06-05',
+            $holder->when->format('Y-m-d'),
+            'The configured format wins over the heuristic parse, which reads this as m/d/Y.',
+        );
+    }
+
+    #[Test]
+    public function itReportsAMalformedInterval(): void
+    {
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['interval' => 'not an interval'],
+            MutableDateTimeHolder::class,
+        );
+
+        $holder = $result->getValue();
+
+        self::assertInstanceOf(MutableDateTimeHolder::class, $holder);
+        self::assertNull($holder->interval);
+        self::assertSame(
+            ['Type mismatch at $.interval: expected DateInterval, got string.'],
+            array_map(
+                static fn (MappingError $error): string => $error->getMessage(),
+                $result->getReport()->getErrors(),
+            ),
+        );
+    }
+
+    #[Test]
+    public function itReportsAnIntervalSubclassWhoseConstructorRejectsTheValue(): void
+    {
+        // The interval branch builds through `new` unconditionally, so a subclass demanding an int
+        // raises a TypeError there. That catch was widened to Throwable in this branch and would
+        // otherwise be an untested edit - reverting it to Exception makes this fail.
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['weirdInterval' => 'P1D'],
+            MutableDateTimeHolder::class,
+        );
+
+        $holder = $result->getValue();
+
+        self::assertInstanceOf(MutableDateTimeHolder::class, $holder);
+        self::assertNull($holder->weirdInterval);
         self::assertCount(1, $result->getReport()->getErrors());
     }
 

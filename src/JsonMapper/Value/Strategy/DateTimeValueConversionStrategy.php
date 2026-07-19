@@ -20,7 +20,6 @@ use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\ObjectType;
 use Throwable;
 
-use function class_exists;
 use function get_debug_type;
 use function is_a;
 use function is_int;
@@ -67,7 +66,11 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
         // failure into a fatal. Claiming neither leaves them to the object strategy, which refuses
         // them as a recorded mismatch. Picking an implementation for a property typed by the
         // interface would also be the mapper deciding mutability on the caller's behalf.
-        return class_exists($className) && (new ReflectionClass($className))->isInstantiable();
+        //
+        // No class_exists() guard: the is_a() above already answers false for a symbol that does
+        // not exist, and ReflectionClass handles an interface perfectly well - it simply reports
+        // it as not instantiable, which is the answer wanted here.
+        return (new ReflectionClass($className))->isInstantiable();
     }
 
     /**
