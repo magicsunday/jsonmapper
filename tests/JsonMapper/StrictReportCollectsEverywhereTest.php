@@ -92,6 +92,9 @@ final class StrictReportCollectsEverywhereTest extends TestCase
     #[Test]
     public function itCollectsEveryRejectedCollectionElement(): void
     {
+        // Two bad elements, not one: a loop that recorded only the first would satisfy both
+        // single-offender tests above. The paths are pinned in order, so a record filed under the
+        // collection rather than the element fails here as well.
         $result = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
             ['values' => [['a' => 1], 2, ['b' => 2]]],
             IntListHolder::class,
@@ -146,6 +149,18 @@ final class StrictReportCollectsEverywhereTest extends TestCase
             CollectionMappingException::class,
             $result->getReport()->getErrors()[0]->getException(),
         );
+
+        // The VALUE is asserted too, and that is what makes this test discriminate. Two separate
+        // changes block the old TypeError - mapIterable() returning [] for a recorded failure, and
+        // wrapCollection()'s null guard - so asserting only the report lets either one cover for
+        // the other: revert the [] and the guard silently turns the result into null, with the
+        // record still in place and the test still green.
+        self::assertInstanceOf(
+            Collection::class,
+            $result->getValue(),
+            'A recorded failure still yields a collection, not an absence.',
+        );
+        self::assertCount(0, $result->getValue(), 'Empty, because no element could be mapped.');
     }
 
     #[Test]
