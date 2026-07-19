@@ -22,6 +22,7 @@ use MagicSunday\JsonMapper\Collection\CollectionFactoryInterface;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Converter\PropertyNameConverterInterface;
+use MagicSunday\JsonMapper\Exception\CollectionMappingException;
 use MagicSunday\JsonMapper\Exception\MappingException;
 use MagicSunday\JsonMapper\Exception\MissingConstructorArgumentException;
 use MagicSunday\JsonMapper\Exception\MissingPropertyException;
@@ -481,6 +482,25 @@ final readonly class JsonMapper
         }
 
         if (!$this->isIterableWithArraysOrObjects($json)) {
+            // A SCALAR against a requested collection is refused. It can be neither the collection
+            // nor an element of it, yet the collection class was dropped silently and a bare
+            // element built from nothing came back - so a caller who type-hinted the collection got
+            // a TypeError from its own code, far from the cause.
+            //
+            // An object payload is deliberately NOT refused here. Handing over both class names and
+            // letting the shape decide is how a caller consumes an API that returns one object for
+            // a single hit and a list for several, and mapSingleObjectWithGivenCollection() has
+            // pinned that since long before this change. Only the shape that can satisfy neither
+            // reading is rejected.
+            //
+            // Thrown rather than routed through handleMappingException(): returning afterwards
+            // would let map() fall through to the single-object lane and build the very element
+            // this rejects, and recording here as well as at the catch that receives it would file
+            // the failure twice.
+            if (($resolvedCollectionClassName !== null) && !is_array($json) && !is_object($json)) {
+                throw new CollectionMappingException($context->getPath(), get_debug_type($json));
+            }
+
             return null;
         }
 
@@ -494,6 +514,16 @@ final readonly class JsonMapper
             );
         }
 
+        // An empty array deliberately falls through to the single-object lane rather than being
+        // treated as an empty list. It is genuinely ambiguous: json_decode() with associative:true
+        // renders both [] and {} as an empty array, and a caller passing associative arrays
+        // directly - the common case outside json_decode - means an empty OBJECT by it far more
+        // often than an empty list.
+        //
+        // A caller who does mean an empty list says so by naming the collection class, which the
+        // branch above handles. Resolving the ambiguity the other way was tried and rejected: it
+        // turns every map([], Dto::class) into a list, and that call is how a caller asks for a
+        // DTO built from defaults.
         if ($this->isNumericIndexArray($json)) {
             return $this->collectionFactory->mapIterable($json, $valueType, $context);
         }
