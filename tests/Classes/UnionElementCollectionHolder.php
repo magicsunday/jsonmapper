@@ -43,6 +43,16 @@ final class UnionElementCollectionHolder
     public array $names = [];
 
     /**
+     * A plain, non-nullable OBJECT element type - no union, no null member. This is what separates
+     * the null guard from the strategy that runs after it: a builtin element type refuses a null
+     * outright, whereas an object type reaches the object strategy, which instantiates a class
+     * needing no constructor arguments and thereby invents an entry the payload never contained.
+     *
+     * @var array<int, Simple>
+     */
+    public array $objectItems = [];
+
+    /**
      * A union with NO null member. An element type that forbids null is the case that separates
      * "the null strategy claims every null" from "null is checked against the declared type".
      *

@@ -141,4 +141,24 @@ final class UnionCollectionElementTest extends TestCase
         self::assertInstanceOf(Simple::class, $holder->unionItems[0]);
         self::assertSame('a string', $holder->unionItems[1], 'Each element resolves against the union on its own.');
     }
+
+    #[Test]
+    public function itRejectsANullElementForANonNullableObjectType(): void
+    {
+        // The gap the null guard left open. A builtin element type reports the null, because the
+        // builtin strategy refuses it - but an OBJECT element type fell through to the object
+        // strategy, which happily instantiated a class needing no constructor arguments. So a
+        // null in the payload became a fully-formed object with default values, and nothing was
+        // recorded: a fabricated entry the caller cannot tell from a real one.
+        $result = $this->getJsonMapper()->mapWithReport(
+            $this->getJsonAsObject('{"objectItems": [{"name": "first"}, null]}'),
+            UnionElementCollectionHolder::class,
+        );
+
+        $holder = $result->getValue();
+
+        self::assertInstanceOf(UnionElementCollectionHolder::class, $holder);
+        self::assertCount(1, $holder->objectItems, 'The null element is dropped, not invented.');
+        self::assertSame(1, $result->getReport()->getErrorCount(), 'And it is reported.');
+    }
 }
