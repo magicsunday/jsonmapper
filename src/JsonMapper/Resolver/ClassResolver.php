@@ -74,7 +74,10 @@ final class ClassResolver
      * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string|class-string $resolver       Resolver closure, or a concrete class-string to map to unconditionally.
      * @param list<string>|null                                                                    $allowedTargets Classes the resolver may return. Null leaves it
      *                                                                                                             unrestricted, which is the default for backwards
-     *                                                                                                             compatibility - see the note below.
+     *                                                                                                             compatibility - see the note below. Only
+     *                                                                                                             meaningful for a closure: a static string target
+     *                                                                                                             is returned directly, with no payload choice to
+     *                                                                                                             constrain, so a list beside one is inert.
      *
      * @phpstan-param class-string $className
      * @phpstan-param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string|class-string $resolver
