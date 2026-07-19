@@ -124,8 +124,10 @@ final class MappingContext
      */
     public function withForcedErrorCollection(callable $callback): mixed
     {
-        // array_key_exists() rather than ??: the option may legitimately hold null, and restoring
-        // that as "was never set" would silently change the caller's configuration.
+        // array_key_exists() rather than ??: a stored null and an absent key read the same through
+        // shouldCollectErrors(), which coalesces both to true. They differ only in the raw bag
+        // returned by getOptions(), so restoring "absent" as "null" would hand a caller comparing
+        // that bag a difference that was never there.
         $wasSet                                     = array_key_exists(self::OPTION_COLLECT_ERRORS, $this->options);
         $previous                                   = $this->options[self::OPTION_COLLECT_ERRORS] ?? null;
         $this->options[self::OPTION_COLLECT_ERRORS] = true;

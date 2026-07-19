@@ -166,8 +166,8 @@ final class BuiltinCoercionTest extends TestCase
         self::assertInstanceOf(BuiltinCoercionHolder::class, $holder);
         self::assertSame(['a' => 'one'], $holder->bag);
 
-        // Lenient mode reports the coercion it performed, as it does for every other mismatching
-        // pair here. What this pins is that the value ARRIVES rather than being rejected.
+        // A composite is never a recognised representation, so it always reaches the guard and is
+        // reported. What this pins is that the value ARRIVES rather than being rejected.
         self::assertSame(1, $result->getReport()->getErrorCount());
     }
 
@@ -192,8 +192,8 @@ final class BuiltinCoercionTest extends TestCase
         // isInitialized() alone would pass for any written value, including a wrong one.
         self::assertEquals((object) ['a' => 'one'], $holder->thing);
 
-        // Lenient mode reports the coercion it performed, exactly as it does for the scalar pairs
-        // above - what matters here is that the value arrives rather than being discarded.
+        // Reported for the same reason as the direction above - what matters here is that the
+        // value arrives rather than being discarded.
         self::assertSame(1, $result->getReport()->getErrorCount());
     }
 
