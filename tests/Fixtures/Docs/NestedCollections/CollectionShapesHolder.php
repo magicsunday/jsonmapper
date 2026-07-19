@@ -45,4 +45,9 @@ final class CollectionShapesHolder
      * @var TemplatedCollection
      */
     public TemplatedCollection $templated;
+
+    /**
+     * @var AuthorCollection
+     */
+    public AuthorCollection $authors;
 }

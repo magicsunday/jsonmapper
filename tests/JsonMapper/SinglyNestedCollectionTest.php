@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\Test\JsonMapper;
 
 use InvalidArgumentException;
+use MagicSunday\Test\Fixtures\Docs\NestedCollections\Author;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\CollectionShapesHolder;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\IterableDataObjectHolder;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\MoneyBagTypeHandler;
@@ -156,6 +157,23 @@ final class SinglyNestedCollectionTest extends TestCase
 
         self::assertInstanceOf(MoneyHolder::class, $holder);
         self::assertSame(5, $holder->bag->amount);
+    }
+
+    #[Test]
+    public function itResolvesEachCollectionClassToItsOwnElementType(): void
+    {
+        // The resolution is memoised per class name. Every other fixture holds Tag, so a memo
+        // that ignored its key and served the first resolution to every later class would be
+        // invisible - two collections with distinct element types in one payload is what makes
+        // the key load-bearing.
+        $holder = $this->getJsonMapper()->map(
+            $this->getJsonAsObject('{"tags": [{"name": "php"}], "authors": [{"alias": "rso"}]}'),
+            CollectionShapesHolder::class,
+        );
+
+        self::assertInstanceOf(CollectionShapesHolder::class, $holder);
+        self::assertContainsOnlyInstancesOf(Tag::class, $holder->tags);
+        self::assertContainsOnlyInstancesOf(Author::class, $holder->authors);
     }
 
     #[Test]
