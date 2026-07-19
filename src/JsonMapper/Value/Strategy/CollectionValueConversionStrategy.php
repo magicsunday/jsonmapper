@@ -19,27 +19,14 @@ use Symfony\Component\TypeInfo\Type\CollectionType;
 use Symfony\Component\TypeInfo\Type\GenericType;
 use Symfony\Component\TypeInfo\Type\ObjectType;
 
-use function array_key_exists;
 use function assert;
 use function class_exists;
 
 /**
  * Converts collection values using the configured factory.
  */
-final class CollectionValueConversionStrategy implements ValueConversionStrategyInterface
+final readonly class CollectionValueConversionStrategy implements ValueConversionStrategyInterface
 {
-    /**
-     * Collection types resolved from a collection class annotation, keyed by class name.
-     *
-     * Resolving one means reading and parsing a docblock, which is far too expensive to repeat for
-     * every element of every collection. The negative result is cached as well - the common case is
-     * a plain object that is not a collection at all, and that answer must not cost a docblock
-     * parse each time either.
-     *
-     * @var array<class-string, CollectionType<GenericType<ObjectType<mixed>>>|null>
-     */
-    private array $resolvedCollectionTypes = [];
-
     /**
      * Creates the strategy with the provided collection factory.
      *
@@ -47,8 +34,8 @@ final class CollectionValueConversionStrategy implements ValueConversionStrategy
      * @param CollectionDocBlockTypeResolver               $docBlockTypeResolver Resolver reading the element type from a collection class annotation.
      */
     public function __construct(
-        private readonly CollectionFactoryInterface $collectionFactory,
-        private readonly CollectionDocBlockTypeResolver $docBlockTypeResolver = new CollectionDocBlockTypeResolver(),
+        private CollectionFactoryInterface $collectionFactory,
+        private CollectionDocBlockTypeResolver $docBlockTypeResolver = new CollectionDocBlockTypeResolver(),
     ) {
     }
 
@@ -113,11 +100,7 @@ final class CollectionValueConversionStrategy implements ValueConversionStrategy
             return null;
         }
 
-        if (array_key_exists($className, $this->resolvedCollectionTypes)) {
-            return $this->resolvedCollectionTypes[$className];
-        }
-
-        return $this->resolvedCollectionTypes[$className] = $this->buildCollectionType($className);
+        return $this->buildCollectionType($className);
     }
 
     /**
