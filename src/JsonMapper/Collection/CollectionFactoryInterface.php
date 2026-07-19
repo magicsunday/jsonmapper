@@ -36,7 +36,10 @@ interface CollectionFactoryInterface
      * @param Type           $valueType Type description for the collection values.
      * @param MappingContext $context   Active mapping context carrying strictness and error reporting configuration.
      *
-     * @return array<TKey, TValue>|null Normalised array representation or null when conversion fails.
+     * @return array<TKey, TValue>|null Normalised array representation, or null when no collection was
+     *                                  asked for. A recorded conversion failure yields an empty array,
+     *                                  never null: consumers read null as an absence and hand it to a
+     *                                  collection constructor, which rejects it natively.
      */
     public function mapIterable(mixed $json, Type $valueType, MappingContext $context): ?array;
 

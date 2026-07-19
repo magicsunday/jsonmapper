@@ -453,6 +453,21 @@ final readonly class JsonMapper
                 );
             }
 
+            // A null payload yields no collection, and that is recorded rather than passed back in
+            // silence: the identical null against a non-nullable collection PROPERTY is reported by
+            // convertValue(), and a report whose meaning depends on nesting depth is exactly the
+            // defect mapWithReport() exists to remove. Routed through the shared handler, so strict
+            // map() keeps raising while mapWithReport() collects. The returned value stays null so
+            // that treatNullAsEmptyCollection remains observable in the result.
+            if (($json === null) && !$context->shouldTreatNullAsEmptyCollection()) {
+                $this->handleMappingException(
+                    new TypeMismatchException($context->getPath(), $resolvedCollectionClassName, 'null'),
+                    $context,
+                );
+
+                return null;
+            }
+
             return $this->wrapCollection(
                 $resolvedCollectionClassName,
                 $this->collectionFactory->mapIterable($json, $collectionValueType, $context),
@@ -795,10 +810,11 @@ final readonly class JsonMapper
      * The elements are null when no collection was produced at all - a null payload that the
      * configuration does not map to an empty collection. A wrapper's constructor takes an array
      * and answers null with a native TypeError, which would escape error collection entirely, so
-     * the absence is passed on as an absence instead of being handed over as one.
+     * the absence is passed on rather than handed to the constructor. Substituting an empty
+     * collection instead would silently override treatNullAsEmptyCollection.
      *
-     * @param class-string                    $collectionClassName Fully qualified collection class to instantiate.
-     * @param array<array-key, mixed>|null    $elements            Mapped elements, or null when there was no collection.
+     * @param class-string                 $collectionClassName Fully qualified collection class to instantiate.
+     * @param array<array-key, mixed>|null $elements            Mapped elements, or null when there was no collection.
      *
      * @return object|null Collection instance, or null when there was nothing to wrap.
      */

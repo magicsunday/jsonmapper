@@ -163,6 +163,17 @@ final class StrictReportCollectsEverywhereTest extends TestCase
 
         self::assertNull($absent->getValue(), 'A null payload produces no collection at all.');
 
+        // And it is REPORTED. The same null against a non-nullable collection property is recorded
+        // by convertValue()'s guard, so leaving the root lane silent would recreate the very split
+        // this entry point exists to remove - a caller checking hasErrors() would see a clean run
+        // and then dereference null. The value stays null either way, so the option remains
+        // observable; only the report changes.
+        self::assertTrue($absent->getReport()->hasErrors(), 'The absent collection is reported.');
+        self::assertInstanceOf(
+            TypeMismatchException::class,
+            $absent->getReport()->getErrors()[0]->getException(),
+        );
+
         // With the option on, the same payload becomes a real, empty collection - which is what
         // makes the assertion above a statement about the option rather than about null handling.
         $empty = $this->getJsonMapper(
@@ -171,6 +182,7 @@ final class StrictReportCollectsEverywhereTest extends TestCase
 
         self::assertInstanceOf(Collection::class, $empty->getValue());
         self::assertCount(0, $empty->getValue());
+        self::assertFalse($empty->getReport()->hasErrors(), 'With the option on, null is not a failure.');
     }
 
     #[Test]

@@ -60,7 +60,9 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
      * @param Type           $valueType Type descriptor for individual collection entries.
      * @param MappingContext $context   Active mapping context providing path and strictness information.
      *
-     * @return array<array-key, mixed>|null Normalised collection data or null when conversion fails.
+     * @return array<array-key, mixed>|null Normalised collection data, or null when no collection was
+     *                                      asked for. A recorded conversion failure yields an empty
+     *                                      array, never null - consumers read null as an absence.
      */
     public function mapIterable(mixed $json, Type $valueType, MappingContext $context): ?array
     {

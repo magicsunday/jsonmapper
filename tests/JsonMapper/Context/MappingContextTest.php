@@ -93,8 +93,8 @@ final class MappingContextTest extends TestCase
         // Set explicitly, it wins over strict mode in BOTH directions - that override is the whole
         // mechanism by which mapWithReport() collects what map() would have raised.
         self::assertFalse((new MappingContext(['root'], [
-            MappingContext::OPTION_STRICT_MODE       => true,
-            MappingContext::OPTION_ABORT_ON_ERROR    => false,
+            MappingContext::OPTION_STRICT_MODE    => true,
+            MappingContext::OPTION_ABORT_ON_ERROR => false,
         ]))->shouldAbortOnError(), 'The explicit option overrides strict mode.');
 
         self::assertTrue((new MappingContext(['root'], [
