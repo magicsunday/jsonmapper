@@ -14,9 +14,6 @@ namespace MagicSunday;
 use Closure;
 use DomainException;
 use InvalidArgumentException;
-use MagicSunday\JsonMapper\Attribute\ReplaceNullWithDefaultValue;
-use MagicSunday\JsonMapper\Attribute\ReplaceProperty;
-use MagicSunday\JsonMapper\Attribute\UnknownPropertyCollector;
 use MagicSunday\JsonMapper\Collection\CollectionDocBlockTypeResolver;
 use MagicSunday\JsonMapper\Collection\CollectionFactory;
 use MagicSunday\JsonMapper\Collection\CollectionFactoryInterface;
@@ -30,6 +27,7 @@ use MagicSunday\JsonMapper\Exception\MissingPropertyException;
 use MagicSunday\JsonMapper\Exception\ReadonlyPropertyException;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\JsonMapper\Exception\UnknownPropertyException;
+use MagicSunday\JsonMapper\Metadata\ClassMetadataFactory;
 use MagicSunday\JsonMapper\Report\MappingReport;
 use MagicSunday\JsonMapper\Report\MappingResult;
 use MagicSunday\JsonMapper\Resolver\ClassResolver;
@@ -48,15 +46,10 @@ use MagicSunday\JsonMapper\Value\Strategy\UnionValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\TypeHandlerInterface;
 use MagicSunday\JsonMapper\Value\ValueConverter;
 use Psr\Cache\CacheItemPoolInterface;
-use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionMethod;
-use ReflectionNamedType;
-use ReflectionParameter;
 use ReflectionProperty;
-use ReflectionType;
-use ReflectionUnionType;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
@@ -119,6 +112,8 @@ final readonly class JsonMapper
 
     private CustomTypeRegistry $customTypeRegistry;
 
+    private ClassMetadataFactory $classMetadataFactory;
+
     /**
      * Creates a mapper that converts JSON data into PHP objects using the configured Symfony services.
      *
@@ -130,7 +125,7 @@ final readonly class JsonMapper
      * @param JsonMapperConfiguration                                                                                   $config        Default mapper configuration cloned for new mapping contexts.
      */
     public function __construct(
-        private PropertyInfoExtractorInterface $extractor,
+        PropertyInfoExtractorInterface $extractor,
         private PropertyAccessorInterface $accessor,
         private ?PropertyNameConverterInterface $nameConverter = null,
         array $classMap = [],
@@ -138,6 +133,7 @@ final readonly class JsonMapper
         private JsonMapperConfiguration $config = new JsonMapperConfiguration(),
     ) {
         $this->typeResolver                   = new TypeResolver($extractor, $typeCache);
+        $this->classMetadataFactory           = new ClassMetadataFactory($extractor);
         $this->classResolver                  = new ClassResolver($classMap);
         $this->customTypeRegistry             = new CustomTypeRegistry();
         $this->collectionDocBlockTypeResolver = new CollectionDocBlockTypeResolver();
@@ -606,15 +602,18 @@ final readonly class JsonMapper
     ): object {
         $source = $this->toIterableArray($json);
 
-        $properties         = $this->getProperties($resolvedClassName);
-        $replacePropertyMap = $this->buildReplacePropertyMap($resolvedClassName);
+        // One derivation for the class, reused for every element of a collection. All of this is
+        // fixed by the declaration, and used to be re-reflected per mapSingleObject() call.
+        $metadata           = $this->classMetadataFactory->forClass($resolvedClassName);
+        $properties         = $metadata->properties;
+        $replacePropertyMap = $metadata->replaceMap;
         $mappedProperties   = [];
 
         // A class may nominate one property (via the UnknownPropertyCollector attribute) as the sink
         // for every source key that matches no declared property. Such keys are gathered here, by
         // normalized name and raw value, and handed to that property after the main pass instead of
         // being ignored or reported.
-        $collectorProperty = $this->unknownPropertyCollector($resolvedClassName);
+        $collectorProperty = $metadata->collectorProperty;
         $collectedUnknown  = [];
 
         // Convert every payload value once, collecting the results by property name. Whether a
@@ -743,7 +742,7 @@ final readonly class JsonMapper
         // parameters (an immutable value object cannot be populated afterwards); otherwise fall
         // back to an argument-less instantiation. Either way, any collected value that is not a
         // constructor argument is assigned afterwards, so mixed classes lose nothing.
-        $constructor = $this->constructorForHydration($resolvedClassName);
+        $constructor = $metadata->constructor;
         $consumed    = [];
 
         if ($constructor instanceof ReflectionMethod) {
@@ -838,55 +837,8 @@ final readonly class JsonMapper
 
         return array_values(array_filter(
             array_diff($declaredProperties, $used),
-            fn (string $property): bool => $this->isRequiredProperty($className, $property),
+            fn (string $property): bool => $this->classMetadataFactory->forClass($className)->isRequired($property),
         ));
-    }
-
-    /**
-     * Determines whether the given property must be present on the input data.
-     *
-     * @param class-string $className    Fully qualified class name whose property metadata is evaluated.
-     * @param string       $propertyName Property name checked for default values and nullability.
-     *
-     * @return bool True when the property is mandatory and missing values must be reported.
-     */
-    private function isRequiredProperty(string $className, string $propertyName): bool
-    {
-        $reflectionProperty = $this->getReflectionProperty($className, $propertyName);
-
-        if (!$reflectionProperty instanceof ReflectionProperty) {
-            return false;
-        }
-
-        if ($reflectionProperty->hasDefaultValue()) {
-            return false;
-        }
-
-        // A promoted property's default lives on the constructor parameter, so a promoted
-        // parameter with a default is not required even though the property has none.
-        $parameter = $this->constructorParameter($className, $propertyName);
-
-        if (($parameter instanceof ReflectionParameter) && $parameter->isDefaultValueAvailable()) {
-            return false;
-        }
-
-        $type = $reflectionProperty->getType();
-
-        if ($type instanceof ReflectionNamedType) {
-            return !$type->allowsNull();
-        }
-
-        if ($type instanceof ReflectionUnionType) {
-            foreach ($type->getTypes() as $innerType) {
-                if ($innerType instanceof ReflectionNamedType && $innerType->allowsNull()) {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        return false;
     }
 
     /**
@@ -1234,39 +1186,6 @@ final readonly class JsonMapper
     }
 
     /**
-     * Returns the constructor a class must be hydrated through, or NULL when the class can be
-     * populated by property assignment after an argument-less instantiation.
-     *
-     * A class must be built through its constructor when the constructor has a promoted parameter
-     * (the immutable `final readonly` shape, whose properties cannot be written after
-     * construction) or any required parameter (which an argument-less instantiation could not
-     * satisfy). Plain mutable classes keep the property-assignment path unchanged.
-     *
-     * @param class-string $className Fully qualified class name to inspect.
-     *
-     * @return ReflectionMethod|null The constructor to hydrate through, or NULL.
-     */
-    private function constructorForHydration(string $className): ?ReflectionMethod
-    {
-        $constructor = (new ReflectionClass($className))->getConstructor();
-
-        if (!$constructor instanceof ReflectionMethod) {
-            return null;
-        }
-
-        foreach ($constructor->getParameters() as $parameter) {
-            // Promoted (immutable shape), required (an argument-less call could not satisfy it),
-            // or variadic (its values must be spread through the constructor) parameters all
-            // force construction through the constructor.
-            if ($parameter->isPromoted() || !$parameter->isOptional() || $parameter->isVariadic()) {
-                return $constructor;
-            }
-        }
-
-        return null;
-    }
-
-    /**
      * Determines whether a class can only be instantiated by passing constructor arguments.
      *
      * This is narrower than {@see constructorForHydration()}: that one also reports a constructor
@@ -1377,143 +1296,7 @@ final readonly class JsonMapper
      */
     private function isReplaceNullWithDefaultValueAnnotation(string $className, string $propertyName): bool
     {
-        $reflectionProperty = $this->getReflectionProperty($className, $propertyName);
-
-        if (!$reflectionProperty instanceof ReflectionProperty) {
-            return false;
-        }
-
-        return $this->hasAttribute($reflectionProperty, ReplaceNullWithDefaultValue::class);
-    }
-
-    /**
-     * Returns the name of the property nominated as the unknown-key collector via the
-     * {@see UnknownPropertyCollector} attribute, or NULL when the class declares none.
-     *
-     * @param class-string $className Fully qualified class inspected for a collector property.
-     *
-     * @return string|null The collector property name, or NULL.
-     *
-     * @throws InvalidArgumentException When the class marks more than one collector, or the marked
-     *                                  property is static or not array-typed (the raw collected map
-     *                                  is assigned to a per-instance array property without
-     *                                  conversion).
-     */
-    private function unknownPropertyCollector(string $className): ?string
-    {
-        // The collector for a class is fixed by its declaration, so memoize it per class: the lookup
-        // runs on every mapSingleObject() call and would otherwise re-reflect for every element of a
-        // large collection. A misdeclared class throws before it is ever cached.
-        /** @var array<class-string, string|null> $cache */
-        static $cache = [];
-
-        if (array_key_exists($className, $cache)) {
-            return $cache[$className];
-        }
-
-        $reflectionClass = $this->getReflectionClass($className);
-
-        if (!$reflectionClass instanceof ReflectionClass) {
-            return null;
-        }
-
-        $collector = null;
-
-        foreach ($reflectionClass->getProperties() as $property) {
-            if (!$this->hasAttribute($property, UnknownPropertyCollector::class)) {
-                continue;
-            }
-
-            // A static property is shared, not a per-instance sink, and cannot be hydrated as one;
-            // reject the declaration rather than silently ignoring the marker.
-            if ($property->isStatic()) {
-                throw new InvalidArgumentException(sprintf(
-                    'The property "%s::$%s" marked with #[UnknownPropertyCollector] must not be static.',
-                    $className,
-                    $property->getName(),
-                ));
-            }
-
-            // A class nominates at most one collector; a second marked property is a declaration
-            // error, so fail fast rather than silently ignoring it.
-            if ($collector !== null) {
-                throw new InvalidArgumentException(sprintf(
-                    'The class "%s" must not mark more than one property with #[UnknownPropertyCollector].',
-                    $className,
-                ));
-            }
-
-            // The raw collected map is assigned without conversion, so a non-array collector would
-            // fail late as a native TypeError; reject the declaration up front with a clear message.
-            if (!$this->isArrayType($property->getType())) {
-                throw new InvalidArgumentException(sprintf(
-                    'The property "%s::$%s" marked with #[UnknownPropertyCollector] must be array-typed.',
-                    $className,
-                    $property->getName(),
-                ));
-            }
-
-            $collector = $property->getName();
-        }
-
-        return $cache[$className] = $collector;
-    }
-
-    /**
-     * Determines whether the given declared type is a valid collector type. A plain `array` and a
-     * nullable collector — written either `?array` or `array|null` — both reflect as a nullable
-     * {@see ReflectionNamedType} named `array`, so the named check is exhaustive: any genuine
-     * multi-type union (e.g. `array|int`), an intersection type or an untyped property is a
-     * {@see ReflectionUnionType}/{@see ReflectionIntersectionType}/`null` and is rejected, since the
-     * collector holds an array map and must not permit a non-array value.
-     *
-     * @param ReflectionType|null $type The property's declared type, or NULL when untyped.
-     *
-     * @return bool True when the type only ever holds an array (or null).
-     */
-    private function isArrayType(?ReflectionType $type): bool
-    {
-        return ($type instanceof ReflectionNamedType) && ($type->getName() === 'array');
-    }
-
-    /**
-     * Builds the mapping of legacy property names to their replacements declared via attributes.
-     *
-     * @param class-string $className Fully qualified class inspected for ReplaceProperty attributes.
-     *
-     * @return array<string, string> Map of original property names to their replacement names.
-     */
-    private function buildReplacePropertyMap(string $className): array
-    {
-        $reflectionClass = $this->getReflectionClass($className);
-
-        if (!$reflectionClass instanceof ReflectionClass) {
-            return [];
-        }
-
-        $map        = [];
-        $attributes = $reflectionClass->getAttributes(ReplaceProperty::class, ReflectionAttribute::IS_INSTANCEOF);
-
-        foreach ($attributes as $attribute) {
-            /** @var ReplaceProperty $instance */
-            $instance                 = $attribute->newInstance();
-            $map[$instance->replaces] = $instance->value;
-        }
-
-        return $map;
-    }
-
-    /**
-     * Checks whether the given property is marked with the specified attribute class.
-     *
-     * @param ReflectionProperty $property       Property reflection inspected for attributes.
-     * @param class-string       $attributeClass Attribute class name to look for on the property.
-     *
-     * @return bool True when at least one matching attribute is present.
-     */
-    private function hasAttribute(ReflectionProperty $property, string $attributeClass): bool
-    {
-        return $property->getAttributes($attributeClass, ReflectionAttribute::IS_INSTANCEOF) !== [];
+        return $this->classMetadataFactory->forClass($className)->replacesNullWithDefault($propertyName);
     }
 
     /**
@@ -1583,22 +1366,6 @@ final readonly class JsonMapper
     }
 
     /**
-     * Returns the specified reflection class.
-     *
-     * @param class-string $className Fully qualified class name that should be reflected.
-     *
-     * @return ReflectionClass<object>|null Reflection of the class when it exists, otherwise null.
-     */
-    private function getReflectionClass(string $className): ?ReflectionClass
-    {
-        if (!class_exists($className)) {
-            return null;
-        }
-
-        return new ReflectionClass($className);
-    }
-
-    /**
      * Returns the default value of a property.
      *
      * @param class-string $className    Fully qualified class that defines the property.
@@ -1608,59 +1375,10 @@ final readonly class JsonMapper
      */
     private function getDefaultValue(string $className, string $propertyName): mixed
     {
-        $reflectionProperty = $this->getReflectionProperty($className, $propertyName);
-
-        if (!$reflectionProperty instanceof ReflectionProperty) {
-            return null;
-        }
-
-        if ($reflectionProperty->hasDefaultValue()) {
-            return $reflectionProperty->getDefaultValue();
-        }
-
-        // A promoted property carries no property-level default; its default lives on the
-        // constructor parameter of the same name.
-        $parameter = $this->constructorParameter($className, $propertyName);
-
-        if (($parameter instanceof ReflectionParameter) && $parameter->isDefaultValueAvailable()) {
-            return $parameter->getDefaultValue();
-        }
-
-        // Neither the property nor a promoted parameter declares a default. Calling
-        // ReflectionProperty::getDefaultValue() here is deprecated as of PHP 8.5 precisely
-        // because there is nothing to return.
-        return null;
-    }
-
-    /**
-     * Returns the PROMOTED constructor parameter of the given class that shares the property's
-     * name, or NULL. Used to read a promoted property's default and required-ness, which live on
-     * the parameter rather than the property. A plain parameter that merely shares the name is
-     * ignored, since it has no type relationship to the property.
-     *
-     * @param class-string $className    Fully qualified class name to inspect.
-     * @param string       $propertyName Property (and promoted parameter) name to look up.
-     *
-     * @return ReflectionParameter|null The matching constructor parameter, or NULL.
-     */
-    private function constructorParameter(string $className, string $propertyName): ?ReflectionParameter
-    {
-        $constructor = (new ReflectionClass($className))->getConstructor();
-
-        if (!$constructor instanceof ReflectionMethod) {
-            return null;
-        }
-
-        foreach ($constructor->getParameters() as $parameter) {
-            if (
-                ($parameter->getName() === $propertyName)
-                && $parameter->isPromoted()
-            ) {
-                return $parameter;
-            }
-        }
-
-        return null;
+        // Neither the property nor a promoted parameter declaring a default yields null. Calling
+        // ReflectionProperty::getDefaultValue() for that case is deprecated as of PHP 8.5 precisely
+        // because there is nothing to return, which is why the metadata resolves it once instead.
+        return $this->classMetadataFactory->forClass($className)->defaultValue($propertyName);
     }
 
     /**
@@ -1782,17 +1500,5 @@ final readonly class JsonMapper
         }
 
         $this->accessor->setValue($entity, $name, $value);
-    }
-
-    /**
-     * Get all public properties for the specified class.
-     *
-     * @param class-string $className Fully qualified class whose property names should be extracted.
-     *
-     * @return string[] List of property names exposed by the configured extractor.
-     */
-    private function getProperties(string $className): array
-    {
-        return $this->extractor->getProperties($className) ?? [];
     }
 }
