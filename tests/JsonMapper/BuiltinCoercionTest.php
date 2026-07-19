@@ -51,8 +51,14 @@ final class BuiltinCoercionTest extends TestCase
     {
         return [
             // Normalised silently - the payload is a representation of the target type.
-            'numeric to int'          => ['number', '42', 42, false],
-            'integer valued float'    => ['number', 3.0, 3, false],
+            'numeric to int'       => ['number', '42', 42, false],
+            'integer valued float' => ['number', 3.0, 3, false],
+            // A large int this build can hold, derived rather than written out so the row means the
+            // same thing on a 32-bit and a 64-bit PHP. A power of two on purpose: PHP_INT_MAX >> 1
+            // is not exactly representable as a double, so the float would round and the row would
+            // fail for a reason that has nothing to do with the bound under test. Guards the upper
+            // bound from being tightened into rejecting values that are in fact representable.
+            'large representable int' => ['number', (float) ((PHP_INT_MAX >> 1) + 1), (PHP_INT_MAX >> 1) + 1, false],
             'int to float'            => ['decimal', 3, 3.0, false],
             'numeric to float'        => ['decimal', '2.5', 2.5, false],
             'literal true'            => ['flag', 'true', true, false],

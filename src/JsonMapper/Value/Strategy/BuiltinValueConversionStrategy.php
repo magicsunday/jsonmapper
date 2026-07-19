@@ -39,6 +39,7 @@ use const FILTER_VALIDATE_FLOAT;
 use const FILTER_VALIDATE_INT;
 use const PHP_INT_MAX;
 use const PHP_INT_MIN;
+use const PHP_INT_SIZE;
 
 /**
  * Converts scalar values to the requested builtin type.
@@ -311,8 +312,15 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
      * the very cast being guarded against, so it emits the overflow warning on exactly the inputs
      * it is meant to reject. Comparing against the limits as floats stays silent.
      *
-     * The upper bound is exclusive because (float) PHP_INT_MAX rounds UP to 2^63 - one past the
-     * largest representable int - so an inclusive test would let that boundary value through.
+     * The upper bound is platform-dependent. On a 64-bit build (float) PHP_INT_MAX rounds UP to
+     * 2^63, one past the largest representable int, so the comparison has to be exclusive or that
+     * boundary value slips through. On a 32-bit build 2147483647 fits a double exactly, and an
+     * exclusive comparison would reject a perfectly valid int instead. PHP_INT_SIZE distinguishes
+     * the two; comparing (float) PHP_INT_MAX against PHP_INT_MAX does not, because PHP widens the
+     * int operand to the same rounded float and the test always says "equal".
+     *
+     * PHP_INT_MIN needs no such care: -2^63 and -2^31 are both exactly representable, so the
+     * lower bound is inclusive on either build.
      *
      * @param float $value Value checked for representability.
      *
@@ -320,9 +328,15 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
      */
     private function isIntRepresentable(float $value): bool
     {
-        return is_finite($value)
-            && ($value >= (float) PHP_INT_MIN)
-            && ($value < (float) PHP_INT_MAX);
+        if (!is_finite($value) || ($value < (float) PHP_INT_MIN)) {
+            return false;
+        }
+
+        $upperBound = (float) PHP_INT_MAX;
+
+        return PHP_INT_SIZE <= 4
+            ? ($value <= $upperBound)
+            : ($value < $upperBound);
     }
 
     /**
