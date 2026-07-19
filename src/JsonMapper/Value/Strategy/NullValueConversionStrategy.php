@@ -30,7 +30,7 @@ final class NullValueConversionStrategy implements ValueConversionStrategyInterf
      */
     public function supports(Type $type, mixed $value, MappingContext $context): bool
     {
-        return $value === null;
+        return ($value === null) && $type->isNullable();
     }
 
     /**
