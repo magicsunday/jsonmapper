@@ -162,6 +162,12 @@ final readonly class CollectionValueConversionStrategy implements ValueConversio
         // Anything else is judged by whether it declares state of its own: a data object that
         // merely implements IteratorAggregate keeps its properties and must not be hydrated from
         // the payload's elements.
+        //
+        // Static members are counted along with instance ones, which reads like an oversight and
+        // is not: a class reaching this point declares no inherited storage, so without an
+        // instance property it has nowhere to put the elements and cannot serve as a collection
+        // whatever its static members say. Filtering them would change the verdict only for a
+        // class that is unusable either way.
         return (new ReflectionClass($className))->getProperties() === [];
     }
 }
