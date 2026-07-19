@@ -24,6 +24,7 @@ use Symfony\Component\TypeInfo\Type\UnionType;
 use Symfony\Component\TypeInfo\TypeIdentifier;
 
 use function count;
+use function hash;
 
 /**
  * Resolves property types using Symfony's PropertyInfo component.
@@ -38,10 +39,19 @@ final class TypeResolver
     private const string CACHE_SCHEMA_VERSION = 'v3';
 
     /**
-     * Leading segment of every cache key, ending in a separating dot. The full key appends the
-     * fully qualified class name with its separators folded, another dot, and the property name.
+     * Leading segment of every cache key, ending in a separating dot. The full key appends a hash
+     * of the class and property being resolved.
+     *
+     * Kept short on purpose: PSR-6 only guarantees that a pool accepts keys of up to 64
+     * characters, and the hash below occupies 32 of them.
      */
-    private const string CACHE_KEY_PREFIX = 'jsonmapper.property_type.' . self::CACHE_SCHEMA_VERSION . '.';
+    private const string CACHE_KEY_PREFIX = 'jsonmapper.pt.' . self::CACHE_SCHEMA_VERSION . '.';
+
+    /**
+     * Separator placed between the class and the property inside the hashed material. A NUL byte
+     * cannot occur in either, so no pair of inputs can be rearranged into the same string.
+     */
+    private const string CACHE_KEY_SEPARATOR = "\0";
 
     /**
      * The type assumed when a property declares none.
@@ -163,14 +173,27 @@ final class TypeResolver
     /**
      * Builds a cache key that fulfils PSR-6 requirements.
      *
-     * @param class-string $className
-     * @param string       $propertyName
+     * Hashed rather than folded. Replacing backslashes with underscores was lossy: it mapped
+     * App\Foo and the legacy class App_Foo onto one key, so with a persistent pool whichever
+     * resolved second served the other's types - silently, since a hit cannot be told from a
+     * resolve. The property name was passed through verbatim as well, and a PHP identifier may
+     * contain characters PSR-6 does not require a pool to accept, so a property named in a
+     * non-ASCII alphabet could produce a key the pool is entitled to reject.
      *
-     * @return string
+     * Hashing settles both: the digest is injective for practical purposes, uses only hexadecimal
+     * characters, and has a fixed length that keeps the whole key inside the 64 characters PSR-6
+     * guarantees. xxh128 because this is a lookup key, not a security boundary - it is chosen for
+     * speed and distribution, and nothing downstream trusts it.
+     *
+     * @param class-string $className    Class whose property is being resolved.
+     * @param string       $propertyName Property being resolved.
+     *
+     * @return string PSR-6 safe cache key
      */
     private function buildCacheKey(string $className, string $propertyName): string
     {
-        return self::CACHE_KEY_PREFIX . str_replace('\\', '_', $className) . '.' . $propertyName;
+        return self::CACHE_KEY_PREFIX
+            . hash('xxh128', $className . self::CACHE_KEY_SEPARATOR . $propertyName);
     }
 
     /**

@@ -14,6 +14,8 @@ namespace MagicSunday\Test\JsonMapper\Type;
 use DateInterval;
 use DateTimeInterface;
 use MagicSunday\JsonMapper\Type\TypeResolver;
+use MagicSunday\Test\Classes\Ns\Item as NamespacedItem;
+use MagicSunday\Test\Classes\Ns_Item as UnderscoredItem;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Cache\CacheItemInterface;
@@ -26,9 +28,14 @@ use Symfony\Component\TypeInfo\Type\NullableType;
 use Symfony\Component\TypeInfo\Type\UnionType;
 use Symfony\Component\TypeInfo\TypeIdentifier;
 
+use function array_filter;
 use function array_key_exists;
+use function array_keys;
 use function array_values;
+use function hash;
 use function str_replace;
+use function str_starts_with;
+use function strlen;
 
 /**
  * @internal
@@ -114,15 +121,22 @@ final class TypeResolverTest extends TestCase
 
         // Control: without this, a drifted key scheme would make the priming above miss for the
         // wrong reason, the resolver would fall through to a fresh resolve, and both assertions
-        // would still pass — leaving the test permanently green while asserting nothing. Proving
-        // the resolver writes under the versioned key anchors the miss to the schema token.
-        $versionedKey = 'jsonmapper.property_type.v3.'
-            . str_replace('\\', '_', TypeResolverFixture::class)
-            . '.name';
+        // would still pass - leaving the test permanently green while asserting nothing.
+        //
+        // Asserted on the key's SHAPE rather than by rebuilding it: the key is now a hash, and
+        // recomputing it here would just restate the implementation, so a change to how the hash
+        // is derived would agree with itself and prove nothing. What matters is that exactly one
+        // entry was written and that it carries the schema token.
+        $storedKeys = $cache->storedKeys();
 
-        self::assertTrue(
-            $cache->getItem($versionedKey)->isHit(),
-            'The resolver must store the freshly resolved type under the schema-versioned key.',
+        self::assertCount(2, $storedKeys, 'The primed legacy entry plus one freshly written key.');
+        self::assertCount(
+            1,
+            array_filter(
+                $storedKeys,
+                static fn (string $key): bool => str_starts_with($key, 'jsonmapper.pt.v3.'),
+            ),
+            'Exactly one of them - the fresh entry - carries the schema-versioned prefix.',
         );
     }
 
@@ -141,9 +155,16 @@ final class TypeResolverTest extends TestCase
         $extractor     = new PropertyInfoExtractor([], [$typeExtractor]);
         $cache         = new InMemoryCachePool();
 
-        $staleKey = 'jsonmapper.property_type.v2.'
-            . str_replace('\\', '_', TypeResolverFixture::class)
-            . '.name';
+        // Primed in the CURRENT key format under the PREVIOUS token, which is the only shape that
+        // isolates the token itself. Using the v2 FORMAT as well would make the entry miss because
+        // the format changed, and the test would stay green with the token reverted - proving only
+        // that a foreign-shaped key misses, which is trivially true.
+        //
+        // Restating the hash here is the price of that isolation, and it is the right trade: this
+        // test is about the token, and the sibling test above deliberately does NOT recompute the
+        // key, so the implementation is not pinned twice.
+        $staleKey = 'jsonmapper.pt.v2.'
+            . hash('xxh128', TypeResolverFixture::class . "\0" . 'name');
         $staleItem = $cache->getItem($staleKey);
         $staleItem->set(new BuiltinType(TypeIdentifier::STRING));
         $cache->save($staleItem);
@@ -152,6 +173,49 @@ final class TypeResolverTest extends TestCase
 
         self::assertTrue($type->isIdentifiedBy(TypeIdentifier::MIXED), 'The v2 entry must not win.');
         self::assertSame(1, $typeExtractor->callCount, 'The stale entry was a miss, so a resolve ran.');
+    }
+
+    #[Test]
+    public function itDoesNotCollideBetweenANamespacedAndAnUnderscoredClass(): void
+    {
+        // The key folded backslashes to underscores, so App\\Foo and the legacy class App_Foo
+        // produced the same key. With a persistent pool the second class then served the first
+        // one's types - silently, since a hit is indistinguishable from a resolve.
+        $extractor = new PropertyInfoExtractor([], [new StubPropertyTypeExtractor(new BuiltinType(TypeIdentifier::INT))]);
+        $cache     = new InMemoryCachePool();
+        $resolver  = new TypeResolver($extractor, $cache);
+
+        // The pair is real: folding the namespaced class's backslashes yields the global class's
+        // name character for character, which is the legacy PEAR-style shape the issue names.
+        $resolver->resolve(NamespacedItem::class, 'value');
+        $resolver->resolve(UnderscoredItem::class, 'value');
+
+        // Two classes, two entries. One key would leave a single entry behind.
+        self::assertCount(2, $cache->storedKeys(), 'Each class gets a key of its own.');
+    }
+
+    #[Test]
+    public function itBuildsAKeyPsr6Accepts(): void
+    {
+        // PSR-6 guarantees only A-Za-z0-9_. and a length of 64. A property name may legally hold
+        // any of PHP's identifier characters, including non-ASCII ones, so passing it through
+        // verbatim could hand the pool a key it is entitled to reject.
+        $extractor = new PropertyInfoExtractor([], [new StubPropertyTypeExtractor(new BuiltinType(TypeIdentifier::INT))]);
+        $cache     = new InMemoryCachePool();
+
+        (new TypeResolver($extractor, $cache))->resolve(TypeResolverFixture::class, 'grÖße');
+
+        $keys = $cache->storedKeys();
+
+        // Counted before the loop: assertions living only inside a foreach assert nothing when the
+        // collection is empty, so a change that stopped writing keys at all would leave this test
+        // reporting no failures rather than a problem.
+        self::assertCount(1, $keys, 'One resolve writes exactly one key.');
+
+        foreach ($keys as $key) {
+            self::assertMatchesRegularExpression('/^[A-Za-z0-9_.]+$/', $key, 'Only PSR-6 safe characters.');
+            self::assertLessThanOrEqual(64, strlen($key), 'Within the length PSR-6 guarantees.');
+        }
     }
 }
 
@@ -216,6 +280,17 @@ final class InMemoryCachePool implements CacheItemPoolInterface
         }
 
         return true;
+    }
+
+    /**
+     * Returns the keys of every stored item, so a test can assert on the key SHAPE rather than
+     * only on what a lookup happens to return.
+     *
+     * @return list<string> Keys currently held by the pool
+     */
+    public function storedKeys(): array
+    {
+        return array_keys($this->items);
     }
 
     public function save(CacheItemInterface $item): bool
