@@ -16,9 +16,10 @@ use ArrayObject;
 /**
  * A string-keyed collection.
  *
- * The int-keyed sibling is fed a JSON list, so its key type is never observable and an
- * implementation that dropped or reordered the annotation's type parameters would still pass.
- * This one makes the key half of the re-wrap visible.
+ * Exercises the map-shaped payload path - a JSON object rather than a list, whose keys must
+ * survive into the collection. Note that the declared KEY TYPE itself is inert: the factory
+ * copies keys from the source verbatim and consults only the value type, so this fixture does not
+ * discriminate that half of the re-wrap and does not claim to.
  *
  * @extends ArrayObject<string, Tag>
  *

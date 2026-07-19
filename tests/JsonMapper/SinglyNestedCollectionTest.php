@@ -14,6 +14,7 @@ namespace MagicSunday\Test\JsonMapper;
 use InvalidArgumentException;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\Author;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\CollectionShapesHolder;
+use MagicSunday\Test\Fixtures\Docs\NestedCollections\EncapsulatedIterableHolder;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\IterableDataObjectHolder;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\MoneyBagTypeHandler;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\MoneyHolder;
@@ -88,11 +89,29 @@ final class SinglyNestedCollectionTest extends TestCase
     }
 
     #[Test]
+    public function itLeavesAnEncapsulatedIterableDataObjectToTheObjectStrategy(): void
+    {
+        // The sibling fixture declares PUBLIC properties, so it only exercises half the container
+        // check - narrowing the check to public properties left it green. A DTO keeping its state
+        // private behind accessors is the more common shape, and would be hijacked and emptied
+        // just as silently.
+        $holder = $this->getJsonMapper()->map(
+            $this->getJsonAsObject('{"payload": {"title": "hello"}}'),
+            EncapsulatedIterableHolder::class,
+        );
+
+        self::assertInstanceOf(EncapsulatedIterableHolder::class, $holder);
+        self::assertSame('hello', $holder->payload->getTitle());
+    }
+
+    #[Test]
     public function itKeepsTheKeyTypeDeclaredByTheClassAnnotation(): void
     {
-        // The int-keyed case is fed a JSON list, so its keys are indistinguishable from positions.
-        // Dropping or reordering the annotation's type parameters during the re-wrap would pass
-        // there and only surface here.
+        // What this really pins is the map-shaped (non-list) payload path: a JSON object whose
+        // keys must survive into the collection. It does NOT discriminate the key half of the
+        // re-wrap - the factory copies keys from the source verbatim and consults only the value
+        // type, so dropping the key type from the annotation changes nothing observable. Reversing
+        // the type parameters is caught, but by the value half.
         $holder = $this->getJsonMapper()->map(
             $this->getJsonAsObject('{"keyed": {"php": {"name": "php"}, "json": {"name": "json"}}}'),
             CollectionShapesHolder::class,
@@ -118,6 +137,21 @@ final class SinglyNestedCollectionTest extends TestCase
 
         $this->getJsonMapper()->map(
             $this->getJsonAsObject('{"unannotated": [{"name": "php"}]}'),
+            CollectionShapesHolder::class,
+        );
+    }
+
+    #[Test]
+    public function itRaisesTheMissingAnnotationEvenUnderMapWithReport(): void
+    {
+        // Deliberate, and stated here because the sibling test cannot show it: a class that never
+        // declares what it holds is a defect in the code rather than in the payload, so it is
+        // fatal in both modes rather than collected. Lenient mode absorbs bad DATA; it does not
+        // absorb a type definition the mapper cannot act on.
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->getJsonMapper()->mapWithReport(
+            ['unannotated' => [['name' => 'php']]],
             CollectionShapesHolder::class,
         );
     }
