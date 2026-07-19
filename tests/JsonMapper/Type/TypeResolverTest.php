@@ -72,7 +72,7 @@ final class TypeResolverTest extends TestCase
     }
 
     #[Test]
-    public function itFallsBackToNullableStringType(): void
+    public function itFallsBackToMixedWhenNoTypeIsAvailable(): void
     {
         $typeExtractor = new StubPropertyTypeExtractor(null);
         $extractor     = new PropertyInfoExtractor([], [$typeExtractor]);
@@ -80,8 +80,9 @@ final class TypeResolverTest extends TestCase
 
         $type = $resolver->resolve(TypeResolverFixture::class, 'name');
 
-        self::assertInstanceOf(NullableType::class, $type);
-        self::assertTrue($type->isIdentifiedBy(TypeIdentifier::STRING));
+        // mixed rather than string: the fallback must not narrow a property that declared nothing.
+        // It is nullable by construction, so no NullableType wrapper appears.
+        self::assertTrue($type->isIdentifiedBy(TypeIdentifier::MIXED));
         self::assertTrue($type->isNullable());
         self::assertSame(1, $typeExtractor->callCount);
     }
@@ -115,7 +116,7 @@ final class TypeResolverTest extends TestCase
         // wrong reason, the resolver would fall through to a fresh resolve, and both assertions
         // would still pass — leaving the test permanently green while asserting nothing. Proving
         // the resolver writes under the versioned key anchors the miss to the schema token.
-        $versionedKey = 'jsonmapper.property_type.v2.'
+        $versionedKey = 'jsonmapper.property_type.v3.'
             . str_replace('\\', '_', TypeResolverFixture::class)
             . '.name';
 
@@ -123,6 +124,34 @@ final class TypeResolverTest extends TestCase
             $cache->getItem($versionedKey)->isHit(),
             'The resolver must store the freshly resolved type under the schema-versioned key.',
         );
+    }
+
+    #[Test]
+    public function itIgnoresCacheEntriesWrittenUnderTheStringFallbackSemantics(): void
+    {
+        // The specific upgrade this release breaks. A pool warmed by a v2 deployment holds
+        // nullable STRING for every untyped property, because that was the fallback then. Serving
+        // those entries would hand an upgraded caller the old semantics indefinitely - and
+        // silently, since a cache hit looks like a successful resolve.
+        //
+        // Distinct from the unversioned-key test above: that one proves a token exists at all,
+        // this one proves the token was actually moved when the semantics changed. Without the
+        // bump the entry below is a HIT and the assertion fails on STRING.
+        $typeExtractor = new StubPropertyTypeExtractor(null);
+        $extractor     = new PropertyInfoExtractor([], [$typeExtractor]);
+        $cache         = new InMemoryCachePool();
+
+        $staleKey = 'jsonmapper.property_type.v2.'
+            . str_replace('\\', '_', TypeResolverFixture::class)
+            . '.name';
+        $staleItem = $cache->getItem($staleKey);
+        $staleItem->set(new BuiltinType(TypeIdentifier::STRING));
+        $cache->save($staleItem);
+
+        $type = (new TypeResolver($extractor, $cache))->resolve(TypeResolverFixture::class, 'name');
+
+        self::assertTrue($type->isIdentifiedBy(TypeIdentifier::MIXED), 'The v2 entry must not win.');
+        self::assertSame(1, $typeExtractor->callCount, 'The stale entry was a miss, so a resolve ran.');
     }
 }
 

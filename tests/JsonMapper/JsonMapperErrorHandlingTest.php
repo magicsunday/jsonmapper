@@ -37,8 +37,11 @@ use MagicSunday\Test\Classes\UnionHolder;
 use MagicSunday\Test\Classes\UntypedPropertyHolder;
 use MagicSunday\Test\Classes\UntypedReplaceNullCollectionHolder;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionProperty;
+
+use function get_debug_type;
 
 /**
  * @internal
@@ -547,12 +550,58 @@ final class JsonMapperErrorHandlingTest extends TestCase
         self::assertFalse($result->getReport()->hasErrors());
     }
 
+    /**
+     * @param int|float|bool|string|array<array-key, mixed>|object|null $payload  Value handed to the mapper.
+     * @param string                                                    $expected Type the property must hold afterwards.
+     */
     #[Test]
-    public function itCollectsTypeMismatchAndSkipsIncompatibleValueOnUntypedProperty(): void
+    #[DataProvider('untypedPayloadProvider')]
+    public function itPreservesEveryShapeOnAnUntypedProperty(
+        int|float|bool|string|array|object|null $payload,
+        string $expected,
+    ): void {
+        // An array reaching a string-typed fallback used to emit "Array to string conversion" and
+        // write the literal 'Array'. The composite rejection removed the artifact; this removes
+        // the cause, so the value simply arrives.
+        $result = $this->getJsonMapper()
+            ->mapWithReport(
+                ['anything' => $payload],
+                UntypedPropertyHolder::class,
+            );
+
+        $holder = $result->getValue();
+
+        self::assertInstanceOf(UntypedPropertyHolder::class, $holder);
+        self::assertSame($expected, get_debug_type($holder->anything));
+        self::assertFalse($result->getReport()->hasErrors());
+    }
+
+    /**
+     * @return array<string, array{int|float|bool|string|array<array-key, mixed>|object|null, string}>
+     */
+    public static function untypedPayloadProvider(): array
     {
-        // The synthetic fallback type for properties without type metadata is nullable string,
-        // so a non-string value is reported and skipped. Making untyped properties a real
-        // passthrough is tracked in issue #63.
+        return [
+            'associative array' => [['a' => 1], 'array'],
+            'list'              => [[1, 2, 3], 'array'],
+            'int'               => [42, 'int'],
+            'float'             => [1.5, 'float'],
+            'bool'              => [true, 'bool'],
+            'string'            => ['plain', 'string'],
+            'null'              => [null, 'null'],
+            // The shape the issue actually names: json_decode() without associative mode hands
+            // nested objects over as stdClass, so this is the everyday payload for an untyped
+            // property - and the one a provider of scalars and arrays never reaches.
+            'object' => [(object) ['a' => 1], 'stdClass'],
+        ];
+    }
+
+    #[Test]
+    public function itPassesAnyValueThroughAnUntypedProperty(): void
+    {
+        // A property declaring no type makes no claim about its value, so the mapper does not
+        // invent one. The fallback used to be nullable string, which meant only strings survived:
+        // anything else was reported as a mismatch and skipped.
         $result = $this->getJsonMapper()
             ->mapWithReport(
                 ['anything' => 42],
@@ -562,18 +611,8 @@ final class JsonMapperErrorHandlingTest extends TestCase
         $holder = $result->getValue();
 
         self::assertInstanceOf(UntypedPropertyHolder::class, $holder);
-
-        // The declared default survives, proving the value was skipped rather than assigned.
-        self::assertSame('preset', $holder->anything);
-
-        $errors = $result->getReport()->getErrors();
-
-        self::assertCount(1, $errors);
-        self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
-        self::assertSame(
-            'Type mismatch at $.anything: expected string, got int.',
-            $errors[0]->getMessage(),
-        );
+        self::assertSame(42, $holder->anything, 'The value arrives as it was decoded.');
+        self::assertFalse($result->getReport()->hasErrors(), 'Nothing to report - nothing was violated.');
     }
 
     #[Test]
