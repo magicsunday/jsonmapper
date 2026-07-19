@@ -1188,9 +1188,10 @@ final readonly class JsonMapper
     /**
      * Determines whether a class can only be instantiated by passing constructor arguments.
      *
-     * This is narrower than {@see constructorForHydration()}: that one also reports a constructor
-     * whose parameters are all optional but promoted, which an argument-less call satisfies fine.
-     * Here the question is only whether an argument-less instantiation would fail outright.
+     * This is narrower than the constructor selection in ClassMetadataFactory: that one also
+     * reports a constructor whose parameters are all optional but promoted, which an argument-less
+     * call satisfies fine. Here the question is only whether an argument-less instantiation would
+     * fail outright.
      *
      * @param class-string $className Fully qualified class name to inspect.
      *
