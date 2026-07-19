@@ -154,8 +154,14 @@ final class Feed
 }
 ```
 
-`[{"title": "Hello"}, null]` yields one `Article` and one `null`. The same applies to a union of
-two concrete types — every element picks whichever member accepts it.
+`[{"title": "Hello"}, null]` yields one `Article` and one `null`. A null element is only accepted
+when the element type admits it; against `Article|string` it is rejected and reported like any
+other mismatch.
+
+Each element is resolved independently, and members are tried in order until one accepts the
+value. Note that "accepts" currently means "converted without recording an error", not "converted
+without losing anything" — against `int|string` the value `7.5` becomes `7` rather than `"7.5"`.
+Issue 100 tracks defining that rule properly.
 
 A union or nullable element type is the only case where a `null` element survives. An element type
 that does not admit null rejects one: the element is dropped and the failure reported, rather than
