@@ -87,6 +87,13 @@ cannot leak the data itself. That is the one thing it is safe about.
 Build client-facing text from the structured accessors instead, and escape what you emit:
 
 ```php
+use Symfony\Component\TypeInfo\TypeIdentifier;
+
+$isBuiltinType = static fn (string $type): bool => array_all(
+    explode('|', $type),
+    static fn (string $part): bool => TypeIdentifier::tryFrom($part) instanceof TypeIdentifier,
+);
+
 foreach ($result->getReport()->getErrors() as $error) {
     $exception = $error->getException();
 
@@ -95,12 +102,16 @@ foreach ($result->getReport()->getErrors() as $error) {
         $exception instanceof MissingPropertyException  => 'Required field missing: ' . $exception->getPropertyName(),
         // getExpectedType() is a builtin name for a scalar target but a fully qualified CLASS NAME
         // for an object, enum or date target — so echoing it verbatim leaks exactly what this
-        // section warns about. Emit it only when it is a builtin.
-        $exception instanceof TypeMismatchException     => in_array(
-            $exception->getExpectedType(),
-            ['int', 'float', 'string', 'bool', 'array'],
-            true,
-        ) ? 'Expected type: ' . $exception->getExpectedType() : 'Invalid value',
+        // section warns about. Emit it only when every part of it is a builtin.
+        //
+        // Split on '|': a nullable or union target yields 'int|null' or 'int|string', which no
+        // single-token check can ever match — and a nullable scalar mismatch is among the most
+        // common failures there is, so a naive check silently degrades most messages to
+        // 'Invalid value'. TypeIdentifier is the authority on what a builtin name is, rather than
+        // a hand-kept literal that drifts.
+        $exception instanceof TypeMismatchException     => $isBuiltinType($exception->getExpectedType())
+            ? 'Expected type: ' . $exception->getExpectedType()
+            : 'Invalid value',
         default                                         => 'Invalid value',
     };
 

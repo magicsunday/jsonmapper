@@ -121,7 +121,10 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
   class names and reflects payload-chosen keys verbatim. Every exception therefore exposes what it
   knows through accessors, so a consumer can build client-facing text without parsing the message.
   A new exception type without them breaks that guarantee - `StructuredExceptionDataTest` is the
-  inventory that catches it. Payload VALUES are never embedded; only `get_debug_type()` of them.
+  inventory that catches it, derived from the directory so it cannot be satisfied by omission.
+  Payload VALUES are never embedded; only `get_debug_type()` of them. That holds for the
+  configuration exceptions too, which escape past the report entirely into a generic handler - a
+  message that echoes a name a RESOLVER produced is echoing the payload.
 * A target class is never derived from payload data. The mapper takes it from the call, from
   property metadata, or from a docblock - never from a value the payload supplied. The one place a
   consumer can break that is a class-map resolver, whose input IS the payload, so its documentation

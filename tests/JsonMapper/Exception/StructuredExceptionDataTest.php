@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper\Exception;
 
+use FilesystemIterator;
 use MagicSunday\JsonMapper\Exception\CollectionMappingException;
 use MagicSunday\JsonMapper\Exception\MappingException;
 use MagicSunday\JsonMapper\Exception\MissingConstructorArgumentException;
@@ -22,14 +23,17 @@ use MagicSunday\Test\Classes\Person;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use SplFileInfo;
 
 use function array_map;
 use function array_unique;
 use function array_values;
-use function basename;
-use function glob;
 use function is_subclass_of;
+use function realpath;
 use function sort;
+use function str_replace;
 
 /**
  * A mapping message embeds the internal class name and the property name the payload supplied, so
@@ -162,12 +166,31 @@ final class StructuredExceptionDataTest extends TestCase
         // this test is what catches that. Derived from the directory, the claim becomes true.
         $declared = [];
 
-        $files = glob(__DIR__ . '/../../../src/JsonMapper/Exception/*.php');
+        // Walked recursively over the whole of src/ rather than one directory: a subdirectory, or
+        // an exception placed next to the code that raises it, would otherwise never be
+        // enumerated - the exact omission this test exists to prevent, moved one level up.
+        // realpath(): the iterator yields resolved pathnames, so a source root still carrying
+        // '..' segments would never be a prefix of them and every file would be skipped - leaving
+        // the inventory empty and the test vacuously green, which is the failure mode it exists
+        // to prevent.
+        $source = realpath(__DIR__ . '/../../../src');
 
-        self::assertNotFalse($files, 'The exception directory must be readable.');
+        self::assertIsString($source, 'The source directory must be readable.');
+
+        $files = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($source, FilesystemIterator::SKIP_DOTS),
+        );
 
         foreach ($files as $file) {
-            $candidate = 'MagicSunday\\JsonMapper\\Exception\\' . basename($file, '.php');
+            if (!$file instanceof SplFileInfo || $file->getExtension() !== 'php') {
+                continue;
+            }
+
+            $relative = str_replace([$source, '/', '.php'], ['', '\\', ''], $file->getPathname());
+            // 'MagicSunday' alone: src/ already contains the JsonMapper segment, so prefixing
+            // the full root namespace produced MagicSunday\JsonMapper\JsonMapper\... - a name
+            // that exists nowhere, leaving the inventory empty and the test vacuously green.
+            $candidate = 'MagicSunday' . $relative;
 
             if (is_subclass_of($candidate, MappingException::class)) {
                 $declared[] = $candidate;

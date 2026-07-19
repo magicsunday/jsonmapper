@@ -51,7 +51,8 @@ final class MissingConstructorArgumentException extends MappingException
     /**
      * Returns the class that could not be constructed.
      *
-     * Internal information: useful for logs, not for a response body.
+     * Internal information: useful for logs and for deciding what to say, not for saying it. A
+     * response body naming the DTO discloses how the application is laid out.
      *
      * @return string Fully qualified class name.
      */

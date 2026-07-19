@@ -91,6 +91,8 @@ final class ClassResolverAllowlistTest extends TestCase
             // would put an attacker-chosen string into a response body. Verified with an XSS-shaped
             // value rather than a class name, because that is what the reflection would carry.
             self::assertStringNotContainsString(Base::class, $exception->getMessage());
+            // The scrub must not go too far: the BASE class is configuration the consumer wrote,
+            // and a message hiding it leaves them hunting for the entry with no clue which one.
             self::assertStringContainsString(Person::class, $exception->getMessage(), 'The entry is still identifiable.');
         }
 
@@ -160,6 +162,42 @@ final class ClassResolverAllowlistTest extends TestCase
             Person::class,
             $resolver->resolve(Person::class, [], new MappingContext([])),
         );
+    }
+
+    #[Test]
+    public function itDoesNotReflectAPayloadNameWhenNoAllowlistRestrictsTheEntry(): void
+    {
+        // The path the first scrub missed, and the one that matters most: the allowlist is opt-in,
+        // so an entry WITHOUT one is the default configuration. Whatever the payload asked for
+        // reaches assertClassString(), whose message escapes past the mapping report into a
+        // generic handler exactly as the allowlist refusal does.
+        //
+        // Denying the echo also denies a class-existence oracle: a name that exists produces no
+        // exception and one that does not produces this, which is enough to enumerate loadable
+        // classes for gadget discovery.
+        $resolver = new ClassResolver();
+        $resolver->add(Person::class, static function (mixed $json): string {
+            if (is_array($json) && is_string($json['__type'] ?? null)) {
+                /** @var class-string $type */
+                $type = $json['__type'];
+
+                return $type;
+            }
+
+            return Person::class;
+        });
+
+        try {
+            $resolver->resolve(
+                Person::class,
+                ['__type' => '<img src=x onerror=alert(1)>'],
+                new MappingContext([]),
+            );
+
+            self::fail('A class that does not exist must be refused.');
+        } catch (DomainException $exception) {
+            self::assertStringNotContainsString('<img', $exception->getMessage());
+        }
     }
 
     #[Test]

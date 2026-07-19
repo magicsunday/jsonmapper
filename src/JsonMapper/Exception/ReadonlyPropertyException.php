@@ -38,7 +38,8 @@ final class ReadonlyPropertyException extends MappingException
      * Returns the property that could not be written.
      *
      * Exposed separately from the message so a caller can build client-facing text without parsing
-     * it - the message embeds the internal class name and must not be forwarded verbatim.
+     * it - the message embeds the internal class name and must not be forwarded verbatim. The name
+     * came from the payload, so escape it for whatever sink it reaches and bound its length.
      *
      * @return string Name of the readonly property.
      */
@@ -50,7 +51,8 @@ final class ReadonlyPropertyException extends MappingException
     /**
      * Returns the class declaring the readonly property.
      *
-     * Internal information: useful for logs, not for a response body.
+     * Internal information: useful for logs and for deciding what to say, not for saying it. A
+     * response body naming the DTO discloses how the application is laid out.
      *
      * @return string Fully qualified class name.
      */
