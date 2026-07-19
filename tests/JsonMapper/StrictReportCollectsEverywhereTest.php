@@ -69,9 +69,11 @@ final class StrictReportCollectsEverywhereTest extends TestCase
     #[Test]
     public function itRecordsARejectedCollectionElementExactlyOnce(): void
     {
-        // Two sites record the same element failure - the factory's element loop and, once the
-        // exception escapes, the property loop above it. Aborting made the duplicate invisible;
-        // collecting ships it to the caller.
+        // Two sites CAN record the same element failure: the factory's element loop, and the
+        // property loop above it once the exception escapes. Collecting is what prevents the
+        // second one - the element loop records inside the segment and does not rethrow, so
+        // nothing reaches the property loop. Rethrowing here is what produced the duplicate, and
+        // discarded the rejected element's valid siblings along with it.
         $result = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
             ['values' => [1, ['nested' => 'value'], 3]],
             IntListHolder::class,
@@ -81,8 +83,8 @@ final class StrictReportCollectsEverywhereTest extends TestCase
 
         $error = $result->getReport()->getErrors()[0];
 
-        // The record's path is read off the context, and the catch that records sits OUTSIDE the
-        // element's path segment - so an element failure used to be filed under the collection
+        // The record's path is read off the context, and the catch that records used to sit
+        // OUTSIDE the element's path segment, so an element failure was filed under the collection
         // itself. The exception carried the right path all along, which is what made the
         // discrepancy invisible: whoever caught it saw $.values.1 while the report said $.values.
         self::assertSame('$.values.1', $error->getPath(), 'The record names the element, not its collection.');
