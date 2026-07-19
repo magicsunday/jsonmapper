@@ -42,6 +42,7 @@ use MagicSunday\JsonMapper\Value\Strategy\EnumValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\Strategy\NullValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\Strategy\ObjectValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\Strategy\PassthroughValueConversionStrategy;
+use MagicSunday\JsonMapper\Value\Strategy\UnionValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\TypeHandlerInterface;
 use MagicSunday\JsonMapper\Value\ValueConverter;
 use Psr\Cache\CacheItemPoolInterface;
@@ -183,6 +184,16 @@ final readonly class JsonMapper
             ),
         );
         $this->valueConverter->addStrategy(new BuiltinValueConversionStrategy());
+
+        // Registered last of the deciding strategies: a union is resolved by trying its members,
+        // so every strategy that can answer for a concrete type has to have declined first.
+        // Placing it here rather than leaving the resolution on the property path is what lets a
+        // collection resolve a union ELEMENT type - it goes through the same converter.
+        $this->valueConverter->addStrategy(
+            new UnionValueConversionStrategy(
+                fn (mixed $value, UnionType $type, MappingContext $context): mixed => $this->convertUnionValue($value, $type, $context),
+            ),
+        );
         $this->valueConverter->addStrategy(new PassthroughValueConversionStrategy());
     }
 

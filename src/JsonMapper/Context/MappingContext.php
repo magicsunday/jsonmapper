@@ -135,21 +135,58 @@ final class MappingContext
      */
     public function withForcedErrorCollection(callable $callback): mixed
     {
+        return $this->withOverriddenOptions(
+            [
+                self::OPTION_COLLECT_ERRORS => true,
+
+                // Strict mode is overridden for the same reason collection is forced on: a
+                // candidate trial is an internal question, not a mapping the caller asked for.
+                // Left on, the first candidate that fails aborts the whole run - so a union whose
+                // LATER member matches perfectly still raised, naming the type that happened to be
+                // tried first. A genuine failure is still raised afterwards, by the caller, once
+                // every candidate has actually been tried.
+                self::OPTION_STRICT_MODE => false,
+            ],
+            $callback,
+        );
+    }
+
+    /**
+     * Executes the callback with the given options in force, restoring the previous values
+     * afterwards.
+     *
+     * @template TReturn
+     *
+     * @param array<string, mixed>    $overrides Option values to apply for the duration
+     * @param callable(self): TReturn $callback  Callback executed while the overrides are in place
+     *
+     * @return TReturn Result produced by the callback
+     */
+    private function withOverriddenOptions(array $overrides, callable $callback): mixed
+    {
         // array_key_exists() rather than ??: a stored null and an absent key read the same through
-        // shouldCollectErrors(), which coalesces both to true. They differ only in the raw bag
+        // the option accessors, which coalesce both to a default. They differ only in the raw bag
         // returned by getOptions(), so restoring "absent" as "null" would hand a caller comparing
         // that bag a difference that was never there.
-        $wasSet                                     = array_key_exists(self::OPTION_COLLECT_ERRORS, $this->options);
-        $previous                                   = $this->options[self::OPTION_COLLECT_ERRORS] ?? null;
-        $this->options[self::OPTION_COLLECT_ERRORS] = true;
+        $previous = [];
+
+        foreach ($overrides as $name => $value) {
+            $previous[$name] = array_key_exists($name, $this->options)
+                ? [true, $this->options[$name]]
+                : [false, null];
+
+            $this->options[$name] = $value;
+        }
 
         try {
             return $callback($this);
         } finally {
-            if ($wasSet) {
-                $this->options[self::OPTION_COLLECT_ERRORS] = $previous;
-            } else {
-                unset($this->options[self::OPTION_COLLECT_ERRORS]);
+            foreach ($previous as $name => [$wasSet, $value]) {
+                if ($wasSet) {
+                    $this->options[$name] = $value;
+                } else {
+                    unset($this->options[$name]);
+                }
             }
         }
     }
