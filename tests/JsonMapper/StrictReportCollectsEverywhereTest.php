@@ -144,9 +144,9 @@ final class StrictReportCollectsEverywhereTest extends TestCase
     #[Test]
     public function itReportsANonIterablePayloadForACollectionPropertyWithoutCrashing(): void
     {
-        // The site that turns a recorded failure into a native crash. mapIterable() answers a
-        // non-collection payload with null - the same sentinel it uses for "no collection was
-        // asked for" - and used to throw before returning it whenever strict mode was on. Once
+        // The site that turned a recorded failure into a native crash. mapIterable() used to answer
+        // a non-collection payload with null - the same sentinel it still uses for "no collection
+        // was asked for" - and threw before returning it whenever strict mode was on. Once
         // aborting moved to the entry point, strict mapWithReport() reached the return instead,
         // and the null travelled on to the property accessor, which rejects it with a Symfony
         // InvalidTypeException. A run that promised a report crashed with a foreign exception.
@@ -167,8 +167,8 @@ final class StrictReportCollectsEverywhereTest extends TestCase
     #[Test]
     public function itReportsANonIterablePayloadForACollectionRootWithoutCrashing(): void
     {
-        // The same sentinel reaching the other consumer: the top-level collection lane hands the
-        // value straight to the wrapper's constructor, and ArrayObject::__construct() rejects null
+        // The same sentinel reaching the other consumer: the top-level collection lane handed the
+        // value straight to the wrapper's constructor, and ArrayObject::__construct() rejected null
         // with a TypeError - a native error escaping a run that asked for a report, which the
         // error-handling contract rules out explicitly.
         $result = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
