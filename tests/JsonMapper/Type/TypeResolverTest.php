@@ -34,6 +34,7 @@ use function array_map;
 use function array_values;
 use function hash;
 use function str_replace;
+use function strlen;
 use function substr;
 
 /**
