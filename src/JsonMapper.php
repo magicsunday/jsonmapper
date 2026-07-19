@@ -27,6 +27,7 @@ use MagicSunday\JsonMapper\Exception\MissingPropertyException;
 use MagicSunday\JsonMapper\Exception\ReadonlyPropertyException;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\JsonMapper\Exception\UnknownPropertyException;
+use MagicSunday\JsonMapper\Metadata\ClassMetadata;
 use MagicSunday\JsonMapper\Metadata\ClassMetadataFactory;
 use MagicSunday\JsonMapper\Report\MappingReport;
 use MagicSunday\JsonMapper\Report\MappingResult;
@@ -600,26 +601,54 @@ final readonly class JsonMapper
         string $resolvedClassName,
         MappingContext $context,
     ): object {
-        $source = $this->toIterableArray($json);
+        // Orchestrates the phases below; the state they hand along travels by return rather than
+        // by shared locals.
+        $metadata = $this->classMetadataFactory->forClass($resolvedClassName);
 
-        // One derivation for the class, reused for every element of a collection. All of this is
-        // fixed by the declaration, and used to be re-reflected per mapSingleObject() call.
-        $metadata           = $this->classMetadataFactory->forClass($resolvedClassName);
+        [$convertedValues, $mappedProperties] = $this->collectConvertedValues(
+            $this->toIterableArray($json),
+            $resolvedClassName,
+            $metadata,
+            $context,
+        );
+
+        if ($context->isStrictMode()) {
+            $this->reportMissingProperties($resolvedClassName, $metadata, $mappedProperties, $context);
+        }
+
+        return $this->hydrate($resolvedClassName, $metadata, $convertedValues, $context);
+    }
+
+    /**
+     * Converts every payload value once, keyed by the property it maps to.
+     *
+     * Whether a value ends up a constructor argument or is assigned afterwards, it goes through
+     * the exact same conversion, replace-property, replace-null and error-handling pipeline.
+     *
+     * A key matching no declared property is not converted but diverted to the nominated collector,
+     * and the gathered keys are merged into it once the loop completes - the two halves of the one
+     * unknown-key concern, kept together.
+     *
+     * @param array<array-key, mixed> $source            Payload as an associative array.
+     * @param class-string            $resolvedClassName Class the values are mapped onto.
+     * @param ClassMetadata           $metadata          The class's derived shape.
+     * @param MappingContext          $context           Active mapping context.
+     *
+     * @return array{0: array<string, mixed>, 1: list<string>} Converted values by property, and the
+     *                                                         names actually mapped.
+     */
+    private function collectConvertedValues(
+        array $source,
+        string $resolvedClassName,
+        ClassMetadata $metadata,
+        MappingContext $context,
+    ): array {
         $properties         = $metadata->properties;
         $replacePropertyMap = $metadata->replaceMap;
+        $collectorProperty  = $metadata->collectorProperty;
         $mappedProperties   = [];
-
-        // A class may nominate one property (via the UnknownPropertyCollector attribute) as the sink
-        // for every source key that matches no declared property. Such keys are gathered here, by
-        // normalized name and raw value, and handed to that property after the main pass instead of
-        // being ignored or reported.
-        $collectorProperty = $metadata->collectorProperty;
-        $collectedUnknown  = [];
-
-        // Convert every payload value once, collecting the results by property name. Whether a
-        // value ends up as a constructor argument or is assigned afterwards, it goes through the
-        // exact same conversion, replace-property, replace-null and error-handling pipeline.
-        $convertedValues = [];
+        $collectedUnknown   = [];
+        $convertedValues    = [];
 
         foreach ($source as $propertyName => $propertyValue) {
             $normalizedProperty = $this->normalizePropertyName($propertyName, $replacePropertyMap);
@@ -707,13 +736,13 @@ final readonly class JsonMapper
             });
         }
 
-        // Hand the gathered unknown keys to the nominated collector as the raw associative array of
-        // normalized name to unconverted value, bypassing the per-value conversion pipeline (its
-        // element type is deliberately open). Left untouched when nothing was gathered, so the
-        // property keeps its constructor default. The consumer interprets the raw map itself. Any
-        // explicitly mapped value for the same property is merged in rather than overwritten, so a
-        // payload that carries both the collector key and unknown keys loses neither. array_replace
-        // (not array_merge) preserves numeric keys instead of re-indexing them.
+        // Merge the diverted unknown keys into the collector, the tail of the same concern that
+        // diverted them above. They go in as the raw associative array of normalized name to
+        // unconverted value, bypassing the per-value pipeline (the collector's element type is
+        // deliberately open). Left untouched when nothing was gathered, so the property keeps its
+        // constructor default. Any explicitly mapped value for the same property is merged in
+        // rather than overwritten, so a payload carrying both the collector key and unknown keys
+        // loses neither. array_replace (not array_merge) preserves numeric keys.
         if (($collectorProperty !== null) && ($collectedUnknown !== [])) {
             $mappedProperties[] = $collectorProperty;
             $existingValue      = $convertedValues[$collectorProperty] ?? [];
@@ -724,24 +753,59 @@ final readonly class JsonMapper
             );
         }
 
-        if ($context->isStrictMode()) {
-            foreach ($this->determineMissingProperties($resolvedClassName, $properties, $mappedProperties) as $missingProperty) {
-                $context->withPathSegment($missingProperty, function (MappingContext $propertyContext) use (
-                    $resolvedClassName,
-                    $missingProperty,
-                ): void {
-                    $this->handleMappingException(
-                        new MissingPropertyException($propertyContext->getPath(), $missingProperty, $resolvedClassName),
-                        $propertyContext,
-                    );
-                });
-            }
-        }
+        return [$convertedValues, $mappedProperties];
+    }
 
-        // Build the object through its constructor when it declares promoted or required
-        // parameters (an immutable value object cannot be populated afterwards); otherwise fall
-        // back to an argument-less instantiation. Either way, any collected value that is not a
-        // constructor argument is assigned afterwards, so mixed classes lose nothing.
+    /**
+     * Records a failure for every required property the payload did not supply.
+     *
+     * @param class-string   $resolvedClassName Class being mapped.
+     * @param ClassMetadata  $metadata          The class's derived shape.
+     * @param list<string>   $mappedProperties  Names the payload actually supplied.
+     * @param MappingContext $context           Active mapping context.
+     *
+     * @return void
+     */
+    private function reportMissingProperties(
+        string $resolvedClassName,
+        ClassMetadata $metadata,
+        array $mappedProperties,
+        MappingContext $context,
+    ): void {
+        foreach ($this->determineMissingProperties($resolvedClassName, $metadata->properties, $mappedProperties) as $missingProperty) {
+            $context->withPathSegment($missingProperty, function (MappingContext $propertyContext) use (
+                $resolvedClassName,
+                $missingProperty,
+            ): void {
+                $this->handleMappingException(
+                    new MissingPropertyException($propertyContext->getPath(), $missingProperty, $resolvedClassName),
+                    $propertyContext,
+                );
+            });
+        }
+    }
+
+    /**
+     * Builds the object and assigns the converted values it did not consume as constructor arguments.
+     *
+     * The object is built through its constructor when it declares promoted or required parameters
+     * (an immutable value object cannot be populated afterwards); otherwise through an argument-less
+     * instantiation. Either way, any collected value that is not a constructor argument is assigned
+     * afterwards, so mixed classes lose nothing.
+     *
+     * @param class-string         $resolvedClassName Class to build.
+     * @param ClassMetadata        $metadata          The class's derived shape.
+     * @param array<string, mixed> $convertedValues   Values to hydrate with.
+     * @param MappingContext       $context           Active mapping context.
+     *
+     * @return object The built and populated object.
+     */
+    private function hydrate(
+        string $resolvedClassName,
+        ClassMetadata $metadata,
+        array $convertedValues,
+        MappingContext $context,
+    ): object {
         $constructor = $metadata->constructor;
         $consumed    = [];
 
