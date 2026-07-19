@@ -60,6 +60,17 @@ var_dump($mapper::class);
 
 > `map()` and `mapWithReport()` accept JSON decoded into arrays or objects (`json_decode(..., associative: false)` is recommended). Collections require either an explicit collection class name or collection PHPDoc (`@extends`) metadata.
 
+> **What the payload's shape decides.** Given both an element class and a collection class, a list
+> becomes the collection and a single object becomes one element — which is how you consume an API
+> that returns one object for a single hit and a list for several. A **scalar** satisfies neither
+> reading and is reported as a `CollectionMappingException` rather than silently yielding a bare
+> element.
+>
+> An **empty array** without a collection class yields an *instance*, not an empty list: with
+> `associative: true` both `[]` and `{}` decode to an empty array, and a caller passing associative
+> arrays directly usually means the object. Name the collection class when you mean an empty list —
+> `map([], Item::class, ItemCollection::class)` returns an empty `ItemCollection`.
+
 ## JsonMapperConfiguration (final)
 The `JsonMapperConfiguration` class encapsulates mapping options. All configuration methods return a **new** instance; treat instances as immutable value objects.
 
