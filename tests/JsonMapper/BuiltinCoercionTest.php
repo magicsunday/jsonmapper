@@ -11,12 +11,17 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper;
 
+use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
+use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\Test\Classes\BuiltinCoercionHolder;
+use MagicSunday\Test\Classes\IntPropertyHolder;
 use MagicSunday\Test\Classes\StringableValue;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionProperty;
+
+use function preg_quote;
 
 /**
  * Pins which scalar payloads lenient mode coerces and which it rejects.
@@ -46,8 +51,14 @@ final class BuiltinCoercionTest extends TestCase
     {
         return [
             // Normalised silently - the payload is a representation of the target type.
-            'numeric to int'          => ['number', '42', 42, false],
-            'float truncates to int'  => ['number', 3.9, 3, false],
+            'numeric to int'       => ['number', '42', 42, false],
+            'integer valued float' => ['number', 3.0, 3, false],
+            // A large int this build can hold, derived rather than written out so the row means the
+            // same thing on a 32-bit and a 64-bit PHP. A power of two on purpose: PHP_INT_MAX >> 1
+            // is not exactly representable as a double, so the float would round and the row would
+            // fail for a reason that has nothing to do with the bound under test. Guards the upper
+            // bound from being tightened into rejecting values that are in fact representable.
+            'large representable int' => ['number', (float) ((PHP_INT_MAX >> 1) + 1), (PHP_INT_MAX >> 1) + 1, false],
             'int to float'            => ['decimal', 3, 3.0, false],
             'numeric to float'        => ['decimal', '2.5', 2.5, false],
             'literal true'            => ['flag', 'true', true, false],
@@ -67,6 +78,7 @@ final class BuiltinCoercionTest extends TestCase
             'bool true to int'     => ['number', true, 1, true],
             'bool false to int'    => ['number', false, 0, true],
             'non numeric to int'   => ['number', 'abc', 0, true],
+            'fractional float'     => ['number', 3.9, 3, true],
             'bool to float'        => ['decimal', true, 1.0, true],
             'non numeric to float' => ['decimal', 'abc', 0.0, true],
             'non empty to bool'    => ['flag', 'yes', true, true],
@@ -76,11 +88,12 @@ final class BuiltinCoercionTest extends TestCase
     }
 
     /**
-     * Payloads with no meaningful cast. settype() would not refuse them: the string target writes
-     * the literal 'Array' and warns, the bool/int/float targets silently yield true/1/1.0. Both
-     * kinds are rejected instead of handed to the caller.
+     * Payloads with no meaningful cast. settype() would not refuse them: for a composite, the
+     * string target writes the literal 'Array' and warns while the bool/int/float targets silently
+     * yield true/1/1.0; for an out-of-range float, the int target wraps around. None of those
+     * results carries information from the payload, so all are rejected instead of handed over.
      *
-     * @return array<string, array{string, array<int, string>|object}>
+     * @return array<string, array{string, array<int, string>|object|float}>
      */
     public static function rejectedValueProvider(): array
     {
@@ -97,6 +110,14 @@ final class BuiltinCoercionTest extends TestCase
             'object to int'    => ['number', (object) ['a' => 1]],
             'object to float'  => ['decimal', (object) ['a' => 1]],
             'object to bool'   => ['flag', (object) ['a' => 1]],
+
+            // Not a composite, but the same failure mode: a float the int type cannot hold. The
+            // cast wraps 9.3e18 to a negative number - a sign flip presented as a coercion - and
+            // PHP warns while doing it. A merely fractional float is NOT here: 3.9 loses only its
+            // fraction and is coerced and recorded, which the provider above pins.
+            'float above int range' => ['number', 9.3e18],
+            'float below int range' => ['number', -9.3e18],
+            'infinite float to int' => ['number', INF],
         ];
     }
 
@@ -134,6 +155,37 @@ final class BuiltinCoercionTest extends TestCase
                 ? 'A cast the guard saw stays visible in the report.'
                 : 'A recognised representation is not a mismatch and must not be reported.',
         );
+    }
+
+    #[Test]
+    public function itRaisesOnALossyFloatInStrictMode(): void
+    {
+        // The truncation used to happen in normalizeValue(), before any check ran, so the
+        // fraction was discarded silently - in strict mode too, where every other type mismatch
+        // raises.
+        $this->expectException(TypeMismatchException::class);
+        $this->expectExceptionMessageMatches(
+            '/' . preg_quote('expected int, got float', '/') . '/',
+        );
+
+        $this->getJsonMapper(config: JsonMapperConfiguration::strict())->map(
+            ['number' => 1.9],
+            IntPropertyHolder::class,
+        );
+    }
+
+    #[Test]
+    public function itAcceptsAnIntegerValuedFloatInStrictMode(): void
+    {
+        // The control: 2.0 IS the integer 2, so nothing is lost and nothing should be reported.
+        // Without this the fix could just as well reject every float and still look correct.
+        $holder = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->map(
+            ['number' => 2.0],
+            IntPropertyHolder::class,
+        );
+
+        self::assertInstanceOf(IntPropertyHolder::class, $holder);
+        self::assertSame(2, $holder->number);
     }
 
     #[Test]
@@ -205,13 +257,15 @@ final class BuiltinCoercionTest extends TestCase
     }
 
     /**
-     * @param string                    $property Property receiving the payload value.
-     * @param array<int, string>|object $payload  Composite value with no meaningful cast.
+     * @param string                          $property Property receiving the payload value.
+     * @param array<int, string>|object|float $payload  Value with no meaningful cast.
      */
     #[Test]
     #[DataProvider('rejectedValueProvider')]
-    public function itRejectsACompositeValueOnAScalarProperty(string $property, array|object $payload): void
-    {
+    public function itRejectsAValueWithNoMeaningfulCastOnAScalarProperty(
+        string $property,
+        array|object|float $payload,
+    ): void {
         $holderDefaults = new BuiltinCoercionHolder();
 
         $result = $this->getJsonMapper()->mapWithReport(
