@@ -73,18 +73,29 @@ final class ClassMetadataFactory
         }
 
         /** @var list<string> $properties */
-        $properties   = $this->getProperties($className);
-        $required     = [];
-        $replaceNull  = [];
-        $defaultValue = [];
+        $properties    = $this->getProperties($className);
+        $required      = [];
+        $replaceNull   = [];
+        $defaultSource = [];
+
+        // The constructor's promoted parameters are collected once here rather than re-reflected
+        // per property: the old per-property lookup built a fresh ReflectionClass for each one.
+        $promoted = [];
+
+        foreach (($this->constructorForHydration($className)?->getParameters() ?? []) as $parameter) {
+            if ($parameter->isPromoted()) {
+                $promoted[$parameter->getName()] = $parameter;
+            }
+        }
 
         foreach ($properties as $property) {
             $reflectionProperty = $this->getReflectionProperty($className, $property);
+            $promotedParameter  = $promoted[$property] ?? null;
 
-            $required[$property]    = $this->isRequiredProperty($className, $property);
+            $required[$property]    = $this->isRequiredProperty($reflectionProperty, $promotedParameter);
             $replaceNull[$property] = ($reflectionProperty instanceof ReflectionProperty)
                 && $this->hasAttribute($reflectionProperty, ReplaceNullWithDefaultValue::class);
-            $defaultValue[$property] = $this->defaultValueOf($className, $property, $reflectionProperty);
+            $defaultSource[$property] = $this->defaultSourceOf($reflectionProperty, $promotedParameter);
         }
 
         // Assigned only after every derivation succeeded: a misdeclared class throws from one of
@@ -96,7 +107,7 @@ final class ClassMetadataFactory
             $this->constructorForHydration($className),
             $required,
             $replaceNull,
-            $defaultValue,
+            $defaultSource,
         );
     }
 
@@ -157,13 +168,6 @@ final class ClassMetadataFactory
         // The collector for a class is fixed by its declaration, so memoize it per class: the lookup
         // runs on every mapSingleObject() call and would otherwise re-reflect for every element of a
         // large collection. A misdeclared class throws before it is ever cached.
-        /** @var array<class-string, string|null> $cache */
-        static $cache = [];
-
-        if (array_key_exists($className, $cache)) {
-            return $cache[$className];
-        }
-
         $reflectionClass = $this->getReflectionClass($className);
 
         if (!$reflectionClass instanceof ReflectionClass) {
@@ -209,7 +213,7 @@ final class ClassMetadataFactory
             $collector = $property->getName();
         }
 
-        return $cache[$className] = $collector;
+        return $collector;
     }
 
     /**
@@ -248,15 +252,15 @@ final class ClassMetadataFactory
     /**
      * Determines whether the given property must be present on the input data.
      *
-     * @param class-string $className    Fully qualified class name whose property metadata is evaluated.
-     * @param string       $propertyName Property name checked for default values and nullability.
+     * @param ReflectionProperty|null  $reflectionProperty Already-resolved property handle, when there is one.
+     * @param ReflectionParameter|null $promotedParameter  The matching promoted constructor parameter, when there is one.
      *
      * @return bool True when the property is mandatory and missing values must be reported.
      */
-    private function isRequiredProperty(string $className, string $propertyName): bool
-    {
-        $reflectionProperty = $this->getReflectionProperty($className, $propertyName);
-
+    private function isRequiredProperty(
+        ?ReflectionProperty $reflectionProperty,
+        ?ReflectionParameter $promotedParameter,
+    ): bool {
         if (!$reflectionProperty instanceof ReflectionProperty) {
             return false;
         }
@@ -267,9 +271,7 @@ final class ClassMetadataFactory
 
         // A promoted property's default lives on the constructor parameter, so a promoted
         // parameter with a default is not required even though the property has none.
-        $parameter = $this->constructorParameter($className, $propertyName);
-
-        if (($parameter instanceof ReflectionParameter) && $parameter->isDefaultValueAvailable()) {
+        if (($promotedParameter instanceof ReflectionParameter) && $promotedParameter->isDefaultValueAvailable()) {
             return false;
         }
 
@@ -290,37 +292,6 @@ final class ClassMetadataFactory
         }
 
         return false;
-    }
-
-    /**
-     * Returns the PROMOTED constructor parameter of the given class that shares the property's
-     * name, or NULL. Used to read a promoted property's default and required-ness, which live on
-     * the parameter rather than the property. A plain parameter that merely shares the name is
-     * ignored, since it has no type relationship to the property.
-     *
-     * @param class-string $className    Fully qualified class name to inspect.
-     * @param string       $propertyName Property (and promoted parameter) name to look up.
-     *
-     * @return ReflectionParameter|null The matching constructor parameter, or NULL.
-     */
-    private function constructorParameter(string $className, string $propertyName): ?ReflectionParameter
-    {
-        $constructor = (new ReflectionClass($className))->getConstructor();
-
-        if (!$constructor instanceof ReflectionMethod) {
-            return null;
-        }
-
-        foreach ($constructor->getParameters() as $parameter) {
-            if (
-                ($parameter->getName() === $propertyName)
-                && $parameter->isPromoted()
-            ) {
-                return $parameter;
-            }
-        }
-
-        return null;
     }
 
     /**
@@ -354,33 +325,30 @@ final class ClassMetadataFactory
     }
 
     /**
-     * Returns the property's declared default, including a promoted constructor parameter's.
+     * Returns the reflection handle carrying the property's declared default, without evaluating it.
      *
-     * @param class-string            $className          Class declaring the property.
-     * @param string                  $propertyName       Property to read.
-     * @param ReflectionProperty|null $reflectionProperty Already-resolved handle, when there is one.
+     * @param ReflectionProperty|null  $reflectionProperty Already-resolved property handle, when there is one.
+     * @param ReflectionParameter|null $promotedParameter  The matching promoted constructor parameter, when there is one.
      *
-     * @return mixed Declared default, or null when there is none
+     * @return ReflectionProperty|ReflectionParameter|null Handle carrying the default, or null when there is none
      */
-    private function defaultValueOf(
-        string $className,
-        string $propertyName,
+    private function defaultSourceOf(
         ?ReflectionProperty $reflectionProperty,
-    ): mixed {
+        ?ReflectionParameter $promotedParameter,
+    ): ReflectionProperty|ReflectionParameter|null {
         if (!$reflectionProperty instanceof ReflectionProperty) {
             return null;
         }
 
         if ($reflectionProperty->hasDefaultValue()) {
-            return $reflectionProperty->getDefaultValue();
+            return $reflectionProperty;
         }
 
         // A promoted property carries no property-level default; its default lives on the
-        // constructor parameter of the same name.
-        $parameter = $this->constructorParameter($className, $propertyName);
-
-        if (($parameter instanceof ReflectionParameter) && $parameter->isDefaultValueAvailable()) {
-            return $parameter->getDefaultValue();
+        // constructor parameter of the same name. The HANDLE is returned, not its value: the
+        // value may be an expression that must be evaluated per use, not once per class.
+        if (($promotedParameter instanceof ReflectionParameter) && $promotedParameter->isDefaultValueAvailable()) {
+            return $promotedParameter;
         }
 
         return null;
