@@ -11,7 +11,7 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\Fixtures\Docs\NestedCollections;
 
-final class Tag
+final class Tag implements TagInterface
 {
     public string $name;
 }

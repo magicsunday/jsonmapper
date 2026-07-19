@@ -64,7 +64,6 @@ use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\BuiltinType;
 use Symfony\Component\TypeInfo\Type\CollectionType;
 use Symfony\Component\TypeInfo\Type\ObjectType;
-use Symfony\Component\TypeInfo\Type\TemplateType;
 use Symfony\Component\TypeInfo\Type\UnionType;
 use Symfony\Component\TypeInfo\TypeIdentifier;
 use Traversable;
@@ -152,8 +151,19 @@ final readonly class JsonMapper
         );
 
         $this->valueConverter->addStrategy(new NullValueConversionStrategy());
-        $this->valueConverter->addStrategy(new CollectionValueConversionStrategy($this->collectionFactory));
+
+        // Custom handlers are registered explicitly by the caller, so they outrank every
+        // heuristic below them. The collection strategy in particular recognises a container by
+        // its shape, which would otherwise shadow a handler registered for that very class -
+        // addType() is documented as the escape hatch and has to behave like one. A handler can
+        // never claim a genuine collection type: it matches an ObjectType by exact class name.
         $this->valueConverter->addStrategy(new CustomTypeValueConversionStrategy($this->customTypeRegistry));
+        $this->valueConverter->addStrategy(
+            new CollectionValueConversionStrategy(
+                $this->collectionFactory,
+                $this->collectionDocBlockTypeResolver
+            )
+        );
         $this->valueConverter->addStrategy(new DateTimeValueConversionStrategy());
         $this->valueConverter->addStrategy(new EnumValueConversionStrategy());
         $this->valueConverter->addStrategy(
@@ -400,30 +410,11 @@ final readonly class JsonMapper
             return new ObjectType($resolvedClassName);
         }
 
-        $docBlockCollectionType = $this->collectionDocBlockTypeResolver->resolve($resolvedCollectionClassName);
-
-        if (!$docBlockCollectionType instanceof CollectionType) {
-            throw new InvalidArgumentException(
-                sprintf(
-                    'Unable to resolve the element type for collection [%s]. Define an "@extends" annotation such as "@extends %s<YourClass>".',
-                    $resolvedCollectionClassName,
-                    $resolvedCollectionClassName,
-                )
-            );
-        }
-
-        $collectionValueType = $docBlockCollectionType->getCollectionValueType();
-
-        if ($collectionValueType instanceof TemplateType) {
-            throw new InvalidArgumentException(
-                sprintf(
-                    'Unable to resolve the element type for collection [%s]. Please provide a concrete class in the "@extends" annotation.',
-                    $resolvedCollectionClassName,
-                )
-            );
-        }
-
-        return $collectionValueType;
+        // Both checks and their guidance live on the resolver, so the property path and this one
+        // cannot drift apart when the wording is improved.
+        return $this->collectionDocBlockTypeResolver
+            ->resolveOrFail($resolvedCollectionClassName)
+            ->getCollectionValueType();
     }
 
     /**
