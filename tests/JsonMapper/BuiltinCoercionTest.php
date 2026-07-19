@@ -37,16 +37,26 @@ final class BuiltinCoercionTest extends TestCase
     public static function coercedValueProvider(): array
     {
         return [
-            'int to string'     => ['text', 42, '42'],
-            'float to string'   => ['text', 1.5, '1.5'],
-            'bool to string'    => ['text', true, '1'],
-            'numeric to int'    => ['number', '42', 42],
-            'bool to int'       => ['number', true, 1],
-            'int to float'      => ['decimal', 3, 3.0],
-            'numeric to float'  => ['decimal', '2.5', 2.5],
-            'literal true'      => ['flag', 'true', true],
-            'non empty to bool' => ['flag', 'yes', true],
-            'int to bool'       => ['flag', 5, true],
+            'int to string'          => ['text', 42, '42'],
+            'float to string'        => ['text', 1.5, '1.5'],
+            'bool true to string'    => ['text', true, '1'],
+            'bool false to string'   => ['text', false, ''],
+            'numeric to int'         => ['number', '42', 42],
+            'bool true to int'       => ['number', true, 1],
+            'bool false to int'      => ['number', false, 0],
+            'float truncates to int' => ['number', 3.9, 3],
+            'non numeric to int'     => ['number', 'abc', 0],
+            'int to float'           => ['decimal', 3, 3.0],
+            'numeric to float'       => ['decimal', '2.5', 2.5],
+            'bool to float'          => ['decimal', true, 1.0],
+            'non numeric to float'   => ['decimal', 'abc', 0.0],
+            'literal true'           => ['flag', 'true', true],
+            'literal false'          => ['flag', 'false', false],
+            'numeric string zero'    => ['flag', '0', false],
+            'non empty to bool'      => ['flag', 'yes', true],
+            'int to bool'            => ['flag', 5, true],
+            'int zero to bool'       => ['flag', 0, false],
+            'float zero to bool'     => ['flag', 0.0, false],
         ];
     }
 
@@ -105,7 +115,10 @@ final class BuiltinCoercionTest extends TestCase
 
         self::assertInstanceOf(BuiltinCoercionHolder::class, $holder);
         self::assertSame(['a' => 'one'], $holder->bag);
-        self::assertFalse($result->getReport()->hasErrors());
+
+        // Lenient mode reports the coercion it performed, as it does for every other mismatching
+        // pair here. What this pins is that the value ARRIVES rather than being rejected.
+        self::assertSame(1, $result->getReport()->getErrorCount());
     }
 
     #[Test]

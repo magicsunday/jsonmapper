@@ -33,6 +33,15 @@ parameters:
             message: '#^Property MagicSunday\\Test\\Classes\\IterablePropertyHolder\:\:\$items type has no value type specified in iterable type iterable\.$#'
             path: %currentWorkingDirectory%/tests/Classes/IterablePropertyHolder.php
 
+        # The missing value type IS the fixture's purpose: naming an element type turns the
+        # property into a CollectionType, which a different strategy resolves - the builtin
+        # object-to-array cast under test would then never be reached and its test would pass
+        # vacuously.
+        -
+            identifier: missingType.iterableValue
+            message: '#^Property MagicSunday\\Test\\Classes\\BuiltinCoercionHolder\:\:\$bag type has no value type specified in iterable type array\.$#'
+            path: %currentWorkingDirectory%/tests/Classes/BuiltinCoercionHolder.php
+
         # The unused parameter IS the fixture's purpose: it pins that a non-promoted constructor
         # parameter sharing a property name must not supply that property's default.
         -

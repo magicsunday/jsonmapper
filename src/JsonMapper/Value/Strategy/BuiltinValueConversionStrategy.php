@@ -42,13 +42,6 @@ use const FILTER_VALIDATE_INT;
 final class BuiltinValueConversionStrategy implements ValueConversionStrategyInterface
 {
     /**
-     * Type identifiers settype() understands. The remaining builtin identifiers - among them
-     * mixed, iterable and callable - have no cast equivalent; passing one to settype() raises a
-     * ValueError, so a value targeting such a type is kept as it is.
-     *
-     * @var list<TypeIdentifier>
-     */
-    /**
      * Identifiers whose values are scalar. A composite value reaching one of these has no
      * meaningful cast - settype() would write the literal 'Array' and emit a PHP warning. The
      * remaining castable identifiers - array, object, null - convert a composite perfectly well,
@@ -63,6 +56,13 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
         TypeIdentifier::STRING,
     ];
 
+    /**
+     * Type identifiers settype() understands. The remaining builtin identifiers - among them
+     * mixed, iterable and callable - have no cast equivalent; passing one to settype() raises a
+     * ValueError, so a value targeting such a type is kept as it is.
+     *
+     * @var list<TypeIdentifier>
+     */
     private const array CASTABLE_IDENTIFIERS = [
         TypeIdentifier::ARRAY,
         TypeIdentifier::BOOL,

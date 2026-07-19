@@ -31,7 +31,9 @@ final class BuiltinCoercionHolder
     public bool $flag = false;
 
     /**
-     * @var array<string, string>
+     * Deliberately declared without an element-type annotation. Naming an element type would make
+     * this a CollectionType, which a different strategy resolves - the object-to-array cast would
+     * then never reach the builtin strategy and the test asserting it would be vacuous.
      */
     public array $bag = ['sentinel' => 'sentinel'];
 

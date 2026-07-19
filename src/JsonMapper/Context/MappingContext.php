@@ -14,6 +14,7 @@ namespace MagicSunday\JsonMapper\Context;
 use DateTimeInterface;
 use MagicSunday\JsonMapper\Exception\MappingException;
 
+use function array_key_exists;
 use function array_slice;
 use function count;
 use function implode;
@@ -123,16 +124,19 @@ final class MappingContext
      */
     public function withForcedErrorCollection(callable $callback): mixed
     {
+        // array_key_exists() rather than ??: the option may legitimately hold null, and restoring
+        // that as "was never set" would silently change the caller's configuration.
+        $wasSet                                     = array_key_exists(self::OPTION_COLLECT_ERRORS, $this->options);
         $previous                                   = $this->options[self::OPTION_COLLECT_ERRORS] ?? null;
         $this->options[self::OPTION_COLLECT_ERRORS] = true;
 
         try {
             return $callback($this);
         } finally {
-            if ($previous === null) {
-                unset($this->options[self::OPTION_COLLECT_ERRORS]);
-            } else {
+            if ($wasSet) {
                 $this->options[self::OPTION_COLLECT_ERRORS] = $previous;
+            } else {
+                unset($this->options[self::OPTION_COLLECT_ERRORS]);
             }
         }
     }

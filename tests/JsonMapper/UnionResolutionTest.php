@@ -12,7 +12,6 @@ declare(strict_types=1);
 namespace MagicSunday\Test\JsonMapper;
 
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
-use MagicSunday\Test\Classes\UnionHolder;
 use MagicSunday\Test\Classes\UnionObjectHolder;
 use MagicSunday\Test\Classes\UnionScalarHolder;
 use MagicSunday\Test\TestCase;
@@ -42,6 +41,9 @@ final class UnionResolutionTest extends TestCase
         ];
     }
 
+    /**
+     * @param bool $collect Whether the configuration collects errors.
+     */
     #[Test]
     #[DataProvider('errorCollectionProvider')]
     public function itRejectsAValueMatchingNoUnionMemberRegardlessOfErrorCollection(bool $collect): void
@@ -53,8 +55,11 @@ final class UnionResolutionTest extends TestCase
             UnionScalarHolder::class,
         );
 
-        // The sentinel default is what discriminates: with the flag off, the first candidate used
-        // to win and settype() turned the array into int(1).
+        // Pins the user-facing contract only. It does NOT discriminate the candidate-selection fix
+        // on its own: both scalar members reject this payload by throwing, and the catch in
+        // resolveUnionCandidate() handles that regardless of the flag. The discriminating case is
+        // itRejectsAnObjectCandidateThatRecordsRatherThanThrows below, where the candidate records
+        // instead of throwing and the recorded count is the only available signal.
         self::assertInstanceOf(UnionScalarHolder::class, $result);
         self::assertSame(
             'untouched',
@@ -63,6 +68,9 @@ final class UnionResolutionTest extends TestCase
         );
     }
 
+    /**
+     * @param bool $collect Whether the configuration collects errors.
+     */
     #[Test]
     #[DataProvider('errorCollectionProvider')]
     public function itRejectsAnObjectCandidateThatRecordsRatherThanThrows(bool $collect): void
@@ -84,24 +92,6 @@ final class UnionResolutionTest extends TestCase
         self::assertSame('untouched', $result->value);
     }
 
-    #[Test]
-    #[DataProvider('errorCollectionProvider')]
-    public function itKeepsAStringWhenTheStringMemberIsDeclaredFirst(bool $collect): void
-    {
-        // The mirror of the int-first case: here a first-candidate-wins implementation would
-        // coerce 42 into the string '42', so this direction discriminates where the other does
-        // not.
-        $config = JsonMapperConfiguration::lenient()->withErrorCollection($collect);
-
-        $result = $this->getJsonMapper(config: $config)->map(
-            ['fallback' => 42],
-            UnionHolder::class,
-        );
-
-        self::assertInstanceOf(UnionHolder::class, $result);
-        self::assertSame(42, $result->fallback);
-    }
-
     /**
      * @param bool $collect Whether the configuration collects errors.
      */
@@ -116,12 +106,17 @@ final class UnionResolutionTest extends TestCase
             UnionScalarHolder::class,
         );
 
-        // int is declared first, so a mapper that simply takes the first candidate would coerce
-        // this to an int and still look plausible.
+        // A mapper that simply takes the first candidate would coerce this to an int and still look
+        // plausible. Note that the mirror direction cannot be tested: Symfony TypeInfo normalises
+        // union members, so a `string|int` declaration is indistinguishable from `int|string` at
+        // runtime and no fixture can put the string member first.
         self::assertInstanceOf(UnionScalarHolder::class, $result);
         self::assertSame('a string', $result->value);
     }
 
+    /**
+     * @param bool $collect Whether the configuration collects errors.
+     */
     #[Test]
     #[DataProvider('errorCollectionProvider')]
     public function itKeepsAnIntegerAsAnIntegerRegardlessOfErrorCollection(bool $collect): void
@@ -137,6 +132,9 @@ final class UnionResolutionTest extends TestCase
         self::assertSame(42, $result->value);
     }
 
+    /**
+     * @param bool $collect Whether the configuration collects errors.
+     */
     #[Test]
     #[DataProvider('errorCollectionProvider')]
     public function itDoesNotLeakCandidateEvaluationErrorsIntoTheReport(bool $collect): void
