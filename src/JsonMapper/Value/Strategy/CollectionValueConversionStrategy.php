@@ -12,7 +12,6 @@ declare(strict_types=1);
 namespace MagicSunday\JsonMapper\Value\Strategy;
 
 use ArrayAccess;
-use InvalidArgumentException;
 use MagicSunday\JsonMapper\Collection\CollectionDocBlockTypeResolver;
 use MagicSunday\JsonMapper\Collection\CollectionFactoryInterface;
 use MagicSunday\JsonMapper\Context\MappingContext;
@@ -26,7 +25,6 @@ use Traversable;
 use function assert;
 use function class_exists;
 use function is_a;
-use function sprintf;
 
 /**
  * Converts collection values using the configured factory.
@@ -106,23 +104,18 @@ final readonly class CollectionValueConversionStrategy implements ValueConversio
         // keeps the class-string guarantee at the point of use rather than across two calls.
         assert(class_exists($className));
 
-        $collectionType = $this->buildCollectionType($className);
+        // A container that never says what it holds cannot be filled, and letting it fall through
+        // hands the raw array to the property accessor, which rejects it with an exception from
+        // Symfony naming neither the annotation nor the fix. The resolver owns that guidance so
+        // the two entry points cannot drift apart.
+        $annotated = $this->docBlockTypeResolver->resolveOrFail($className);
+        $wrapped   = $annotated->getWrappedType();
 
-        if (!$collectionType instanceof CollectionType) {
-            // A container that never says what it holds cannot be filled, and letting it fall
-            // through hands the raw array to the property accessor, which rejects it with an
-            // exception from Symfony that says nothing about the missing annotation. The same
-            // guidance the top-level entry point gives is far more use than that.
-            throw new InvalidArgumentException(
-                sprintf(
-                    'Unable to resolve the element type for collection [%s]. Define an "@extends" annotation such as "@extends %s<YourClass>".',
-                    $className,
-                    $className,
-                )
-            );
-        }
+        assert($wrapped instanceof GenericType);
 
-        return $collectionType;
+        return Type::collection(
+            Type::generic(Type::object($className), ...$wrapped->getVariableTypes())
+        );
     }
 
     /**
@@ -158,31 +151,5 @@ final readonly class CollectionValueConversionStrategy implements ValueConversio
         }
 
         return (new ReflectionClass($className))->getProperties() === [];
-    }
-
-    /**
-     * Reads the collection class annotation and re-wraps it around the class itself.
-     *
-     * @param class-string $className Collection class to inspect.
-     *
-     * @return CollectionType<GenericType<ObjectType<mixed>>>|null Collection type naming the class, or null when it declares no element type
-     */
-    private function buildCollectionType(string $className): ?CollectionType
-    {
-        $annotated = $this->docBlockTypeResolver->resolve($className);
-
-        if (!$annotated instanceof CollectionType) {
-            return null;
-        }
-
-        $wrapped = $annotated->getWrappedType();
-
-        if (!$wrapped instanceof GenericType) {
-            return null;
-        }
-
-        return Type::collection(
-            Type::generic(Type::object($className), ...$wrapped->getVariableTypes())
-        );
     }
 }

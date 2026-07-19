@@ -40,4 +40,9 @@ final class CollectionShapesHolder
      * @var TagCollection|null
      */
     public ?TagCollection $optional = null;
+
+    /**
+     * @var TemplatedCollection
+     */
+    public TemplatedCollection $templated;
 }

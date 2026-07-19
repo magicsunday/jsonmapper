@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace MagicSunday\JsonMapper\Collection;
 
+use InvalidArgumentException;
 use LogicException;
 use phpDocumentor\Reflection\DocBlock\Tags\TagWithType;
 use phpDocumentor\Reflection\DocBlockFactory;
@@ -23,6 +24,7 @@ use Symfony\Component\TypeInfo\Type\BuiltinType;
 use Symfony\Component\TypeInfo\Type\CollectionType;
 use Symfony\Component\TypeInfo\Type\GenericType;
 use Symfony\Component\TypeInfo\Type\ObjectType;
+use Symfony\Component\TypeInfo\Type\TemplateType;
 use Symfony\Component\TypeInfo\TypeIdentifier;
 
 use function array_key_exists;
@@ -89,6 +91,54 @@ final class CollectionDocBlockTypeResolver
         }
 
         return $this->resolved[$collectionClassName] = $this->readFromDocBlock($collectionClassName);
+    }
+
+    /**
+     * Resolves the collection type or explains what the class is missing.
+     *
+     * Both entry points into collection mapping need the same two checks and the same guidance,
+     * so they live here rather than being restated at each call site: a message improved in one
+     * place and not the other is how the two drift apart.
+     *
+     * @param class-string $collectionClassName Fully qualified class name of the collection wrapper to inspect.
+     *
+     * @return CollectionType<CollectionWrappedType|GenericType<CollectionWrappedType>> Resolved collection metadata
+     *
+     * @throws InvalidArgumentException When the class declares no element type, or only a template parameter.
+     */
+    public function resolveOrFail(string $collectionClassName): CollectionType
+    {
+        $collectionType = $this->resolve($collectionClassName);
+
+        if (!$collectionType instanceof CollectionType) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Unable to resolve the element type for collection [%s]. Define an "@extends" annotation such as "@extends %s<YourClass>".',
+                    $collectionClassName,
+                    $collectionClassName,
+                )
+            );
+        }
+
+        $valueType = $collectionType->getCollectionValueType();
+
+        // A template parameter does not survive as a TemplateType here: the docblock helper
+        // resolves "@extends ArrayObject<int, T>" to an ObjectType naming a class T in the
+        // declaring namespace, which simply does not exist. Testing for TemplateType alone
+        // therefore never fired, and the unusable element type reached the factory and failed
+        // there on a message naming neither the annotation nor the fix. Both forms are checked.
+        $namesUnknownClass = ($valueType instanceof ObjectType) && !class_exists($valueType->getClassName());
+
+        if (($valueType instanceof TemplateType) || $namesUnknownClass) {
+            throw new InvalidArgumentException(
+                sprintf(
+                    'Unable to resolve the element type for collection [%s]. Please provide a concrete class in the "@extends" annotation.',
+                    $collectionClassName,
+                )
+            );
+        }
+
+        return $collectionType;
     }
 
     /**

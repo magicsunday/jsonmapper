@@ -14,6 +14,8 @@ namespace MagicSunday\Test\JsonMapper;
 use InvalidArgumentException;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\CollectionShapesHolder;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\IterableDataObjectHolder;
+use MagicSunday\Test\Fixtures\Docs\NestedCollections\MoneyBagTypeHandler;
+use MagicSunday\Test\Fixtures\Docs\NestedCollections\MoneyHolder;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\SinglyNestedArticle;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\Tag;
 use MagicSunday\Test\TestCase;
@@ -117,6 +119,43 @@ final class SinglyNestedCollectionTest extends TestCase
             $this->getJsonAsObject('{"unannotated": [{"name": "php"}]}'),
             CollectionShapesHolder::class,
         );
+    }
+
+    #[Test]
+    public function itNamesTheTemplateParameterOnACollectionThatNeverResolvesIt(): void
+    {
+        // The annotation parses and yields a collection type, so the "declares nothing" guard
+        // does not catch this - but the element type is a template parameter, which no payload
+        // can satisfy. Without its own check it reached the factory and died on a message naming
+        // neither the annotation nor the fix.
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches(
+            '/' . preg_quote('provide a concrete class in the "@extends" annotation', '/') . '/',
+        );
+
+        $this->getJsonMapper()->map(
+            $this->getJsonAsObject('{"templated": [{"name": "php"}]}'),
+            CollectionShapesHolder::class,
+        );
+    }
+
+    #[Test]
+    public function itLetsARegisteredHandlerWinOverTheContainerHeuristic(): void
+    {
+        // addType() is the documented escape hatch, so it has to outrank a strategy that
+        // recognises a collection by its shape. MoneyBag is traversable and declares no
+        // properties, so the heuristic claims it - and used to, ahead of the handler, turning a
+        // registered converter into an exception about a missing annotation.
+        $mapper = $this->getJsonMapper();
+        $mapper->addTypeHandler(new MoneyBagTypeHandler());
+
+        $holder = $mapper->map(
+            $this->getJsonAsObject('{"bag": {"amount": 5}}'),
+            MoneyHolder::class,
+        );
+
+        self::assertInstanceOf(MoneyHolder::class, $holder);
+        self::assertSame(5, $holder->bag->amount);
     }
 
     #[Test]

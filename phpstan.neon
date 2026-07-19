@@ -50,6 +50,14 @@ parameters:
             message: '#^Class MagicSunday\\Test\\Fixtures\\Docs\\NestedCollections\\UnannotatedCollection extends generic class ArrayObject but does not specify its types\: TKey, TValue$#'
             path: %currentWorkingDirectory%/tests/Fixtures/Docs/NestedCollections/UnannotatedCollection.php
 
+        # The unresolvable element type IS the fixture's purpose: it pins that a collection whose
+        # annotation names a template parameter is refused with actionable guidance. Specifying
+        # the type would delete the test case.
+        -
+            identifier: missingType.generics
+            message: '#^Property MagicSunday\\Test\\Fixtures\\Docs\\NestedCollections\\CollectionShapesHolder\:\:\$templated with generic class MagicSunday\\Test\\Fixtures\\Docs\\NestedCollections\\TemplatedCollection does not specify its types\: T$#'
+            path: %currentWorkingDirectory%/tests/Fixtures/Docs/NestedCollections/CollectionShapesHolder.php
+
         # The unused parameter IS the fixture's purpose: it pins that a non-promoted constructor
         # parameter sharing a property name must not supply that property's default.
         -
