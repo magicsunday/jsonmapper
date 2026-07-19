@@ -35,7 +35,7 @@ final class TypeResolver
      * so a persistent pool warmed by an earlier release stops serving entries that were resolved
      * under the old rules instead of silently withholding the new behaviour.
      */
-    private const string CACHE_SCHEMA_VERSION = 'v2';
+    private const string CACHE_SCHEMA_VERSION = 'v3';
 
     /**
      * Leading segment of every cache key, ending in a separating dot. The full key appends the
