@@ -348,9 +348,15 @@ final readonly class JsonMapper
         ?JsonMapperConfiguration $configuration = null,
     ): MappingResult {
         $configuration = ($configuration ?? $this->createDefaultConfiguration())->withErrorCollection(true);
-        $context       = new MappingContext(
+        // array_replace rather than the + operator: the override has to WIN. Union keeps the left
+        // operand, so the day toOptions() learns to emit abort_on_error, a + would silently stop
+        // forcing it off and this method would start throwing again.
+        $context = new MappingContext(
             $json,
-            $configuration->toOptions() + [MappingContext::OPTION_ABORT_ON_ERROR => false],
+            array_replace(
+                $configuration->toOptions(),
+                [MappingContext::OPTION_ABORT_ON_ERROR => false],
+            ),
         );
 
         try {
