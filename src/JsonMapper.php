@@ -262,17 +262,39 @@ final readonly class JsonMapper
     /**
      * Add a custom class map entry.
      *
-     * @param class-string                                                            $className Fully qualified class name that should be resolved dynamically.
-     * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $closure   Closure that returns the concrete class to instantiate for the provided value.
+     * SECURITY: the closure's input is the payload, so returning a class name taken from it - the
+     * naive discriminator, fn ($json) => $json['__type'] - lets whoever supplies the payload choose
+     * which class gets instantiated, with constructor arguments that also come from the payload.
+     * That is the classic object-injection surface. Decide the class from a FIXED set instead:
+     *
+     *     $mapper->addCustomClassMapEntry(
+     *         Shape::class,
+     *         static fn (array $json): string => match ($json['kind'] ?? null) {
+     *             'circle' => Circle::class,
+     *             'square' => Square::class,
+     *             default  => Shape::class,
+     *         },
+     *     );
+     *
+     * Pass $allowedTargets to have that enforced rather than merely intended. It is opt-in, since
+     * the class map is documented for class replacement as well as polymorphism and a default
+     * restriction would break that.
+     *
+     * @param class-string                                                            $className      Fully qualified class name that should be resolved dynamically.
+     * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $closure        Closure that returns the concrete class to instantiate for the provided value.
+     * @param list<string>|null                                                       $allowedTargets Classes the closure may return; null leaves it unrestricted.
      *
      * @phpstan-param class-string $className
      * @phpstan-param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $closure
      *
      * @return JsonMapper Returns the mapper instance for fluent configuration.
      */
-    public function addCustomClassMapEntry(string $className, Closure $closure): JsonMapper
-    {
-        $this->classResolver->add($className, $closure);
+    public function addCustomClassMapEntry(
+        string $className,
+        Closure $closure,
+        ?array $allowedTargets = null,
+    ): JsonMapper {
+        $this->classResolver->add($className, $closure, $allowedTargets);
 
         return $this;
     }

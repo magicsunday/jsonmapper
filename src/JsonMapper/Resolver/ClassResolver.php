@@ -17,8 +17,10 @@ use MagicSunday\JsonMapper\Context\MappingContext;
 use ReflectionFunction;
 
 use function array_key_exists;
+use function array_map;
 use function class_exists;
 use function get_debug_type;
+use function in_array;
 use function interface_exists;
 use function is_string;
 use function sprintf;
@@ -36,6 +38,14 @@ final class ClassResolver
     private array $classMap;
 
     /**
+     * Classes each resolver entry is permitted to return, keyed by the base class it handles. An
+     * entry absent from this map is unrestricted.
+     *
+     * @var array<class-string, list<class-string>>
+     */
+    private array $allowedTargets = [];
+
+    /**
      * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap Map of base class names to explicit targets or resolver callbacks.
      *
      * @phpstan-param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
@@ -48,16 +58,35 @@ final class ClassResolver
     /**
      * Adds a custom resolution rule.
      *
-     * @param class-string                                                            $className Base class or interface the resolver handles.
-     * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $resolver  Callback returning a concrete class based on the JSON payload and optional mapping context.
+     * @param class-string                                                            $className      Base class or interface the resolver handles.
+     * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $resolver       Callback returning a concrete class based on the JSON payload and optional mapping context.
+     * @param list<string>|null                                                       $allowedTargets Classes the resolver may return. Null leaves it
+     *                                                                                                unrestricted, which is the default for backwards
+     *                                                                                                compatibility - see the note below.
      *
      * @phpstan-param class-string $className
      * @phpstan-param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string $resolver
+     *
+     * @throws DomainException When the base class or a listed target does not exist.
      */
-    public function add(string $className, Closure $resolver): void
+    public function add(string $className, Closure $resolver, ?array $allowedTargets = null): void
     {
         $this->assertClassString($className);
         $this->classMap[$className] = $resolver;
+
+        if ($allowedTargets === null) {
+            unset($this->allowedTargets[$className]);
+
+            return;
+        }
+
+        // Validated on registration rather than on resolution: a typo in the list would otherwise
+        // narrow it silently, and the resolver would start refusing a class the consumer believes
+        // it permitted - at request time, on a payload that looks fine.
+        $this->allowedTargets[$className] = array_map(
+            $this->assertClassString(...),
+            $allowedTargets,
+        );
     }
 
     /**
@@ -93,7 +122,46 @@ final class ClassResolver
             );
         }
 
+        $this->assertAllowedTarget($className, $resolved);
+
         return $this->assertClassString($resolved);
+    }
+
+    /**
+     * Verifies the resolved class against the allowlist registered for this entry.
+     *
+     * A resolver's input is the payload, so a consumer who returns a class name taken from it -
+     * the naive discriminator - lets an attacker choose which class gets instantiated, with
+     * constructor arguments that also come from the payload. class_exists(), which is all
+     * assertClassString() can check, is satisfied by every object-injection gadget in the
+     * autoloader. Being named on a list the consumer wrote is a different question, and the only
+     * one that helps.
+     *
+     * Checked BEFORE assertClassString(), so an unlisted name is reported as not permitted rather
+     * than as not a class - the two failures call for different responses.
+     *
+     * @param class-string $className Base class whose entry produced the value.
+     * @param string       $resolved  Class name the resolver returned.
+     *
+     * @throws DomainException When an allowlist exists and does not name the resolved class.
+     */
+    private function assertAllowedTarget(string $className, string $resolved): void
+    {
+        if (!array_key_exists($className, $this->allowedTargets)) {
+            return;
+        }
+
+        if (in_array($resolved, $this->allowedTargets[$className], true)) {
+            return;
+        }
+
+        throw new DomainException(
+            sprintf(
+                'Class resolver for %s returned %s, which its allowed-target list does not permit.',
+                $className,
+                $resolved,
+            ),
+        );
     }
 
     /**
