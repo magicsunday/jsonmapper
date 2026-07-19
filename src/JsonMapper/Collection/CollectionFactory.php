@@ -82,20 +82,9 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
         };
 
         if (!is_array($source)) {
-            $exception = new CollectionMappingException($context->getPath(), get_debug_type($json));
-
-            // Asked of the context, not the configuration: strict mode decides what counts as a
-            // failure, the entry point decides whether one aborts the run. mapWithReport() turns
-            // aborting off, so this has to yield or the report stops after the first failure.
-            //
-            // Thrown BEFORE recording. When the run aborts, the exception reaches a catch site
-            // that records it, so recording here as well files the same failure twice - visible to
-            // a caller that supplies its own context and inspects it after catching.
-            if ($context->shouldAbortOnError()) {
-                throw $exception;
-            }
-
-            $context->recordException($exception);
+            $context->throwOrRecord(
+                new CollectionMappingException($context->getPath(), get_debug_type($json)),
+            );
 
             // An empty collection, not null. Null is this method's "no collection was asked for"
             // sentinel - the nullable branch above - and every consumer reads it that way: the
@@ -140,10 +129,16 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
                     },
                 );
 
-                // Asked of the context, not the configuration. Rethrowing here means the property
-                // loop above records the very same element failure a second time, so the run has
-                // to be one that aborts - otherwise the caller receives a duplicate and loses the
-                // rejected element's valid siblings along with it.
+                // NOT throwOrRecord(): this site records BEFORE raising, and the helper does the
+                // opposite. Routing it there loses the element's OWN record on an aborting run -
+                // silently, since the caller still gets its exception, and a deeper record written
+                // further inside the element can survive and make the report look complete. (The path is not the obstacle - withPathSegment() restores it in
+                // a finally, so a throw from inside the closure propagates cleanly. What the
+                // segment buys is that the record names the element rather than the collection.)
+                //
+                // Rethrowing here means the property loop above records the very same element
+                // failure a second time, so the run has to be one that aborts - otherwise the
+                // caller receives a duplicate and loses the rejected element's valid siblings.
                 if ($context->shouldAbortOnError()) {
                     throw $exception;
                 }

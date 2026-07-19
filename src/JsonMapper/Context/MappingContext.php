@@ -236,6 +236,30 @@ final class MappingContext
     }
 
     /**
+     * Raises the failure when the run aborts on the first one, and records it otherwise.
+     *
+     * The name states the order because the order is the whole contract: a site that must record
+     * even while aborting cannot use this, and two do. Each explains itself at its own call site.
+     *
+     * @param MappingException $exception Failure to raise or record
+     *
+     * @return void
+     *
+     * @throws MappingException When the entry point aborts on the first failure
+     */
+    public function throwOrRecord(MappingException $exception): void
+    {
+        // When the run aborts, the exception reaches a catch site that records it, so recording
+        // here as well files the same failure twice - visible to a caller that supplies its own
+        // context and inspects it after catching.
+        if ($this->shouldAbortOnError()) {
+            throw $exception;
+        }
+
+        $this->recordException($exception);
+    }
+
+    /**
      * Returns collected mapping errors.
      *
      * @return list<string> Error messages collected so far
