@@ -25,6 +25,7 @@ use RecursiveIteratorIterator;
 use SplFileInfo;
 
 use function array_keys;
+use function array_map;
 use function array_push;
 use function file_get_contents;
 use function is_dir;
@@ -96,26 +97,74 @@ final class DocsApiReferenceTest extends TestCase
     ];
 
     /**
-     * How many calls each documentation file currently contributes.
+     * The calls each documentation file currently contributes, in the order they are extracted.
      *
-     * Per file rather than one repository-wide sum: a single total cannot detect the degradation
+     * Named calls rather than a count, because the failure has to be readable. A bare number
+     * fails with "4 does not match 12" and leaves a maintainer who just edited that file with a
+     * ready-made story and nothing contradicting it - the cheapest fix is to lower the number,
+     * and the guard quietly becomes a rubber stamp. With the calls spelled out, a shape
+     * regression shows up as named entries disappearing from the diff, while genuinely adding a
+     * sample stays a one-line change.
+     *
+     * Per file rather than one repository-wide total: a single sum cannot detect the degradation
      * it exists to catch, because one file losing its recognised shape is masked by another
-     * gaining calls. A file listed with 0 genuinely documents no API call; a file missing
-     * entirely is a new one nobody has looked at yet.
+     * gaining calls.
      *
-     * @var array<string, int>
+     * @var array<string, list<string>>
      */
     private const array GUARDED_CALLS_PER_FILE = [
-        'README.md'                             => 5,
-        'docs/API.md'                           => 7,
-        'docs/recipes/custom-name-converter.md' => 0,
-        'docs/recipes/error-handling.md'        => 12,
-        'docs/recipes/manual-instantiation.md'  => 2,
-        'docs/recipes/mapping-with-enums.md'    => 2,
-        'docs/recipes/nested-collections.md'    => 1,
-        'docs/recipes/performance.md'           => 1,
-        'docs/recipes/type-converters.md'       => 2,
-        'docs/recipes/using-attributes.md'      => 0,
+        'README.md' => [
+            JsonMapper::class . '::map',
+            JsonMapper::class . '::map',
+            JsonMapper::class . '::map',
+            JsonMapper::class . '::createWithDefaults',
+            JsonMapper::class . '::createWithDefaults',
+        ],
+        'docs/API.md' => [
+            JsonMapperConfiguration::class . '::lenient',
+            JsonMapperConfiguration::class . '::strict',
+            JsonMapperConfiguration::class . '::fromArray',
+            JsonMapperConfiguration::class . '::fromContext',
+            JsonMapper::class . '::createWithDefaults',
+            JsonMapper::class . '::createWithDefaults',
+            JsonMapper::class . '::addTypeHandler',
+        ],
+        // Prose only - it documents a name converter, not a call on one of the types above.
+        'docs/recipes/custom-name-converter.md' => [],
+        'docs/recipes/error-handling.md'        => [
+            MappingResult::class . '::getValue',
+            MappingResult::class . '::getReport',
+            MappingReport::class . '::hasErrors',
+            MappingResult::class . '::getReport',
+            MappingReport::class . '::getErrors',
+            JsonMapper::class . '::mapWithReport',
+            JsonMapper::class . '::mapWithReport',
+            MappingError::class . '::getPath',
+            MappingError::class . '::getMessage',
+            JsonMapperConfiguration::class . '::strict',
+            JsonMapperConfiguration::class . '::withErrorCollection',
+            JsonMapperConfiguration::class . '::lenient',
+        ],
+        'docs/recipes/manual-instantiation.md' => [
+            JsonMapper::class . '::map',
+            JsonMapper::class . '::createWithDefaults',
+        ],
+        'docs/recipes/mapping-with-enums.md' => [
+            JsonMapper::class . '::map',
+            JsonMapperConfiguration::class . '::strict',
+        ],
+        'docs/recipes/nested-collections.md' => [
+            JsonMapper::class . '::map',
+        ],
+        'docs/recipes/performance.md' => [
+            JsonMapper::class . '::createWithDefaults',
+        ],
+        'docs/recipes/type-converters.md' => [
+            JsonMapper::class . '::map',
+            JsonMapper::class . '::addCustomClassMapEntry',
+        ],
+        // Prose only - it documents attributes, not calls.
+        'docs/recipes/using-attributes.md' => [],
     ];
 
     /**
@@ -304,26 +353,36 @@ final class DocsApiReferenceTest extends TestCase
             );
         }
 
+        // Precondition for the assertion below; the authoritative instruction lives in
+        // itListsEveryDocumentationFileItGuards() so it is not maintained in two places.
         self::assertArrayHasKey(
             $relative,
             self::GUARDED_CALLS_PER_FILE,
-            sprintf('%s is not listed in GUARDED_CALLS_PER_FILE - add it with its call count.', $relative)
+            sprintf('%s is unlisted; see itListsEveryDocumentationFileItGuards().', $relative)
         );
 
-        // Without this the row above is vacuous for a file whose samples changed into a shape the
-        // patterns no longer recognise: zero calls found, zero assertions made, green.
-        self::assertCount(
+        // Without this the loop above is vacuous for a file whose samples changed into a shape
+        // the patterns no longer recognise: zero calls found, zero assertions made, green.
+        self::assertSame(
             self::GUARDED_CALLS_PER_FILE[$relative],
-            $calls,
+            array_map(
+                static fn (array $call): string => $call[0] . '::' . $call[1],
+                $calls
+            ),
             sprintf(
-                '%s now contributes a different number of checked calls. If a sample was added or '
-                . 'removed, update the expectation. If it merely changed shape, extend the '
-                . 'recognised shapes instead - the samples would otherwise go unchecked.',
+                'The calls checked in %s changed. Entries disappearing without the sample being '
+                . 'removed mean it changed into a shape these patterns no longer recognise - '
+                . 'extend the recognised shapes rather than deleting the expectation, or the '
+                . 'sample goes unchecked.',
                 $relative
             )
         );
     }
 
+    /**
+     * Fails when a listed documentation file was removed or renamed, or an existing one is
+     * unlisted.
+     */
     #[Test]
     public function itListsEveryDocumentationFileItGuards(): void
     {
@@ -343,7 +402,7 @@ final class DocsApiReferenceTest extends TestCase
         self::assertSame(
             array_keys($expected),
             array_keys($found),
-            'The guarded documentation set changed. Add new files with their call count, and '
+            'The guarded documentation set changed. Add a new file with the calls it documents, and '
             . 'remove entries for files that no longer exist.'
         );
     }

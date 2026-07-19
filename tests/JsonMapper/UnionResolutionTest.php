@@ -258,5 +258,15 @@ final class UnionResolutionTest extends TestCase
         $errors = $result->getReport()->getErrors();
 
         self::assertCount(1, $errors, 'A rejected union value produces one record, not one per candidate.');
+
+        // Cardinality alone would also pass if the trim collapsed to the WRONG single record - a
+        // leftover candidate-level error at $.value.nested instead of the union-level one.
+        self::assertSame(
+            ['$.value'],
+            array_map(
+                static fn (MappingError $error): string => $error->getPath(),
+                $result->getReport()->getErrors(),
+            ),
+        );
     }
 }
