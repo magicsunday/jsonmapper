@@ -95,6 +95,14 @@ parameters:
             message: '#^Parameter \#2 \$resolver of method MagicSunday\\JsonMapper\\Resolver\\ClassResolver\:\:add\(\) expects class\-string\|\(Closure\(mixed\)\: class\-string\)\|\(Closure\(mixed, MagicSunday\\JsonMapper\\Context\\MappingContext\)\: class\-string\), Closure\(\)\: 123 given\.$#'
             path: %currentWorkingDirectory%/tests/JsonMapper/Resolver/ClassResolverTest.php
 
+        # The int-to-string call IS the fixture's purpose: it pins that a TypeError raised INSIDE a
+        # variadic setter body (a real bug in the setter) propagates rather than being re-labelled
+        # as a payload mismatch. Making the call well-typed would delete the test case.
+        -
+            identifier: argument.type
+            message: '#^Parameter \#1 \$value of method MagicSunday\\Test\\Fixtures\\PropertyWrite\\VariadicBodyThrowingHolder\:\:requireString\(\) expects string, int given\.$#'
+            path: %currentWorkingDirectory%/tests/Fixtures/PropertyWrite/VariadicBodyThrowingHolder.php
+
         # The unused parameter IS the fixture's purpose: it pins that a non-promoted constructor
         # parameter sharing a property name must not supply that property's default.
         -

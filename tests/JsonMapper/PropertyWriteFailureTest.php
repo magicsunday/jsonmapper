@@ -15,9 +15,11 @@ use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\Test\Fixtures\PropertyWrite\IntersectionTypedHolder;
 use MagicSunday\Test\Fixtures\PropertyWrite\MarkerA;
 use MagicSunday\Test\Fixtures\PropertyWrite\MarkerB;
+use MagicSunday\Test\Fixtures\PropertyWrite\VariadicBodyThrowingHolder;
 use MagicSunday\Test\Fixtures\Shapes\AccessorOnlyHolder;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\Test;
+use TypeError;
 
 /**
  * The last step of a mapping run is the write, and it can fail on its own: the declared type is
@@ -89,6 +91,22 @@ final class PropertyWriteFailureTest extends TestCase
         self::assertSame('$.label', $exception->getPath());
         self::assertSame('string', $exception->getExpectedType(), 'The setter parameter, not mixed.');
         self::assertSame('array', $exception->getActualType());
+    }
+
+    #[Test]
+    public function itLetsATypeErrorFromInsideAVariadicSetterBodyPropagate(): void
+    {
+        // The write guard converts an argument-type refusal at the CALL boundary into a recorded
+        // mismatch, but a TypeError raised INSIDE the setter body is a bug in the setter, not a
+        // payload mismatch - reporting it as one would blame a valid value (the elements ARE ints)
+        // and, in report mode, bury the real fault. It is left to propagate as itself.
+        $this->expectException(TypeError::class);
+        $this->expectExceptionMessageMatches('/requireString\(\)/');
+
+        $this->getJsonMapper()->mapWithReport(
+            ['values' => [1, 2]],
+            VariadicBodyThrowingHolder::class,
+        );
     }
 
     #[Test]

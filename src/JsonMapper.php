@@ -1652,7 +1652,20 @@ final readonly class JsonMapper
                     if (is_callable($callable)) {
                         try {
                             call_user_func_array($callable, $value);
-                        } catch (TypeError) {
+                        } catch (TypeError $typeError) {
+                            // Only an argument-type refusal at the CALL boundary is a value mismatch
+                            // to report. A TypeError from inside the setter BODY is a bug in the
+                            // setter and must propagate, the same decision the accessor lane below
+                            // makes - catching both would re-bury a real fault the way the broad
+                            // catch this replaced did. PHP attributes an argument-binding error to
+                            // the called method, so its innermost trace frame is $methodName; a body
+                            // error names the inner call instead.
+                            $trace = $typeError->getTrace();
+
+                            if (($trace[0]['function'] ?? null) !== $methodName) {
+                                throw $typeError;
+                            }
+
                             $parameterType = $parameters[0]->getType();
 
                             throw new TypeMismatchException(
