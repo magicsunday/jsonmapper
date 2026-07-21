@@ -1,6 +1,9 @@
 # JsonMapper API reference
 
-This document summarises the public surface of the JsonMapper package. All classes are namespaced under `MagicSunday\\JsonMapper` unless stated otherwise.
+This document summarises the public surface of the JsonMapper package. The entry-point class is
+`MagicSunday\JsonMapper`; everything else lives under the `MagicSunday\JsonMapper` namespace
+(`MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration`, the `MagicSunday\JsonMapper\Attribute\*`
+attributes, and so on).
 
 ## JsonMapper (final)
 The `JsonMapper` class is the main entry point for mapping arbitrary JSON structures to PHP objects. The class is `final`; prefer composition over inheritance.
@@ -60,7 +63,7 @@ var_dump($mapper::class);
 | --- | --- |
 | `addTypeHandler(TypeHandlerInterface $handler): self` | Registers a reusable conversion strategy for a specific type. |
 | `addType(string $type, Closure $closure): self` | Deprecated shortcut for registering closure-based handlers. Prefer `addTypeHandler()`. |
-| `addCustomClassMapEntry(string $className, Closure $resolver, ?array $allowedTargets = null): self` | Adds or replaces a class map entry. The resolver receives JSON data (and optionally the current `MappingContext`). `$allowedTargets` restricts what it may return — see the security note in [Type converters](recipes/type-converters.md). |
+| `addCustomClassMapEntry(string $className, Closure\|string $resolver, ?array $allowedTargets = null): self` | Adds or replaces a class map entry. `$resolver` is a resolver closure — receiving the decoded JSON fragment and optionally the current `MappingContext` — or a concrete class-string to map to unconditionally. `$allowedTargets` restricts what a closure may return — see the security note in [Type converters](recipes/type-converters.md). |
 | `map(mixed $json, ?string $className = null, ?string $collectionClassName = null, ?MappingContext $context = null, ?JsonMapperConfiguration $configuration = null): mixed` | Maps the provided JSON payload to the requested class or collection. |
 | `mapWithReport(mixed $json, ?string $className = null, ?string $collectionClassName = null, ?JsonMapperConfiguration $configuration = null): MappingResult` | Maps data and returns a `MappingResult` containing both the mapped value and an error report. |
 
