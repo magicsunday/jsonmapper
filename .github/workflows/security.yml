@@ -44,3 +44,34 @@ jobs:
         uses: magicsunday/.github/.github/workflows/yamllint.yml@main
         permissions:
             contents: read
+
+    composer-audit:
+        # dependency-review only inspects dependencies a pull request adds or changes; this audits
+        # the whole resolved set for newly published advisories, on every push and pull request and
+        # on the weekly schedule so a vulnerability disclosed against an existing dependency is
+        # caught over time rather than only when that dependency next changes.
+        name: Composer audit
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Set up PHP version 8.3
+              uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+              with:
+                  php-version: '8.3'
+                  tools: composer:v2
+
+            - name: Checkout repository
+              uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+              with:
+                  persist-credentials: false
+
+            # This library does not commit composer.lock, so there is nothing for `--locked` to
+            # audit. Resolve fresh against the declared constraints first - which is what a consumer
+            # install does - then audit that resolved set.
+            - name: Install dependencies
+              run: |
+                  composer install --prefer-dist --no-interaction --no-progress
+
+            - name: Audit resolved dependencies
+              run: |
+                  composer audit --no-interaction
