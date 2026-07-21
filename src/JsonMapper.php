@@ -32,6 +32,7 @@ use MagicSunday\JsonMapper\Metadata\ClassMetadataFactory;
 use MagicSunday\JsonMapper\Report\MappingReport;
 use MagicSunday\JsonMapper\Report\MappingResult;
 use MagicSunday\JsonMapper\Resolver\ClassResolver;
+use MagicSunday\JsonMapper\Type\NativeTypeMatcher;
 use MagicSunday\JsonMapper\Type\TypeResolver;
 use MagicSunday\JsonMapper\Value\ClosureTypeHandler;
 use MagicSunday\JsonMapper\Value\CustomTypeRegistry;
@@ -50,6 +51,7 @@ use Psr\Cache\CacheItemPoolInterface;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionMethod;
+use ReflectionParameter;
 use ReflectionProperty;
 use Symfony\Component\PropertyAccess\Exception\InvalidTypeException;
 use Symfony\Component\PropertyAccess\PropertyAccess;
@@ -1365,6 +1367,7 @@ final readonly class JsonMapper
      * @return array{0: object, 1: array<string, true>} The constructed object and the consumed argument names.
      *
      * @throws MissingConstructorArgumentException When a required, non-nullable argument has no value and no default.
+     * @throws TypeMismatchException               When an argument violates its parameter declaration and the run aborts on the first failure.
      */
     private function instantiateViaConstructor(
         string $className,
@@ -1375,25 +1378,41 @@ final readonly class JsonMapper
         $arguments = [];
         $consumed  = [];
 
+        // Taken from the DECLARING class, not from the one being built: an inherited constructor's
+        // `self` means the class the signature was written in.
+        $scope = $constructor->getDeclaringClass()->getName();
+
         foreach ($constructor->getParameters() as $parameter) {
             $name = $parameter->getName();
 
             if (array_key_exists($name, $convertedValues)) {
+                // Consumed even when refused below: the value is reported once here, and leaving it
+                // to the property assignment afterwards would file the same failure a second time.
                 $consumed[$name] = true;
                 $value           = $convertedValues[$name];
 
-                // A variadic parameter spreads a collected list into the tail arguments.
+                // A variadic parameter spreads a collected list into the tail arguments, and each
+                // element is judged on its own: one refused entry must not discard its valid
+                // siblings, the same rule the collection element loop follows. A variadic tail can
+                // legitimately end up empty, so there is nothing to fall through to.
                 if ($parameter->isVariadic() && is_array($value)) {
-                    foreach ($value as $variadicValue) {
-                        $arguments[] = $variadicValue;
+                    foreach ($value as $variadicKey => $variadicValue) {
+                        if (!$this->refusedArgument($parameter, $variadicValue, $scope, $context, $variadicKey)) {
+                            $arguments[] = $variadicValue;
+                        }
                     }
 
                     continue;
                 }
 
-                $arguments[] = $value;
+                if (!$this->refusedArgument($parameter, $value, $scope, $context)) {
+                    $arguments[] = $value;
 
-                continue;
+                    continue;
+                }
+
+                // Refused: fall through to the same lanes an absent value takes, so a parameter
+                // with a default is still constructed and only the offending value is dropped.
             }
 
             if ($parameter->isVariadic()) {
@@ -1416,6 +1435,76 @@ final readonly class JsonMapper
         }
 
         return [$this->makeInstance($className, ...$arguments), $consumed];
+    }
+
+    /**
+     * Reports whether a constructor argument violates its parameter declaration, recording the
+     * violation as it goes.
+     *
+     * The type the value was converted against comes from metadata, which can say more than the
+     * declaration it describes: a docblock that widens its own native type, and a parameter no
+     * metadata could type at all, both leave the mapper holding a value the constructor rejects.
+     * Passing it on raises a native `TypeError` from inside `new $className()` - a failure the
+     * mapping report cannot see and no caller of mapWithReport() can catch. Refusing it here turns
+     * that into an ordinary recorded mismatch.
+     *
+     * Only a proven violation refuses; see {@see NativeTypeMatcher} for why the check is one-sided.
+     *
+     * @param ReflectionParameter $parameter   Parameter the value is destined for.
+     * @param mixed               $value       Value about to be passed; one variadic element at a time.
+     * @param class-string        $scope       Class the constructor was declared in, resolving `self` and `parent`.
+     * @param MappingContext      $context     Mapping context recording the failure.
+     * @param string|int|null     $variadicKey Key of the variadic element, so the report names the entry.
+     *
+     * @return bool TRUE when the value was refused and recorded, so the caller must not pass it on
+     *
+     * @throws TypeMismatchException When the run aborts on the first failure.
+     */
+    private function refusedArgument(
+        ReflectionParameter $parameter,
+        mixed $value,
+        string $scope,
+        MappingContext $context,
+        string|int|null $variadicKey = null,
+    ): bool {
+        $declaredType = $parameter->getType();
+
+        // An undeclared parameter constrains nothing, and saying so here rather than leaning on the
+        // matcher's own answer is what lets the report below name a type unconditionally.
+        if ($declaredType === null) {
+            return false;
+        }
+
+        if (NativeTypeMatcher::accepts($declaredType, $value, $scope)) {
+            return false;
+        }
+
+        $context->withPathSegment(
+            $parameter->getName(),
+            function (MappingContext $argumentContext) use ($declaredType, $value, $scope, $variadicKey): void {
+                $record = static function (MappingContext $valueContext) use ($declaredType, $value, $scope): void {
+                    $valueContext->throwOrRecord(
+                        new TypeMismatchException(
+                            $valueContext->getPath(),
+                            NativeTypeMatcher::describe($declaredType, $scope),
+                            get_debug_type($value),
+                        )
+                    );
+                };
+
+                // A variadic element is named by its own key, the way a collection element is - the
+                // parameter name alone would file every refused entry under one path.
+                if ($variadicKey === null) {
+                    $record($argumentContext);
+
+                    return;
+                }
+
+                $argumentContext->withPathSegment($variadicKey, $record);
+            }
+        );
+
+        return true;
     }
 
     /**
