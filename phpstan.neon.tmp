@@ -68,16 +68,6 @@ parameters:
             message: '#^Call to deprecated method addType\(\) of class MagicSunday\\JsonMapper\:#'
             path: %currentWorkingDirectory%/tests/JsonMapper/Value/ClosureTypeHandlerTest.php
 
-        # The empty class name IS the test's purpose: it pins that a collection type naming no
-        # wrapper class is refused rather than passed to the resolver, which would report it as a
-        # class that does not exist. A class-string here would delete the test case. End-anchored on
-        # the GIVEN type - the empty-class-name ObjectType<mixed> shape - so it cannot also swallow a
-        # future genuinely-wrong $type passed to the same method in this file.
-        -
-            identifier: argument.type
-            message: '#^Parameter \#1 \$type of method MagicSunday\\JsonMapper\\Collection\\CollectionFactory\:\:fromCollectionType\(\) expects .+, Symfony\\Component\\TypeInfo\\Type\\CollectionType<Symfony\\Component\\TypeInfo\\Type\\GenericType<Symfony\\Component\\TypeInfo\\Type\\ObjectType<mixed>>> given\.$#'
-            path: %currentWorkingDirectory%/tests/JsonMapper/Collection/CollectionFactoryTest.php
-
         # The empty name IS the test's purpose: it is what a lookup that found nothing produces -
         # an unset environment variable, a missing config key - which is exactly the input the
         # guard under test exists for. A class-string here would delete the test case.

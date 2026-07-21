@@ -32,7 +32,7 @@ use PHPUnit\Framework\TestCase;
 final class RestoredConfigurationTest extends TestCase
 {
     /**
-     * @return array<string, array{mixed}>
+     * @return array<string, array{int|string|null}>
      */
     public static function unusableDateFormatProvider(): array
     {
@@ -44,11 +44,11 @@ final class RestoredConfigurationTest extends TestCase
     }
 
     /**
-     * @param mixed $persisted Value found under the defaultDateFormat key
+     * @param int|string|null $persisted Value found under the defaultDateFormat key
      */
     #[Test]
     #[DataProvider('unusableDateFormatProvider')]
-    public function itRestoresTheDefaultDateFormatFromAnUnusableStoredValue(mixed $persisted): void
+    public function itRestoresTheDefaultDateFormatFromAnUnusableStoredValue(int|string|null $persisted): void
     {
         $configuration = JsonMapperConfiguration::fromArray(['defaultDateFormat' => $persisted]);
 
@@ -56,7 +56,7 @@ final class RestoredConfigurationTest extends TestCase
     }
 
     /**
-     * @return array<string, array{mixed}>
+     * @return array<string, array{int|string|null}>
      */
     public static function unusableTimezoneProvider(): array
     {
@@ -69,11 +69,11 @@ final class RestoredConfigurationTest extends TestCase
     }
 
     /**
-     * @param mixed $persisted Value found under the defaultTimezone key
+     * @param int|string|null $persisted Value found under the defaultTimezone key
      */
     #[Test]
     #[DataProvider('unusableTimezoneProvider')]
-    public function itRestoresTheDefaultTimezoneFromAnUnusableStoredValue(mixed $persisted): void
+    public function itRestoresTheDefaultTimezoneFromAnUnusableStoredValue(int|string|null $persisted): void
     {
         $configuration = JsonMapperConfiguration::fromArray(['defaultTimezone' => $persisted]);
 
@@ -105,7 +105,7 @@ final class RestoredConfigurationTest extends TestCase
     }
 
     /**
-     * @return array<string, array{mixed}>
+     * @return array<string, array{int|string}>
      */
     public static function unusableOptionProvider(): array
     {
@@ -116,11 +116,11 @@ final class RestoredConfigurationTest extends TestCase
     }
 
     /**
-     * @param mixed $written Value written straight into the option bag
+     * @param int|string $written Value written straight into the option bag
      */
     #[Test]
     #[DataProvider('unusableOptionProvider')]
-    public function itFallsBackWhenTheOptionBagCarriesNoUsableDateFormat(mixed $written): void
+    public function itFallsBackWhenTheOptionBagCarriesNoUsableDateFormat(int|string $written): void
     {
         // The option bag is an extension point a handler can write to directly, so it never went
         // through the configuration's own validation. The context answers with the same default an
@@ -131,11 +131,11 @@ final class RestoredConfigurationTest extends TestCase
     }
 
     /**
-     * @param mixed $written Value written straight into the option bag
+     * @param int|string $written Value written straight into the option bag
      */
     #[Test]
     #[DataProvider('unusableOptionProvider')]
-    public function itFallsBackWhenTheOptionBagCarriesNoUsableTimezone(mixed $written): void
+    public function itFallsBackWhenTheOptionBagCarriesNoUsableTimezone(int|string $written): void
     {
         $context = new MappingContext([], [MappingContext::OPTION_DEFAULT_TIMEZONE => $written]);
 

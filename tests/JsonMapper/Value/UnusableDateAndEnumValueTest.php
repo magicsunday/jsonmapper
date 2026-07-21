@@ -30,7 +30,7 @@ use PHPUnit\Framework\Attributes\Test;
 final class UnusableDateAndEnumValueTest extends TestCase
 {
     /**
-     * @return array<string, array{mixed, string}>
+     * @return array<string, array{array<array-key, mixed>|bool, string}>
      */
     public static function unusableDateValueProvider(): array
     {
@@ -45,12 +45,12 @@ final class UnusableDateAndEnumValueTest extends TestCase
     }
 
     /**
-     * @param mixed  $value          Payload that cannot describe an instant
-     * @param string $expectedActual The type the report names for it
+     * @param array<array-key, mixed>|bool $value          Payload that cannot describe an instant
+     * @param string                       $expectedActual The type the report names for it
      */
     #[Test]
     #[DataProvider('unusableDateValueProvider')]
-    public function itReportsAPayloadThatCannotDescribeAnInstant(mixed $value, string $expectedActual): void
+    public function itReportsAPayloadThatCannotDescribeAnInstant(array|bool $value, string $expectedActual): void
     {
         $result = $this->getJsonMapper()->mapWithReport(['createdAt' => $value], DateTimeHolder::class);
 
@@ -115,7 +115,7 @@ final class UnusableDateAndEnumValueTest extends TestCase
     }
 
     /**
-     * @return array<string, array{mixed, string}>
+     * @return array<string, array{array<array-key, mixed>|float, string}>
      */
     public static function unusableEnumValueProvider(): array
     {
@@ -129,12 +129,12 @@ final class UnusableDateAndEnumValueTest extends TestCase
     }
 
     /**
-     * @param mixed  $value          Payload that cannot name a backed enum case
-     * @param string $expectedActual The type the report names for it
+     * @param array<array-key, mixed>|float $value          Payload that cannot name a backed enum case
+     * @param string                        $expectedActual The type the report names for it
      */
     #[Test]
     #[DataProvider('unusableEnumValueProvider')]
-    public function itReportsAPayloadThatCannotNameABackedEnumCase(mixed $value, string $expectedActual): void
+    public function itReportsAPayloadThatCannotNameABackedEnumCase(array|float $value, string $expectedActual): void
     {
         // A backed enum is keyed by an int or a string. from() raises a native TypeError for
         // anything else, so the shape is refused before it gets there.
