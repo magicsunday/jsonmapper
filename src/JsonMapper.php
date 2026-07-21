@@ -717,6 +717,7 @@ final readonly class JsonMapper
 
             $context->withPathSegment($pathSegment, function (MappingContext $propertyContext) use (
                 $resolvedClassName,
+                $propertyName,
                 $normalizedProperty,
                 $propertyValue,
                 &$mappedProperties,
@@ -733,12 +734,24 @@ final readonly class JsonMapper
                 // than dropping or reporting it. The collector's own key is excluded explicitly (as
                 // well as through the membership check) so it is never collected into itself even
                 // when an extractor is configured not to expose the collector property.
+                //
+                // Whether the key is UNKNOWN is decided on the converted name - a snake_case key
+                // that camelises onto a declared property is not unknown. But what is STORED is the
+                // ORIGINAL payload key, so the collected map copies the unmapped part of the payload
+                // verbatim: rewriting a key that matches no property would silently change it. Both
+                // rewrite sources are bypassed - the name converter AND a ReplaceProperty alias,
+                // whose target is by definition not a declared property here either.
+                //
+                // is_string is a narrowing for the analyser, not a reachable branch: normalizePropertyName()
+                // returns a string exactly when it received one, so an int key already returned above.
                 if (
                     ($collectorProperty !== null)
                     && ($normalizedProperty !== $collectorProperty)
                     && !in_array($normalizedProperty, $properties, true)
                 ) {
-                    $collectedUnknown[$normalizedProperty] = $propertyValue;
+                    if (is_string($propertyName)) {
+                        $collectedUnknown[$propertyName] = $propertyValue;
+                    }
 
                     return;
                 }
@@ -798,7 +811,7 @@ final readonly class JsonMapper
         }
 
         // Merge the diverted unknown keys into the collector, the tail of the same concern that
-        // diverted them above. They go in as the raw associative array of normalized name to
+        // diverted them above. They go in as the raw associative array of ORIGINAL payload key to
         // unconverted value, bypassing the per-value pipeline (the collector's element type is
         // deliberately open). Left untouched when nothing was gathered, so the property keeps its
         // constructor default. Any explicitly mapped value for the same property is merged in
