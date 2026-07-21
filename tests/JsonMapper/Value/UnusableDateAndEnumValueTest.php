@@ -30,25 +30,27 @@ use PHPUnit\Framework\Attributes\Test;
 final class UnusableDateAndEnumValueTest extends TestCase
 {
     /**
-     * @return array<string, array{mixed}>
+     * @return array<string, array{mixed, string}>
      */
     public static function unusableDateValueProvider(): array
     {
         return [
             // A date is a string, an integer timestamp or a float one. Everything else carries no
-            // instant, however it is spelled.
-            'an object' => [['year' => 2024]],
-            'a list'    => [[2024, 1, 1]],
-            'a boolean' => [true],
+            // instant, and the detected type is pinned as the second column so the rows are not
+            // interchangeable: collapsing "an object" and "a list" - both get_debug_type() 'array' -
+            // into one row is what keeps each remaining row exercising a distinct outcome.
+            'an array'  => [['year' => 2024], 'array'],
+            'a boolean' => [true, 'bool'],
         ];
     }
 
     /**
-     * @param mixed $value Payload that cannot describe an instant
+     * @param mixed  $value          Payload that cannot describe an instant
+     * @param string $expectedActual The type the report names for it
      */
     #[Test]
     #[DataProvider('unusableDateValueProvider')]
-    public function itReportsAPayloadThatCannotDescribeAnInstant(mixed $value): void
+    public function itReportsAPayloadThatCannotDescribeAnInstant(mixed $value, string $expectedActual): void
     {
         $result = $this->getJsonMapper()->mapWithReport(['createdAt' => $value], DateTimeHolder::class);
 
@@ -61,6 +63,7 @@ final class UnusableDateAndEnumValueTest extends TestCase
         self::assertInstanceOf(TypeMismatchException::class, $exception);
         self::assertSame('$.createdAt', $exception->getPath());
         self::assertSame(DateTimeImmutable::class, $exception->getExpectedType());
+        self::assertSame($expectedActual, $exception->getActualType());
     }
 
     #[Test]
@@ -112,23 +115,26 @@ final class UnusableDateAndEnumValueTest extends TestCase
     }
 
     /**
-     * @return array<string, array{mixed}>
+     * @return array<string, array{mixed, string}>
      */
     public static function unusableEnumValueProvider(): array
     {
         return [
-            'an object' => [['value' => 'active']],
-            'a list'    => [['active']],
-            'a float'   => [1.5],
+            // As with the date provider, the two array shapes collapse to one row (both report
+            // 'array'); the detected type is the second column so the float row pins something the
+            // array row does not.
+            'an array' => [['value' => 'active'], 'array'],
+            'a float'  => [1.5, 'float'],
         ];
     }
 
     /**
-     * @param mixed $value Payload that cannot name a backed enum case
+     * @param mixed  $value          Payload that cannot name a backed enum case
+     * @param string $expectedActual The type the report names for it
      */
     #[Test]
     #[DataProvider('unusableEnumValueProvider')]
-    public function itReportsAPayloadThatCannotNameABackedEnumCase(mixed $value): void
+    public function itReportsAPayloadThatCannotNameABackedEnumCase(mixed $value, string $expectedActual): void
     {
         // A backed enum is keyed by an int or a string. from() raises a native TypeError for
         // anything else, so the shape is refused before it gets there.
@@ -142,6 +148,7 @@ final class UnusableDateAndEnumValueTest extends TestCase
 
         self::assertInstanceOf(TypeMismatchException::class, $exception);
         self::assertSame('$.status', $exception->getPath());
+        self::assertSame($expectedActual, $exception->getActualType());
     }
 
     /**

@@ -99,10 +99,18 @@ final class CollectionDocBlockTypeResolverTest extends TestCase
     #[Test]
     public function itAnswersTheMemoForAContainerThatResolvedToNothingToo(): void
     {
-        $resolver = new CollectionDocBlockTypeResolver();
+        // The null result is memoised as much as a resolved one - the arm that distinguishes
+        // array_key_exists() from isset(). Observed by counting reads, not by the returned value:
+        // a second read that ignored the memo would also return null, so asserting the value alone
+        // could not tell a cached miss from a re-read. UnannotatedCollection is used rather than
+        // UndocumentedCollection because it HAS a docblock the factory parses - so a re-read
+        // actually calls create() - while still resolving to nothing.
+        $factory  = new CountingDocBlockFactory();
+        $resolver = new CollectionDocBlockTypeResolver($factory);
 
-        self::assertNull($resolver->resolve(UndocumentedCollection::class));
-        self::assertNull($resolver->resolve(UndocumentedCollection::class));
+        self::assertNull($resolver->resolve(UnannotatedCollection::class));
+        self::assertNull($resolver->resolve(UnannotatedCollection::class));
+        self::assertSame(1, $factory->creates, 'The second call came from the memo, not a re-read.');
     }
 
     /**
@@ -160,5 +168,41 @@ final class CollectionDocBlockTypeResolverTest extends TestCase
         );
 
         self::assertNull($resolver->resolve(TagCollection::class));
+    }
+}
+
+/**
+ * A docblock factory that parses for real but counts how often it was asked to, so a test can tell
+ * a memo hit from a re-read.
+ *
+ * @internal
+ */
+final class CountingDocBlockFactory implements DocBlockFactoryInterface
+{
+    public int $creates = 0;
+
+    private readonly DocBlockFactoryInterface $delegate;
+
+    public function __construct()
+    {
+        $this->delegate = DocBlockFactory::createInstance();
+    }
+
+    /**
+     * @param array<string, class-string<Tag>> $additionalTags Passed on to the real factory.
+     */
+    public static function createInstance(array $additionalTags = []): DocBlockFactoryInterface
+    {
+        return DocBlockFactory::createInstance($additionalTags);
+    }
+
+    /**
+     * @param object|string $docblock Docblock text or reflector to parse.
+     */
+    public function create($docblock, ?Context $context = null, ?Location $location = null): DocBlock
+    {
+        ++$this->creates;
+
+        return $this->delegate->create($docblock, $context, $location);
     }
 }

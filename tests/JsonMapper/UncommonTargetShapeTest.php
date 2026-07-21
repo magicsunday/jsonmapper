@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\Test\JsonMapper;
 
 use ArrayIterator;
+use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\Test\Classes\Base;
 use MagicSunday\Test\Fixtures\Shapes\AccessorOnlyHolder;
 use MagicSunday\Test\Fixtures\Shapes\NullTypedHolder;
@@ -50,10 +51,20 @@ final class UncommonTargetShapeTest extends TestCase
         // A list handed to a single-object mapping has integer keys, and an integer names no
         // property. Skipped rather than passed on: a name converter and a property lookup both
         // expect a string, and there is nothing to look up anyway.
-        $result = $this->getJsonMapper()->map(['first', 'second'], Base::class);
+        //
+        // Asserted through a STRICT report, not a lenient map(): a run that stopped skipping the
+        // integer key and instead recorded an unknown-property error would leave $name null just
+        // the same, so a lenient map() would pin "no crash" rather than "skipped". Strict mode is
+        // the discriminator - an integer key routed on would surface there.
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::strict())
+            ->mapWithReport(['first', 'second'], Base::class);
 
-        self::assertInstanceOf(Base::class, $result);
-        self::assertNull($result->name, 'Nothing was mapped, and nothing crashed.');
+        self::assertFalse($result->getReport()->hasErrors(), 'Skipped, not reported as unknown.');
+
+        $mapped = $result->getValue();
+
+        self::assertInstanceOf(Base::class, $mapped);
+        self::assertNull($mapped->name, 'And nothing was mapped onto it.');
     }
 
     #[Test]

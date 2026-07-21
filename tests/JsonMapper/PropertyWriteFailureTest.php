@@ -36,8 +36,10 @@ final class PropertyWriteFailureTest extends TestCase
     #[Test]
     public function itReportsAValueTheDeclaredPropertyTypeRefuses(): void
     {
+        // A valid sibling property travels in the same payload, so the run also proves the write
+        // is reached and one refused property does not abort the rest of the object.
         $result = $this->getJsonMapper()->mapWithReport(
-            ['both' => ['a' => 1]],
+            ['both' => ['a' => 1], 'label' => 'kept'],
             IntersectionTypedHolder::class,
         );
 
@@ -62,6 +64,7 @@ final class PropertyWriteFailureTest extends TestCase
 
         self::assertInstanceOf(IntersectionTypedHolder::class, $mapped, 'The object is still built.');
         self::assertNull($mapped->both, 'And the refused property keeps its default.');
+        self::assertSame('kept', $mapped->label, 'While the valid sibling is written - the accessor is reached.');
     }
 
     #[Test]

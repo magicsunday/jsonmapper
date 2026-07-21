@@ -66,18 +66,36 @@ final class ReplacePropertyAliasTest extends TestCase
         self::assertFalse($result->getReport()->hasErrors());
     }
 
+    /**
+     * @return array<string, array{array<string, string>, string}>
+     */
+    public static function collidingSpellingProvider(): array
+    {
+        return [
+            // Both orders, each expecting the value that came LAST in the PAYLOAD. The two aliases
+            // are declared on TwoAliasHolder in a fixed order, so testing only one payload order
+            // would pass equally for a mapper driven by declaration order - which is a different
+            // rule. Feeding both orders makes the payload-order rule the only one that satisfies
+            // both rows.
+            'legacy then ancient' => [['legacy_label' => 'first', 'ancient-label' => 'second'], 'second'],
+            'ancient then legacy' => [['ancient-label' => 'first', 'legacy_label' => 'second'], 'second'],
+        ];
+    }
+
+    /**
+     * @param array<string, string> $payload  Two spellings of the one property, in a given order
+     * @param string                $expected The value that came last in the payload
+     */
     #[Test]
-    public function itLetsTheLastSpellingInThePayloadWin(): void
+    #[DataProvider('collidingSpellingProvider')]
+    public function itLetsTheLastSpellingInThePayloadWin(array $payload, string $expected): void
     {
         // Two spellings of one property in a single payload is a caller mistake rather than a
         // shape to merge, and the mapper resolves it the way PHP resolves a repeated array key:
-        // the later one wins. Pinned so the order is a decision rather than an accident.
-        $result = $this->getJsonMapper()->map(
-            ['legacy_label' => 'first', 'ancient-label' => 'second'],
-            TwoAliasHolder::class,
-        );
+        // the later one in the PAYLOAD wins, whatever order the aliases were declared in.
+        $result = $this->getJsonMapper()->map($payload, TwoAliasHolder::class);
 
         self::assertInstanceOf(TwoAliasHolder::class, $result);
-        self::assertSame('second', $result->label);
+        self::assertSame($expected, $result->label);
     }
 }

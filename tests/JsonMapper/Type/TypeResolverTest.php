@@ -13,7 +13,7 @@ namespace MagicSunday\Test\JsonMapper\Type;
 
 use DateInterval;
 use DateTimeInterface;
-use InvalidArgumentException;
+use Exception;
 use MagicSunday\JsonMapper\Type\TypeResolver;
 use MagicSunday\Test\Classes\Ns\Item as NamespacedItem;
 use MagicSunday\Test\Classes\Ns_Item as UnderscoredItem;
@@ -527,8 +527,13 @@ final class RefusingCachePool implements CacheItemPoolInterface
 
 /**
  * The PSR-6 exception a pool raises for a key it will not accept.
+ *
+ * Extends the plain Exception, not SPL's InvalidArgumentException, on purpose: PSR-6 requires only
+ * that the exception implement Psr\Cache\InvalidArgumentException, and a conforming pool need not
+ * extend the SPL class. Extending it too would let the test pass even if TypeResolver caught the
+ * SPL class rather than the PSR interface - so it would not pin that the PSR interface is honoured.
  */
-final class RefusedCacheKey extends InvalidArgumentException implements CacheInvalidArgumentException
+final class RefusedCacheKey extends Exception implements CacheInvalidArgumentException
 {
     public function __construct(string $key)
     {

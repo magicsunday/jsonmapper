@@ -28,4 +28,10 @@ final class IntersectionTypedHolder
      * A value satisfying both markers, or none at all.
      */
     public (MarkerA&MarkerB)|null $both = null;
+
+    /**
+     * An ordinarily-typed property beside it, so a test can prove the write is reached and a
+     * refused sibling does not abort the rest of the object.
+     */
+    public string $label = '';
 }
