@@ -27,8 +27,11 @@ CI at ≥ 90 %; run it locally with `composer ci:test:php:coverage:gate`.
 ## Commits and pull requests
 
 - Branch from `main`. Name an issue-tied branch exactly `GH-<number>`.
-- Commit subjects are English, imperative, and capitalised: `GH-<number>: Add …` for issue-tied
-  work, or `Add …` for a free change. No `feat:`/`fix:` conventional-commit prefixes.
+- Commit subjects — and the pull-request title — are governed by the shared
+  `commit-convention` gate; the normative rule lives in
+  `magicsunday/.github/.github/workflows/commit-convention.yml@main` and is summarised in
+  [`AGENTS.md`](AGENTS.md). In short: `GH-<number>: Add …` for issue-tied work, or `Add …`
+  for a free change — a capitalised English imperative, no `feat:`/`fix:` prefixes.
 - Group changes into logical commits — one concern each; keep style-only fixes separate from
   behaviour changes.
 - Open the PR against `main`, describe the scope, the motivation, and how you verified it, and close
