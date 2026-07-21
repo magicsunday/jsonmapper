@@ -86,8 +86,9 @@ Mapping `{ "name": "Ada", "age": "36", "city": "London" }` yields `$name = 'Ada'
 * The per-value conversion pipeline is bypassed, so the value is stored verbatim and the marked property's element type is deliberately open (`mixed`) — the consumer interprets the raw map itself.
 * The property is only assigned when at least one unknown key is present, so it otherwise keeps its constructor default.
 * The marked property must be array-typed. Declare at most one collector per class (a second raises an error). A source key that matches the collector property's name is mapped as that declared property, not collected.
-* Key and value are both preserved verbatim. A configured name converter decides *whether* a key is unknown — `full_name` that camelises onto a declared `fullName` is mapped, not collected — but it does not rewrite a key that is unknown: `favourite_colour` is collected as `favourite_colour`, not `favouriteColour`. The collected map is therefore a faithful copy of the unmapped part of the payload and can be re-serialised as it arrived.
-* As with ordinary mapping, two source keys that normalize to the same name collide, and the last one wins.
+* Key and value are both stored verbatim. A name converter (or a `ReplaceProperty` alias) decides *whether* a key is unknown — `full_name` that camelises onto a declared `fullName` is mapped, not collected — but neither rewrites a key that is unknown: `favourite_colour` is collected as `favourite_colour`, not `favouriteColour`.
+* One shape is not collected: a payload key PHP canonicalises to an integer (`"42"`, `"0"`) is skipped rather than collected, so the map is not a byte-for-byte round trip of a payload carrying such keys.
+* Two source keys that normalize to the same **declared** property collide, and the last one wins. Two **collected** keys cannot collide — they keep their distinct original spellings, so a converter that would once have merged them no longer loses either.
 
 Test coverage: `tests/Attribute/UnknownPropertyCollectorTest.php`.
 

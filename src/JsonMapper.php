@@ -737,10 +737,13 @@ final readonly class JsonMapper
                 //
                 // Whether the key is UNKNOWN is decided on the converted name - a snake_case key
                 // that camelises onto a declared property is not unknown. But what is STORED is the
-                // ORIGINAL payload key, so the collected map is a faithful copy of the unmapped part
-                // of the payload: applying a property-name converter to a key that matches no
-                // property would silently rewrite it. is_string is a narrowing, not a real branch -
-                // an int key normalises to an int and is dropped by the guard above.
+                // ORIGINAL payload key, so the collected map copies the unmapped part of the payload
+                // verbatim: rewriting a key that matches no property would silently change it. Both
+                // rewrite sources are bypassed - the name converter AND a ReplaceProperty alias,
+                // whose target is by definition not a declared property here either.
+                //
+                // is_string is a narrowing for the analyser, not a reachable branch: normalizePropertyName()
+                // returns a string exactly when it received one, so an int key already returned above.
                 if (
                     ($collectorProperty !== null)
                     && ($normalizedProperty !== $collectorProperty)
@@ -808,7 +811,7 @@ final readonly class JsonMapper
         }
 
         // Merge the diverted unknown keys into the collector, the tail of the same concern that
-        // diverted them above. They go in as the raw associative array of normalized name to
+        // diverted them above. They go in as the raw associative array of ORIGINAL payload key to
         // unconverted value, bypassing the per-value pipeline (the collector's element type is
         // deliberately open). Left untouched when nothing was gathered, so the property keeps its
         // constructor default. Any explicitly mapped value for the same property is merged in

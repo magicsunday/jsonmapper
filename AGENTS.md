@@ -102,7 +102,7 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
 * Support PHP attributes and legacy DocBlock annotations side by side for backwards compatibility.
 * Introduce new attributes only with documentation and dedicated tests.
 * `ReplaceProperty` must not recurse infinitely; ensure termination.
-* `UnknownPropertyCollector` marks at most one property per class; it captures only keys that match no declared property (never its own key), and assigns the raw `array<string, mixed>` without running the per-value conversion pipeline. Whether a key is unknown is decided on the CONVERTED name, but the key it is stored under is the ORIGINAL payload spelling — the collected map is a faithful copy of the unmapped payload, so a property-name converter must not rewrite a key that matches no property.
+* `UnknownPropertyCollector` marks at most one property per class; it captures only keys that match no declared property (never its own key), and assigns the raw `array<string, mixed>` without running the per-value conversion pipeline. Whether a key is unknown is decided on the CONVERTED name, but the key it is stored under is the ORIGINAL payload spelling — neither the name converter nor a `ReplaceProperty` alias may rewrite a key that matches no property. Two collected keys therefore cannot collide (only two keys normalising to the same DECLARED property do). A payload key PHP canonicalises to an integer is skipped rather than collected.
 
 **Error handling**
 

@@ -38,8 +38,8 @@ use PHPUnit\Framework\Attributes\Test;
 final class UnknownPropertyCollectorTest extends TestCase
 {
     /**
-     * Unknown source keys are collected, by their normalized name and raw value, into the marked
-     * property while the known property is mapped normally.
+     * Unknown source keys are collected, by their original payload key and raw value, into the
+     * marked property while the known property is mapped normally.
      */
     #[Test]
     public function collectsUnknownKeysIntoTheMarkedProperty(): void
@@ -79,21 +79,48 @@ final class UnknownPropertyCollectorTest extends TestCase
     }
 
     /**
-     * The discriminator for the test above: unknown-ness is still decided on the CONVERTED name, so
-     * a snake_case key that camelises onto a declared property is mapped, not collected. Only the
-     * STORED key changed, not which keys count as unknown.
+     * The counterpart: only the STORED key changed, not which keys count as unknown. `full_name`
+     * still camelises onto the declared `fullName` and is mapped, while `home_city`, which converts
+     * onto no property, is collected under its original spelling. Both keys are snake_case, so the
+     * pair fails against the pre-change code rather than passing by conversion being a no-op.
      */
     #[Test]
     public function stillMapsASnakeCaseKeyThatConvertsOntoADeclaredProperty(): void
     {
         $result = $this->getJsonMapper()->map(
-            ['full_name' => 'Ada Lovelace', 'city' => 'London'],
+            ['full_name' => 'Ada Lovelace', 'home_city' => 'London'],
             SnakeCaseKnownPropertyCollectorEntity::class,
         );
 
         self::assertInstanceOf(SnakeCaseKnownPropertyCollectorEntity::class, $result);
         self::assertSame('Ada Lovelace', $result->fullName, 'full_name mapped onto fullName.');
-        self::assertSame(['city' => 'London'], $result->extra, 'Only the genuinely unknown key was collected.');
+        self::assertSame(
+            ['home_city' => 'London'],
+            $result->extra,
+            'The unknown snake_case key is collected verbatim, not as homeCity.',
+        );
+    }
+
+    /**
+     * Storing under the original spelling removes a collision that used to lose data: two payload
+     * keys that normalise to the same unknown name are now two entries, where the converted key
+     * previously merged them and the last one won. Ordinary mapping still collides - only the
+     * collector, whose promise is a verbatim copy, does not.
+     */
+    #[Test]
+    public function keepsBothSpellingsWhenTwoUnknownKeysNormaliseToTheSameName(): void
+    {
+        $result = $this->getJsonMapper()->map(
+            ['name' => 'Ada', 'favourite_colour' => 'green', 'favouriteColour' => 'blue'],
+            UnknownPropertyCollectorEntity::class,
+        );
+
+        self::assertInstanceOf(UnknownPropertyCollectorEntity::class, $result);
+        self::assertSame(
+            ['favourite_colour' => 'green', 'favouriteColour' => 'blue'],
+            $result->extra,
+            'Both spellings survive; neither is lost to the other.',
+        );
     }
 
     /**
@@ -276,12 +303,12 @@ final class UnknownPropertyCollectorTest extends TestCase
     public function mergesAnExplicitCollectorValueWithCollectedUnknownKeys(): void
     {
         $result = $this->getJsonMapper()->map(
-            ['name' => 'Ada', 'extra' => ['5' => 'kept'], 'unknownKey' => 'collected'],
+            ['name' => 'Ada', 'extra' => ['5' => 'kept'], 'unknown_key' => 'collected'],
             UnknownPropertyCollectorTypedEntity::class,
         );
 
         self::assertInstanceOf(UnknownPropertyCollectorTypedEntity::class, $result);
-        self::assertSame([5 => 'kept', 'unknownKey' => 'collected'], $result->extra);
+        self::assertSame([5 => 'kept', 'unknown_key' => 'collected'], $result->extra);
     }
 
     /**
