@@ -73,8 +73,16 @@ final class JsonMapperRobustnessTest extends TestCase
     }
 
     #[Test]
-    public function itMapsLargeDatasetsWithinReasonableResources(): void
+    public function itMapsALargeCollectionWithoutDroppingOrReorderingEntries(): void
     {
+        // Named for what is asserted. The former name promised bounded resources, which no
+        // assertion here checks - a wall-clock or memory bound would be flaky, and the resource
+        // property worth pinning is a structural one that ClassMetadataReuseTest already owns:
+        // the class's mapping shape is derived once, not once per element.
+        //
+        // What a large payload does pin is that scale itself changes nothing: first and last
+        // element are asserted by their own values, so a run that dropped, duplicated or
+        // reordered entries cannot satisfy the count alone.
         $items = [];
         for ($i = 0; $i < 500; ++$i) {
             $items[] = [

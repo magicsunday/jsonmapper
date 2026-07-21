@@ -58,6 +58,25 @@ parameters:
             message: '#^Property MagicSunday\\Test\\Fixtures\\Docs\\NestedCollections\\CollectionShapesHolder\:\:\$templated with generic class MagicSunday\\Test\\Fixtures\\Docs\\NestedCollections\\TemplatedCollection does not specify its types\: T$#'
             path: %currentWorkingDirectory%/tests/Fixtures/Docs/NestedCollections/CollectionShapesHolder.php
 
+        # The deprecated call IS the test's purpose: addType() is marked deprecated but remains
+        # public and documented as the escape hatch that outranks the built-in strategies, so the
+        # legacy path needs a pin. Migrating the call would delete the test case.
+        # Anchored at the start only: the message continues onto a second line with the
+        # replacement the annotation names.
+        -
+            identifier: method.deprecated
+            message: '#^Call to deprecated method addType\(\) of class MagicSunday\\JsonMapper\:#'
+            path: %currentWorkingDirectory%/tests/JsonMapper/Value/ClosureTypeHandlerTest.php
+
+        # The contract violation IS the test's purpose: a closure's declared return type is
+        # documentation to PHP, not a runtime check, so a consumer whose resolver returns the wrong
+        # thing reaches the guard under test through the same public add(). Satisfying the analyser
+        # here would delete the test case.
+        -
+            identifier: argument.type
+            message: '#^Parameter \#2 \$resolver of method MagicSunday\\JsonMapper\\Resolver\\ClassResolver\:\:add\(\) expects class\-string\|\(Closure\(mixed\)\: class\-string\)\|\(Closure\(mixed, MagicSunday\\JsonMapper\\Context\\MappingContext\)\: class\-string\), Closure\(\)\: 123 given\.$#'
+            path: %currentWorkingDirectory%/tests/JsonMapper/Resolver/ClassResolverTest.php
+
         # The unused parameter IS the fixture's purpose: it pins that a non-promoted constructor
         # parameter sharing a property name must not supply that property's default.
         -

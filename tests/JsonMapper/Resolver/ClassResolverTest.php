@@ -19,7 +19,6 @@ use MagicSunday\Test\Fixtures\Resolver\DummyMappedClass;
 use MagicSunday\Test\Fixtures\Resolver\DummyResolvedClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use ReflectionProperty;
 
 /**
  * @internal
@@ -63,12 +62,13 @@ final class ClassResolverTest extends TestCase
     #[Test]
     public function itRejectsResolversReturningNonStrings(): void
     {
+        // Registered through the public API rather than written into the private map: a closure's
+        // declared return type is documentation to PHP, not a runtime check, so a consumer whose
+        // resolver returns the wrong thing reaches this guard through add() like any other. Going
+        // around add() would also skip its own validation, and so could pass on a map shape the
+        // resolver never actually accepts.
         $resolver = new ClassResolver();
-
-        $classMap = new ReflectionProperty(ClassResolver::class, 'classMap');
-        $classMap->setValue($resolver, [
-            DummyBaseClass::class => static fn (): int => 123,
-        ]);
+        $resolver->add(DummyBaseClass::class, static fn (): int => 123);
 
         $context = new MappingContext([]);
 

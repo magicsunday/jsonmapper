@@ -13,6 +13,7 @@ namespace MagicSunday\Test;
 
 use DateInterval;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
+use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\JsonMapper\Exception\UnknownPropertyException;
 use MagicSunday\JsonMapper\Value\ClosureTypeHandler;
 use MagicSunday\Test\Classes\Base;
@@ -41,6 +42,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use stdClass;
 
+use function get_object_vars;
 use function is_array;
 use function is_string;
 
@@ -968,18 +970,36 @@ JSON
     #[Test]
     public function itAllowsScalarToObjectCastingWhenConfigured(): void
     {
-        $config = (new JsonMapperConfiguration())->withScalarToObjectCasting(true);
+        // What the option actually does is lift a refusal, not perform a cast: a scalar carries no
+        // property values, so the mapper builds the target from it and the scalar contributes
+        // nothing. Asserting only "no errors and an instance of Base" left that unsaid - and would
+        // hold just as well if the property had been skipped entirely.
+        $payload = ['simple' => 'identifier'];
+        $config  = (new JsonMapperConfiguration())->withScalarToObjectCasting(true);
 
-        $result = $this->getJsonMapper([], $config)
-            ->mapWithReport(
-                [
-                    'simple' => 'identifier',
-                ],
-                Base::class,
-            );
+        $result = $this->getJsonMapper([], $config)->mapWithReport($payload, Base::class);
 
         self::assertFalse($result->getReport()->hasErrors());
+
         $mapped = $result->getValue();
+
         self::assertInstanceOf(Base::class, $mapped);
+
+        // Read through get_object_vars() rather than as $mapped->simple: the fixture's docblock
+        // declares the property non-nullable, so a direct read is narrowed to that type and every
+        // is-it-set assertion becomes one the analyser proves in advance.
+        $properties = get_object_vars($mapped);
+
+        self::assertInstanceOf(Simple::class, $properties['simple'], 'The property is populated, not skipped.');
+        self::assertNull($properties['simple']->string, 'And the scalar contributes nothing to it.');
+
+        // The discriminator: without the option the very same payload is refused, so the assertions
+        // above pin the option rather than the mapper's default behaviour.
+        $refused = $this->getJsonMapper()->mapWithReport($payload, Base::class);
+        $errors  = $refused->getReport()->getErrors();
+
+        self::assertCount(1, $errors);
+        self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
+        self::assertSame('$.simple', $errors[0]->getPath());
     }
 }
