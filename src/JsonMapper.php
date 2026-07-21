@@ -1209,14 +1209,16 @@ final readonly class JsonMapper
             return 'array';
         }
 
-        if ($this->isNullType($type)) {
-            return 'null';
-        }
-
         if ($type instanceof UnionType) {
             return $this->describeUnionType($type);
         }
 
+        // No branch for the null type: it is a BuiltinType, so the first branch already answers it
+        // with the identifier's own value. A separate check after that one could never run.
+        //
+        // The remaining kinds - an intersection, a template parameter - carry no name the mapper
+        // can put in a message, so the type object's class is the most it can say. Nothing produces
+        // one today: the resolvers answer with a builtin, an object, a collection or a union.
         return $type::class;
     }
 

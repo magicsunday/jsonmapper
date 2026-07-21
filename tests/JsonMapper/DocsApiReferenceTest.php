@@ -125,6 +125,9 @@ final class DocsApiReferenceTest extends TestCase
             JsonMapperConfiguration::class . '::strict',
             JsonMapperConfiguration::class . '::fromArray',
             JsonMapperConfiguration::class . '::fromContext',
+            // Named twice: once among the factory helpers, and again in the handler-facing context
+            // table as the way to rebuild the whole configuration from what a handler is given.
+            JsonMapperConfiguration::class . '::fromContext',
             JsonMapper::class . '::createWithDefaults',
             JsonMapper::class . '::createWithDefaults',
             JsonMapper::class . '::addTypeHandler',
