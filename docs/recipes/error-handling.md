@@ -169,6 +169,41 @@ with no error recorded - the scalar simply supplies nothing.
 A property that declares no type at all is not coerced: it makes no claim about its value, so the
 decoded payload is assigned unchanged - array, object, scalar or null alike, with nothing reported.
 
+### Which declaration wins
+
+A property's type is read from its docblock first, then from the native declaration. That order is
+right when the docblock **refines** the native type and wrong when it **widens** it:
+
+| Native type | Docblock | Authoritative | Why |
+|---|---|---|---|
+| `Simple` | — | native | the only declaration |
+| — | `@var Simple` | docblock | the only declaration |
+| `array` | `@var string[]` | **docblock** | a refinement — this is what reading docblocks is for |
+| `int` | `@var int\|null` | **native** | a widening — the docblock cannot grant what the target rejects |
+
+The last row is enforced where the value is handed over, not where the type is resolved, because the
+two lanes hand it to different declarations:
+
+* Assigned to a **property**, the value goes through the accessor, and a refusal comes back as a
+  reported type mismatch naming the type that refused it. That includes a property reachable only
+  through a setter, where the setter may legitimately accept more than the field it writes.
+* Passed to a **constructor parameter**, there is no assignment to intercept: the value would reach
+  `new $className()` and raise a native error the report cannot see. So every argument drawn from
+  the payload is checked against the parameter's own declaration first, and a value the parameter
+  would refuse is reported instead. What fills the gap then is exactly what fills it when the value
+  was simply absent: a parameter with a default takes its default and the rest of the object maps; a
+  required parameter records a second `MissingConstructorArgumentException` and the object is not
+  built — the same two-error, no-object outcome a required parameter already produces when its value
+  fails ordinary conversion.
+
+A refused element of a **variadic** parameter is dropped on its own, keeping its valid siblings, the
+way an unmappable collection element is — one bad entry does not discard the rest of the tail.
+
+The constructor check keys on the declaration, not on a contradicting docblock, so it also covers
+the case where nothing contradicts anything: a property that declares no type at all makes no claim
+the mapper can check, and its value meets the parameter's declaration for the first time at the
+call.
+
 Configuration problems are not mapping failures and still surface as exceptions in both modes: a
 class name that does not exist, a class that cannot be instantiated, or a collection whose element
 type cannot be resolved, is a defect in the call rather than in the payload.

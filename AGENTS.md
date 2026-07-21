@@ -128,6 +128,32 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
   report. Do NOT try to classify a variadic `TypeError` by its trace frame: an argument-binding
   refusal and a body error both report the setter as their innermost frame, so the two cannot be
   told apart that way, and the attempt masks the body bug it means to preserve.
+* The constructor argument is guarded for the same reason, against a different declaration. A
+  property assignment can be intercepted; a constructor parameter cannot, so a value the parameter
+  refuses raises a native `TypeError` from `new $className()`, outside the report. Every argument
+  drawn from the payload is therefore checked against the parameter's own `ReflectionType` before
+  the call, and a refused one is recorded and then falls through to the lanes an ABSENT value takes:
+  a defaulted parameter takes its default, a required one records a second
+  `MissingConstructorArgumentException` and the object is not built - the same outcome a required
+  parameter already produces when its value fails ordinary conversion, so the refusal adds a lane, it
+  does not invent a new failure shape. A refused VARIADIC element is dropped individually, keeping its
+  valid siblings, matching the collection element loop's "one bad entry must not discard the rest"
+  rule. The check keys on the DECLARATION, not on a contradicting docblock: a property with no type
+  metadata at all reaches the parameter just as unchecked as one whose docblock widens it.
+  `NativeTypeMatcher` answers one-sidedly on purpose - only a PROVEN violation refuses, and a
+  declaration it cannot judge passes. A missed violation degrades to the native error PHP would have
+  raised anyway; a fabricated one would refuse a value the target accepts, and no caller could work
+  around it. It resolves `self`/`parent`/`static` against the constructor's DECLARING class, because
+  whether reflection spells a relative type as `self` or as the class it stands for is a runtime
+  detail that changed between supported PHP versions - keying on the spelling would wave every value
+  through on the version that reports `self`. Do NOT extend this check to the property lane: the
+  write goes through the accessor, which may accept more than the field it writes, so the field's
+  declaration is not the one to judge against - and that lane is already covered by the write guard
+  above.
+* A docblock refines the resolved type; it never widens the target's declaration. Types are read
+  docblock-first because `array` narrowed to `string[]` is the library's core capability, so the
+  resolver must not be turned into "native always wins". The widening direction is refused at the
+  hand-over instead, by the two guards above.
 * The abort-or-record policy lives in `MappingContext::throwOrRecord()`, whose name states the
   order because the order is the contract. A site that has something usable to hand back - an empty
   collection, an unconverted value - routes through it. The two that do not both record BEFORE

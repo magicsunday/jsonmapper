@@ -95,6 +95,68 @@ parameters:
             message: '#^Parameter \#2 \$resolver of method MagicSunday\\JsonMapper\\Resolver\\ClassResolver\:\:add\(\) expects class\-string\|\(Closure\(mixed\)\: class\-string\)\|\(Closure\(mixed, MagicSunday\\JsonMapper\\Context\\MappingContext\)\: class\-string\), Closure\(\)\: 123 given\.$#'
             path: %currentWorkingDirectory%/tests/JsonMapper/Resolver/ClassResolverTest.php
 
+        # The contradicting docblock IS the fixture's purpose: it pins that a docblock which WIDENS
+        # its own native type cannot grant a value the property rejects. PHPStan flagging it is the
+        # point - the issue notes that static analysis catches this class of mistake, which is why
+        # the mapper only has to refuse to act on it. Making the docblock agree deletes the test case.
+        -
+            identifier: property.phpDocType
+            message: '#^PHPDoc tag @var for property MagicSunday\\Test\\Fixtures\\TypePrecedence\\WideningPropertyHolder\:\:\$value with type int\|null is not subtype of native type int\.$#'
+            path: %currentWorkingDirectory%/tests/Fixtures/TypePrecedence/WideningPropertyHolder.php
+
+        -
+            identifier: property.phpDocType
+            message: '#^PHPDoc type for property MagicSunday\\Test\\Fixtures\\TypePrecedence\\WideningConstructorHolder\:\:\$value with type int\|null is not subtype of native type int\.$#'
+            path: %currentWorkingDirectory%/tests/Fixtures/TypePrecedence/WideningConstructorHolder.php
+
+        -
+            identifier: parameter.phpDocType
+            message: '#^PHPDoc tag @param for parameter \$value with type int\|null is not subtype of native type int\.$#'
+            path: %currentWorkingDirectory%/tests/Fixtures/TypePrecedence/WideningConstructorHolder.php
+
+        -
+            identifier: parameter.phpDocType
+            message: '#^PHPDoc tag @param for parameter \$value with type int\|string is not subtype of native type int\.$#'
+            path: %currentWorkingDirectory%/tests/Fixtures/TypePrecedence/ScalarWideningConstructorHolder.php
+
+        -
+            identifier: property.phpDocType
+            message: '#^PHPDoc type for property MagicSunday\\Test\\Fixtures\\TypePrecedence\\ScalarWideningConstructorHolder\:\:\$value with type int\|string is not subtype of native type int\.$#'
+            path: %currentWorkingDirectory%/tests/Fixtures/TypePrecedence/ScalarWideningConstructorHolder.php
+
+        # The missing type IS the fixture's purpose: a property with no type metadata at all is what
+        # lets a value reach a natively typed constructor parameter unchecked. Typing it would delete
+        # the test case.
+        -
+            identifier: missingType.property
+            message: '#^Property MagicSunday\\Test\\Fixtures\\TypePrecedence\\UntypedConstructorHolder\:\:\$count has no type specified\.$#'
+            path: %currentWorkingDirectory%/tests/Fixtures/TypePrecedence/UntypedConstructorHolder.php
+
+        # The missing type IS the fixture's purpose: an untyped property keeps the resolver
+        # permissive so a raw array reaches the `self`-typed constructor parameter. Typing it would
+        # delete the test case.
+        -
+            identifier: missingType.property
+            message: '#^Property MagicSunday\\Test\\Fixtures\\TypePrecedence\\SelfTypedConstructorHolder\:\:\$child has no type specified\.$#'
+            path: %currentWorkingDirectory%/tests/Fixtures/TypePrecedence/SelfTypedConstructorHolder.php
+
+        # The missing type IS the fixture's purpose: an untyped property keeps the resolver
+        # permissive so a raw array reaches the `parent`-typed constructor parameter. Typing it
+        # would delete the test case.
+        -
+            identifier: missingType.property
+            message: '#^Property MagicSunday\\Test\\Fixtures\\TypePrecedence\\ParentTypedConstructorHolder\:\:\$origin has no type specified\.$#'
+            path: %currentWorkingDirectory%/tests/Fixtures/TypePrecedence/ParentTypedConstructorHolder.php
+
+        # The unreachable null IS the fixture's purpose: the getter's declared nullability is what
+        # makes the mapper resolve the property as nullable and hand the null to the setter, while
+        # the non-nullable field it wraps is the other half of the case. Narrowing the return type
+        # collapses both and deletes the test case.
+        -
+            identifier: return.unusedType
+            message: '#^Method MagicSunday\\Test\\Fixtures\\TypePrecedence\\AccessorWideningHolder\:\:getValue\(\) never returns null so it can be removed from the return type\.$#'
+            path: %currentWorkingDirectory%/tests/Fixtures/TypePrecedence/AccessorWideningHolder.php
+
         # The unused parameter IS the fixture's purpose: it pins that a non-promoted constructor
         # parameter sharing a property name must not supply that property's default.
         -
