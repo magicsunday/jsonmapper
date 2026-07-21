@@ -57,7 +57,7 @@ should not send more than one alias for the same target.
 Test coverage: `tests/Attribute/ReplacePropertyTest.php::replaceProperty`.
 
 ## `UnknownPropertyCollector`
-Mark one property as the sink for every source key that matches no declared property. Instead of being ignored (lenient mode) or reported (strict mode), the unknown keys are collected into an associative `array<string, mixed>` — the normalized key mapped to its raw, unconverted value — and assigned to the marked property as-is. This preserves unmodelled input rather than losing it.
+Mark one property as the sink for every source key that matches no declared property. Instead of being ignored (lenient mode) or reported (strict mode), the unknown keys are collected into an associative `array<string, mixed>` — the original payload key mapped to its raw, unconverted value — and assigned to the marked property as-is. This preserves unmodelled input rather than losing it.
 
 ```php
 <?php
@@ -86,6 +86,7 @@ Mapping `{ "name": "Ada", "age": "36", "city": "London" }` yields `$name = 'Ada'
 * The per-value conversion pipeline is bypassed, so the value is stored verbatim and the marked property's element type is deliberately open (`mixed`) — the consumer interprets the raw map itself.
 * The property is only assigned when at least one unknown key is present, so it otherwise keeps its constructor default.
 * The marked property must be array-typed. Declare at most one collector per class (a second raises an error). A source key that matches the collector property's name is mapped as that declared property, not collected.
+* Key and value are both preserved verbatim. A configured name converter decides *whether* a key is unknown — `full_name` that camelises onto a declared `fullName` is mapped, not collected — but it does not rewrite a key that is unknown: `favourite_colour` is collected as `favourite_colour`, not `favouriteColour`. The collected map is therefore a faithful copy of the unmapped part of the payload and can be re-serialised as it arrived.
 * As with ordinary mapping, two source keys that normalize to the same name collide, and the last one wins.
 
 Test coverage: `tests/Attribute/UnknownPropertyCollectorTest.php`.
