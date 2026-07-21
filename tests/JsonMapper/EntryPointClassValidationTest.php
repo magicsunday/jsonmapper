@@ -16,6 +16,7 @@ use InvalidArgumentException;
 use MagicSunday\Test\Fixtures\EntryPoint\AbstractShape;
 use MagicSunday\Test\Fixtures\EntryPoint\Circle;
 use MagicSunday\Test\Fixtures\EntryPoint\Shape;
+use MagicSunday\Test\Fixtures\EntryPoint\ShapeHolder;
 use MagicSunday\Test\Fixtures\Enum\SampleStatus;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -124,6 +125,29 @@ final class EntryPointClassValidationTest extends TestCase
                 AbstractShape::class,
                 $exception->getMessage(),
                 'And not the one the resolver chose.',
+            );
+        }
+    }
+
+    #[Test]
+    public function itDoesNotEchoAResolverProducedClassOnANestedProperty(): void
+    {
+        // The harder case, and the one string-equality provenance got wrong: on a nested property
+        // the mapper re-enters with the RESOLVED class as its argument, so "requested" and
+        // "resolved" are the same string even though the value came from a payload-driven resolver.
+        // The name must still not be echoed - the message escapes past the report into a generic
+        // handler exactly as it does at the entry point.
+        $mapper = $this->getJsonMapper([Shape::class => static fn (): string => AbstractShape::class]);
+
+        try {
+            $mapper->map(['shape' => ['name' => 'round']], ShapeHolder::class);
+
+            self::fail('A nested resolver returning an abstract class must be refused.');
+        } catch (InvalidArgumentException $exception) {
+            self::assertStringNotContainsString(
+                AbstractShape::class,
+                $exception->getMessage(),
+                'The payload-chosen class name must not reach the message.',
             );
         }
     }

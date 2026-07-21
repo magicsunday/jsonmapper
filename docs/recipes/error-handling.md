@@ -173,13 +173,14 @@ Configuration problems are not mapping failures and still surface as exceptions 
 class name that does not exist, a class that cannot be instantiated, or a collection whose element
 type cannot be resolved, is a defect in the call rather than in the payload.
 
-"Cannot be instantiated" covers more than a typo: an **interface**, an **abstract class**, an
-**enum** and a class with a **private constructor** all exist as far as `class_exists()` is
-concerned, and all four make `new $className` raise. They are refused at the entry point with an
-`InvalidArgumentException` naming the class, rather than reaching the constructor and raising a
-native `Error` that no error collection can see. To map onto an interface or an abstract base,
-register the concrete target with `addCustomClassMapEntry()` — the class map is consulted first, so
-by the time the check runs there is nothing left to refuse.
+"Cannot be instantiated" covers more than a typo: an **abstract class**, an **enum** and a class
+with a **private constructor** all pass `class_exists()`, and an **interface** resolves too (the
+resolver accepts one through `interface_exists()`) — yet all four make `new $className` raise. They
+are refused where they would be built with an `InvalidArgumentException` naming the class, rather
+than reaching the constructor and raising a native `Error` that no error collection can see. To map onto an interface or an abstract base,
+register the concrete target with `addCustomClassMapEntry()` — the check runs where an object is
+actually built, on the concrete class the map produced, so a base used only as the declared element
+type of a polymorphic list is never refused.
 
 The refused name is echoed only when it is the name **you** passed. A class-map resolver's input is
 the payload, so when the resolver picked the target the message names the requested class instead —

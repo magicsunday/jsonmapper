@@ -57,6 +57,12 @@ class CamelCasePropertyNameConverterTest extends TestCase
             'a bare acronym'       => ['ID', 'id'],
             'single upper letter'  => ['A', 'a'],
 
+            // A non-ASCII SCREAMING key is left as it arrived: strtolower() folds ASCII bytes only,
+            // so folding it would half-lower it into a name that is neither the original nor the
+            // intended target. A full fold would need ext-mbstring, which the library does not
+            // require - so the key is passed through rather than mangled.
+            'non-ascii screaming case' => ['ÜBER_MICH', 'ÜBERMICH'],
+
             // Degenerate inputs, which reach the converter because a payload key can be anything.
             'empty'              => ['', ''],
             'a single letter'    => ['a', 'a'],
@@ -80,8 +86,7 @@ class CamelCasePropertyNameConverterTest extends TestCase
 
     /**
      * @param string $name     Raw property name as a payload may spell it
-     * @param string $expected Property name the mapper looks for - unused here, but the provider
-     *                         is shared so that no case is exercised by only one of the two rules
+     * @param string $expected Property name the mapper looks for - the authoritative fixed point
      */
     #[Test]
     #[DataProvider('propertyNameProvider')]
@@ -91,9 +96,17 @@ class CamelCasePropertyNameConverterTest extends TestCase
         // arrive again - a ReplaceProperty alias naming the PHP property, a caller normalising
         // before handing over. A second pass has to be a no-op, or the same property resolves to
         // two different names depending on the route it took.
+        //
+        // The fixed point is taken from the provider ($expected), not from the unit's own output:
+        // asserting convert(convert($name)) === convert($name) would hold for any idempotent
+        // implementation, including a broken one, because it never names what the result must be.
         $converter = new CamelCasePropertyNameConverter();
-        $once      = $converter->convert($name);
 
-        self::assertSame($once, $converter->convert($once));
+        self::assertSame($expected, $converter->convert($expected), 'The converted name is a fixed point.');
+        self::assertSame(
+            $expected,
+            $converter->convert($converter->convert($name)),
+            'And a second pass over the raw name reaches it too.',
+        );
     }
 }

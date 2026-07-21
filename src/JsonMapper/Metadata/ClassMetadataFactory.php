@@ -390,8 +390,8 @@ final class ClassMetadataFactory
     private function getReflectionClass(string $className): ?ReflectionClass
     {
         // Cannot currently answer null: every class reaching the factory came through the class
-        // resolver, which refuses a name that resolves to nothing, and the entry point additionally
-        // refuses one that cannot be instantiated. The three callers therefore all take their
+        // resolver, which refuses a name that resolves to nothing, and an object is instantiated
+        // only after the instantiability check has passed. Every caller therefore takes its
         // non-null branch. It stays because the alternative is a ReflectionException from a
         // constructor - no MappingException, and outside error collection entirely.
         if (!class_exists($className)) {

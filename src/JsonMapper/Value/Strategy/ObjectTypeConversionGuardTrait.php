@@ -89,9 +89,10 @@ trait ObjectTypeConversionGuardTrait
     {
         $objectType = $this->extractObjectType($type);
 
-        // Unreachable through the chain: supports() returns false for a non-object type, so convert()
-        // is not called for one. Kept for a DIRECT call that skips supports() - it hands the value
-        // back untouched rather than dereferencing a null object type.
+        // Unreachable while the chain is ordered as it is: supports() returns false for a non-object
+        // type, so convert() is not called for one. The strategies are internal, so what this
+        // defends is a chain change that lets a non-object type through - it hands the value back
+        // untouched rather than dereferencing a null object type.
         if ($objectType === null) {
             return $value;
         }

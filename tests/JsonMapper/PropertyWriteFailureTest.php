@@ -15,6 +15,7 @@ use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\Test\Fixtures\PropertyWrite\IntersectionTypedHolder;
 use MagicSunday\Test\Fixtures\PropertyWrite\MarkerA;
 use MagicSunday\Test\Fixtures\PropertyWrite\MarkerB;
+use MagicSunday\Test\Fixtures\Shapes\AccessorOnlyHolder;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -61,6 +62,30 @@ final class PropertyWriteFailureTest extends TestCase
 
         self::assertInstanceOf(IntersectionTypedHolder::class, $mapped, 'The object is still built.');
         self::assertNull($mapped->both, 'And the refused property keeps its default.');
+    }
+
+    #[Test]
+    public function itNamesTheRefusedTypeWhenTheWriteGoesThroughASetter(): void
+    {
+        // A property exposed only through an accessor pair has no reflectable backing property, so
+        // deriving the expected type from reflection reports mixed - which is wrong: the setter's
+        // parameter is what refused the value. The accessor already computed the refused type, and
+        // that is what the record now carries.
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['label' => ['not a string']],
+            AccessorOnlyHolder::class,
+        );
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors);
+
+        $exception = $errors[0]->getException();
+
+        self::assertInstanceOf(TypeMismatchException::class, $exception);
+        self::assertSame('$.label', $exception->getPath());
+        self::assertSame('string', $exception->getExpectedType(), 'The setter parameter, not mixed.');
+        self::assertSame('array', $exception->getActualType());
     }
 
     #[Test]
