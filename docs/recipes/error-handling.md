@@ -170,8 +170,35 @@ A property that declares no type at all is not coerced: it makes no claim about 
 decoded payload is assigned unchanged - array, object, scalar or null alike, with nothing reported.
 
 Configuration problems are not mapping failures and still surface as exceptions in both modes: a
-class name that does not exist, or a collection whose element type cannot be resolved, is a defect
-in the call rather than in the payload.
+class name that does not exist, a class that cannot be instantiated, or a collection whose element
+type cannot be resolved, is a defect in the call rather than in the payload.
+
+"Cannot be instantiated" covers more than a typo: an **abstract class**, an **enum** and a class
+with a **private constructor** all pass `class_exists()`, and an **interface** resolves too (the
+resolver accepts one through `interface_exists()`) — yet all four make `new $className` raise. They
+are refused where they would be built with an `InvalidArgumentException` naming the class, rather
+than reaching the constructor and raising a native `Error` that no error collection can see. To map onto an interface or an abstract base,
+register the concrete target with `addCustomClassMapEntry()` — the check runs where an object is
+actually built, on the concrete class the map produced, so a base used only as the declared element
+type of a polymorphic list is never refused.
+
+The refused name is echoed only when it is the name **you** passed. A class-map resolver's input is
+the payload, so when the resolver picked the target the message names the requested class instead —
+enough to find the entry, without reflecting a payload-chosen string into a response body.
+
+## When the write itself refuses the value
+
+Conversion runs against the type the mapper could derive from a property, and that is not always the
+type the property declares. A property typed by an **intersection** (`A&B`) is the reachable case:
+the mapper cannot model it, so it accepts any converted value and the property refuses it at the
+write. That refusal is reported as a `TypeMismatchException` at the property path, naming the
+declared type — not left to escape as a native error. A no-default intersection property is also
+reported as **missing** in strict mode, because no absent value satisfies it.
+
+A `TypeError` raised **inside your own setter body** (the setter passes the value on to another
+strict-typed call) is deliberately *not* caught and re-labelled. It is a bug in the setter rather
+than a payload mismatch, so it propagates as itself instead of being reported against the payload
+value and buried in the report.
 
 ## Which entry point throws
 

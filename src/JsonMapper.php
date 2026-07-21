@@ -51,6 +51,7 @@ use ReflectionClass;
 use ReflectionException;
 use ReflectionMethod;
 use ReflectionProperty;
+use Symfony\Component\PropertyAccess\Exception\InvalidTypeException;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
@@ -142,7 +143,18 @@ final readonly class JsonMapper
         $this->collectionFactory              = new CollectionFactory(
             $this->valueConverter,
             $this->classResolver,
+            // Fulfils CollectionFactoryInterface's instantiator, whose nullable $arguments the null
+            // arm answers - unreachable today, kept because the signature admits it.
+            //
+            // The instantiability guard runs here too: a collection-typed PROPERTY resolves its
+            // wrapper class through this lane, and that class - named by a docblock @var or a
+            // class-map entry - can be an interface or abstract just as the entry-point classes
+            // can. Unguarded it reached `new $className` and raised a native Error that no
+            // MappingException catch collects, the same escape the entry point closes. echoName is
+            // false because the wrapper name may be docblock- or resolver-derived, not the caller's.
             function (string $className, ?array $arguments): object {
+                $this->assertInstantiable($className, $className, false);
+
                 if ($arguments === null) {
                     return $this->makeInstance($className);
                 }
@@ -175,7 +187,9 @@ final readonly class JsonMapper
                 // back - a per-nested-object round trip that could only ever restore what was
                 // already there, and the mechanism by which a custom option went missing before #64
                 // made the write a merge. The context already carries the settings.
-                fn (mixed $value, string $resolvedClass, MappingContext $context): mixed => $this->map($value, $resolvedClass, null, $context),
+                // echoUnresolvableClass: false - $resolvedClass came from a class-map resolver,
+                // whose input is the payload, so a failure to instantiate it must never reflect it.
+                fn (mixed $value, string $resolvedClass, MappingContext $context): mixed => $this->doMap($value, $resolvedClass, null, $context, null, false),
             ),
         );
         $this->valueConverter->addStrategy(new BuiltinValueConversionStrategy());
@@ -320,6 +334,33 @@ final readonly class JsonMapper
         ?MappingContext $context = null,
         ?JsonMapperConfiguration $configuration = null,
     ): mixed {
+        // A public caller's $className is trusted configuration (see the SECURITY note above), so a
+        // failure to instantiate it may be echoed to help the caller find the mistake. The nested
+        // re-entry below passes a class a resolver produced from the payload, and routes through
+        // doMap() with echo off so that name is never reflected.
+        return $this->doMap($json, $className, $collectionClassName, $context, $configuration, true);
+    }
+
+    /**
+     * Performs a mapping run, carrying whether an uninstantiable class may be named in the error.
+     *
+     * @param mixed                        $json                  Source data to map into PHP objects.
+     * @param class-string|null            $className             Class to instantiate for mapped objects.
+     * @param class-string|null            $collectionClassName   Collection class wrapping the mapped objects.
+     * @param MappingContext|null          $context               Mapping context reused across nested mappings.
+     * @param JsonMapperConfiguration|null $configuration         Configuration overriding the defaults.
+     * @param bool                         $echoUnresolvableClass Whether $className is caller-supplied and so safe to echo.
+     *
+     * @return mixed The mapped PHP value or collection produced from the given JSON.
+     */
+    private function doMap(
+        mixed $json,
+        ?string $className,
+        ?string $collectionClassName,
+        ?MappingContext $context,
+        ?JsonMapperConfiguration $configuration,
+        bool $echoUnresolvableClass,
+    ): mixed {
         // Two branches, not three. The third rebuilt a configuration from the context for callers
         // that supplied only a context - which is every nested object - and nothing read it once
         // the two questions the mapper asks moved to the context. That was the READ half of the
@@ -332,15 +373,24 @@ final readonly class JsonMapper
             $context->replaceOptions($configuration->toOptions());
         }
 
+        // Instantiability is asserted at the point of instantiation, not here. For a list mapped
+        // onto an abstract element class - the ordinary polymorphic case - the resolved element
+        // class is the abstract base, used only as the element TYPE while the class map picks a
+        // concrete subclass per element. Refusing it here broke exactly the mapping the class map
+        // exists for; the single-object lanes below assert it where it is actually built.
         $resolvedClassName = $className === null
             ? null
             : $this->classResolver->resolve($className, $json, $context);
 
+        // The collection class, by contrast, IS instantiated at this level (wrapCollection), and it
+        // is never discriminated per element, so asserting it here is correct.
         $resolvedCollectionClassName = $collectionClassName === null
             ? null
-            : $this->classResolver->resolve($collectionClassName, $json, $context);
-
-        $this->assertClassesExists($resolvedClassName, $resolvedCollectionClassName);
+            : $this->assertInstantiable(
+                $this->classResolver->resolve($collectionClassName, $json, $context),
+                $collectionClassName,
+                $echoUnresolvableClass,
+            );
 
         $collectionValueType = $this->extractCollectionType(
             $resolvedClassName,
@@ -376,10 +426,16 @@ final readonly class JsonMapper
                 );
             }
 
-            return $this->makeInstance($resolvedClassName);
+            return $this->makeInstance(
+                $this->assertInstantiable($resolvedClassName, $className, $echoUnresolvableClass),
+            );
         }
 
-        return $this->mapSingleObject($json, $resolvedClassName, $context);
+        return $this->mapSingleObject(
+            $json,
+            $this->assertInstantiable($resolvedClassName, $className, $echoUnresolvableClass),
+            $context,
+        );
     }
 
     /**
@@ -837,7 +893,11 @@ final readonly class JsonMapper
             ): void {
                 try {
                     $this->setProperty($entity, $property, $value, $propertyContext);
-                } catch (ReadonlyPropertyException $exception) {
+                } catch (ReadonlyPropertyException|TypeMismatchException $exception) {
+                    // Enumerated rather than caught as MappingException: these are the two ways a
+                    // write itself fails, and both belong to the property the path already names.
+                    // A wider catch here would also absorb whatever a future step before the write
+                    // starts raising, and report it against the wrong path.
                     $this->handleMappingException($exception, $propertyContext);
                 }
             });
@@ -1195,14 +1255,16 @@ final readonly class JsonMapper
             return 'array';
         }
 
-        if ($this->isNullType($type)) {
-            return 'null';
-        }
-
         if ($type instanceof UnionType) {
             return $this->describeUnionType($type);
         }
 
+        // No branch for the null type: it is a BuiltinType, so the first branch already answers it
+        // with the identifier's own value. A separate check after that one could never run.
+        //
+        // The remaining kinds - an intersection, a template parameter - carry no name the mapper
+        // can put in a message, so the type object's class is the most it can say. Nothing produces
+        // one today: the resolvers answer with a builtin, an object, a collection or a union.
         return $type::class;
     }
 
@@ -1499,40 +1561,57 @@ final readonly class JsonMapper
     }
 
     /**
-     * Assert that the given classes exist.
+     * Asserts that a class the call named can actually be built.
+     *
+     * Existence is not the question the entry point has to answer - the resolver already refused a
+     * name that resolves to nothing. What is left is whether `new $className` can run: an
+     * interface, an abstract class, an enum and a class with a private constructor all pass an
+     * existence check and then raise a native Error, which is invisible to error collection and
+     * says nothing about which argument was wrong.
+     *
+     * @param class-string $resolved  Class name the resolver produced.
+     * @param class-string $requested Class name the call passed in.
+     * @param bool         $echoName  Whether $requested is caller-supplied and so safe to echo.
+     *
+     * @return class-string The resolved name, unchanged
+     *
+     * @throws InvalidArgumentException When the resolved class cannot be instantiated.
      */
-    private function assertClassesExists(?string $className, ?string $collectionClassName = null): void
+    private function assertInstantiable(string $resolved, string $requested, bool $echoName): string
     {
-        if (
-            ($className !== null)
-            && !class_exists($className)
-        ) {
-            throw new InvalidArgumentException(
-                sprintf(
-                    'Class [%s] does not exist',
-                    $className
-                )
-            );
+        // The instantiability fact is memoised in the resolver: this runs at every instantiation -
+        // once per element of a collection - and a class's instantiability is fixed for the
+        // process, so without the memo a large polymorphic list would build a fresh ReflectionClass
+        // per element, the per-element cost GH-73 removed elsewhere.
+        if ($this->classResolver->isInstantiable($resolved)) {
+            return $resolved;
         }
 
-        if ($collectionClassName === null) {
-            return;
-        }
-
-        if (class_exists($collectionClassName)) {
-            return;
-        }
-
+        // The name is echoed only for a CALLER-supplied class ($echoName). A class-map resolver's
+        // input is the payload, so its output is payload-influenced, and this exception escapes
+        // past the report into whatever generic handler the consumer wrote - echoing it there would
+        // put a payload-chosen string into a response body. A caller-supplied name is the
+        // consumer's own configuration and is what they need to see to find the mistake.
         throw new InvalidArgumentException(
-            sprintf(
-                'Class [%s] does not exist',
-                $collectionClassName
-            )
+            $echoName
+                ? sprintf(
+                    'Class [%s] cannot be instantiated. Map it to a concrete class with addCustomClassMapEntry().',
+                    $requested,
+                )
+                : 'The resolved class cannot be instantiated.',
         );
     }
 
     /**
      * Sets a property value.
+     *
+     * @param object         $entity  Object being hydrated.
+     * @param string         $name    Property name to write.
+     * @param mixed          $value   Converted value to assign.
+     * @param MappingContext $context Mapping context scoped to the property.
+     *
+     * @throws ReadonlyPropertyException When the target property cannot be written after construction.
+     * @throws TypeMismatchException     When the target's declared type refuses the converted value.
      */
     private function setProperty(
         object $entity,
@@ -1550,6 +1629,13 @@ final readonly class JsonMapper
             );
         }
 
+        // A variadic setter is spread-called directly - the accessor would pass the array as a
+        // single argument instead of unpacking it. No TypeError is caught around the call: the
+        // elements are already converted to the resolved element type, so an argument-type refusal
+        // here means the property's docblock element type and the setter's parameter type disagree
+        // - a defect in the DTO, not the payload - and it propagates loudly like the setter-body
+        // TypeError the accessor lane below also lets through, rather than being reported against a
+        // value that satisfied the type the pipeline converted it to.
         if (is_array($value)) {
             $methodName = 'set' . ucfirst($name);
 
@@ -1569,6 +1655,23 @@ final readonly class JsonMapper
             }
         }
 
-        $this->accessor->setValue($entity, $name, $value);
+        // The write is the one step the conversion pipeline does not decide. It converts against
+        // the type the resolver could derive, and that is not always the type the target declares:
+        // an intersection is modelled by neither PropertyInfo nor the reflection fallback, so it
+        // resolves to nullable mixed, which accepts every payload and leaves the property to refuse
+        // it. That refusal reaches the accessor as a native TypeError, which it wraps into an
+        // InvalidTypeException carrying the refused type - accurate even when the write went through
+        // a setter whose parameter type differs from the backing property, or when there is no
+        // backing property to reflect at all (a property exposed only through an accessor pair).
+        //
+        // Only the accessor's own InvalidTypeException is caught. A raw TypeError raised INSIDE a
+        // consumer's setter body is deliberately left to propagate: it is a bug in that setter, not
+        // a payload type mismatch, and reporting it as one would blame a possibly-valid value and,
+        // in report mode, bury the real fault.
+        try {
+            $this->accessor->setValue($entity, $name, $value);
+        } catch (InvalidTypeException $exception) {
+            throw new TypeMismatchException($context->getPath(), $exception->expectedType, get_debug_type($value));
+        }
     }
 }

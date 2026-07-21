@@ -66,6 +66,11 @@ final class CollectionDocBlockTypeResolver
         private readonly ContextFactory $contextFactory = new ContextFactory(),
         private readonly PhpDocTypeHelper $phpDocTypeHelper = new PhpDocTypeHelper(),
     ) {
+        // phpdocumentor/reflection-docblock is a hard require, so an ordinary install cannot reach
+        // this - which is why the message says how to restore it rather than how to opt in. What
+        // it defends is an install where the autoloader does not have it: a vendor directory
+        // assembled by hand or pruned by a packaging step. Without the check that arrives as a
+        // class-not-found fatal naming a third-party class, which says nothing about what to do.
         if (!class_exists(DocBlockFactory::class)) {
             throw new LogicException(
                 sprintf(

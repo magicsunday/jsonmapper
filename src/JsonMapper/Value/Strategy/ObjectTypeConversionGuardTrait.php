@@ -59,14 +59,19 @@ trait ObjectTypeConversionGuardTrait
             return;
         }
 
+        // Cannot currently answer true: extractObjectType() narrows to a bare ObjectType, and
+        // Symfony expresses a nullable object as a NullableType WRAPPING one, so the object type
+        // this receives never carries nullability itself. Kept because nullability is asked of the
+        // type rather than assumed of its class, and a Symfony release that lets an ObjectType
+        // answer differently would make the question live again.
         if ($type->isNullable()) {
             return;
         }
 
-        // Reached only by a DIRECT call to a strategy using this trait. Through the value
-        // converter's chain a null is claimed by NullValueConversionStrategy first, so it never
-        // arrives; the guard defends the public-SPI case where a strategy is invoked outside the
-        // chain, keeping a null off a non-nullable object target.
+        // Reached only when this trait's strategies are called outside the value converter's
+        // chain, where NullValueConversionStrategy claims every null first. The strategies are
+        // internal, so what this defends is the chain changing rather than a consumer calling one:
+        // it keeps a null off a non-nullable object target either way.
         throw new TypeMismatchException($context->getPath(), $type->getClassName(), 'null');
     }
 
@@ -84,15 +89,19 @@ trait ObjectTypeConversionGuardTrait
     {
         $objectType = $this->extractObjectType($type);
 
-        // Unreachable through the chain: supports() returns false for a non-object type, so convert()
-        // is not called for one. Kept for a DIRECT call that skips supports() - it hands the value
-        // back untouched rather than dereferencing a null object type.
+        // Unreachable while the chain is ordered as it is: supports() returns false for a non-object
+        // type, so convert() is not called for one. The strategies are internal, so what this
+        // defends is a chain change that lets a non-object type through - it hands the value back
+        // untouched rather than dereferencing a null object type.
         if ($objectType === null) {
             return $value;
         }
 
         $this->guardNullableValue($value, $objectType, $context);
 
+        // The other half of the nullability question above, and unreachable for the same reason:
+        // a null that got past the guard means the object type answered that it accepts one, which
+        // no ObjectType currently does. It stays paired with the guard so the two cannot drift.
         if ($value === null) {
             return null;
         }

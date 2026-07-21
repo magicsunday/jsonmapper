@@ -53,6 +53,17 @@ final class ClassResolver
     private array $allowedTargets = [];
 
     /**
+     * Whether a class can be instantiated, memoised by class name.
+     *
+     * The answer is fixed for the lifetime of the process, and the question is asked at every
+     * instantiation - once per element of a collection - so it is cached rather than reflected
+     * each time.
+     *
+     * @var array<string, bool>
+     */
+    private array $instantiable = [];
+
+    /**
      * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap Map of base class names to explicit targets or resolver callbacks.
      *
      * @phpstan-param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
@@ -118,6 +129,23 @@ final class ClassResolver
         }
 
         $this->allowedTargets[$className] = $validatedTargets;
+    }
+
+    /**
+     * Reports whether a class name refers to something `new` can construct.
+     *
+     * An interface, an abstract class, an enum and a class with a private constructor all pass a
+     * bare existence check and then make `new $className` raise a native Error. The answer is
+     * memoised because it is asked once per instantiation - once per collection element.
+     *
+     * @param string $className Class name to inspect.
+     *
+     * @return bool True when the class exists and is instantiable
+     */
+    public function isInstantiable(string $className): bool
+    {
+        return $this->instantiable[$className] ??= class_exists($className)
+            && (new ReflectionClass($className))->isInstantiable();
     }
 
     /**

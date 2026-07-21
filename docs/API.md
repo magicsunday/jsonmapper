@@ -190,3 +190,20 @@ final class UuidTypeHandler implements TypeHandlerInterface
 ```
 
 Register handlers via `JsonMapper::addTypeHandler()` to make them available for all mappings.
+
+### What the context offers a handler
+
+`convert()` receives the `MappingContext` of the value being converted, not of the document. These
+are the parts a handler is meant to read:
+
+| Method | Returns |
+| --- | --- |
+| `getPath(): string` | JSON path of the value being converted, e.g. `$.orders.0.total`. Use it when raising a `MappingException` so the report points at the right place. |
+| `getRootInput(): mixed` | The payload the run started from. The context has moved on to a nested path by the time a handler sees it, so this is how a handler reaches a sibling or top-level field — a discriminator, a currency stated once for the whole document — without the caller threading one through. |
+| `getOption(string $name, mixed $default = null): mixed` | A value from the option bag, including keys your own code put there. |
+| `getDefaultDateFormat(): string`, `getDefaultTimezone(): string` | The date settings in force, already sanitised. |
+| `isStrictMode(): bool`, `shouldIgnoreUnknownProperties(): bool`, … | The configuration in force. `JsonMapperConfiguration::fromContext()` rebuilds the whole object when you need it. |
+
+> Read the root input; do not derive a **class name** from it. Choosing what to instantiate from
+> payload data is object injection by the shortest route — see the security note under
+> [Type converters](recipes/type-converters.md).

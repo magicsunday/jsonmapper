@@ -58,6 +58,43 @@ parameters:
             message: '#^Property MagicSunday\\Test\\Fixtures\\Docs\\NestedCollections\\CollectionShapesHolder\:\:\$templated with generic class MagicSunday\\Test\\Fixtures\\Docs\\NestedCollections\\TemplatedCollection does not specify its types\: T$#'
             path: %currentWorkingDirectory%/tests/Fixtures/Docs/NestedCollections/CollectionShapesHolder.php
 
+        # The deprecated call IS the test's purpose: addType() is marked deprecated but remains
+        # public and documented as the escape hatch that outranks the built-in strategies, so the
+        # legacy path needs a pin. Migrating the call would delete the test case.
+        # Anchored at the start only: the message continues onto a second line with the
+        # replacement the annotation names.
+        -
+            identifier: method.deprecated
+            message: '#^Call to deprecated method addType\(\) of class MagicSunday\\JsonMapper\:#'
+            path: %currentWorkingDirectory%/tests/JsonMapper/Value/ClosureTypeHandlerTest.php
+
+        # The empty class name IS the test's purpose: it pins that a collection type naming no
+        # wrapper class is refused rather than passed to the resolver, which would report it as a
+        # class that does not exist. A class-string here would delete the test case. End-anchored on
+        # the GIVEN type - the empty-class-name ObjectType<mixed> shape - so it cannot also swallow a
+        # future genuinely-wrong $type passed to the same method in this file.
+        -
+            identifier: argument.type
+            message: '#^Parameter \#1 \$type of method MagicSunday\\JsonMapper\\Collection\\CollectionFactory\:\:fromCollectionType\(\) expects .+, Symfony\\Component\\TypeInfo\\Type\\CollectionType<Symfony\\Component\\TypeInfo\\Type\\GenericType<Symfony\\Component\\TypeInfo\\Type\\ObjectType<mixed>>> given\.$#'
+            path: %currentWorkingDirectory%/tests/JsonMapper/Collection/CollectionFactoryTest.php
+
+        # The empty name IS the test's purpose: it is what a lookup that found nothing produces -
+        # an unset environment variable, a missing config key - which is exactly the input the
+        # guard under test exists for. A class-string here would delete the test case.
+        -
+            identifier: argument.type
+            message: '#^Parameter \#1 \$className of method MagicSunday\\JsonMapper\\Resolver\\ClassResolver\:\:add\(\) expects class\-string, string given\.$#'
+            path: %currentWorkingDirectory%/tests/JsonMapper/Resolver/ClassResolverTest.php
+
+        # The contract violation IS the test's purpose: a closure's declared return type is
+        # documentation to PHP, not a runtime check, so a consumer whose resolver returns the wrong
+        # thing reaches the guard under test through the same public add(). Satisfying the analyser
+        # here would delete the test case.
+        -
+            identifier: argument.type
+            message: '#^Parameter \#2 \$resolver of method MagicSunday\\JsonMapper\\Resolver\\ClassResolver\:\:add\(\) expects class\-string\|\(Closure\(mixed\)\: class\-string\)\|\(Closure\(mixed, MagicSunday\\JsonMapper\\Context\\MappingContext\)\: class\-string\), Closure\(\)\: 123 given\.$#'
+            path: %currentWorkingDirectory%/tests/JsonMapper/Resolver/ClassResolverTest.php
+
         # The unused parameter IS the fixture's purpose: it pins that a non-promoted constructor
         # parameter sharing a property name must not supply that property's default.
         -

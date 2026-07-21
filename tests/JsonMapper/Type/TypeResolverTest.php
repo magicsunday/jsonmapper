@@ -13,6 +13,7 @@ namespace MagicSunday\Test\JsonMapper\Type;
 
 use DateInterval;
 use DateTimeInterface;
+use Exception;
 use MagicSunday\JsonMapper\Type\TypeResolver;
 use MagicSunday\Test\Classes\Ns\Item as NamespacedItem;
 use MagicSunday\Test\Classes\Ns_Item as UnderscoredItem;
@@ -20,6 +21,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Cache\CacheItemInterface;
 use Psr\Cache\CacheItemPoolInterface;
+use Psr\Cache\InvalidArgumentException as CacheInvalidArgumentException;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
 use Symfony\Component\PropertyInfo\PropertyTypeExtractorInterface;
 use Symfony\Component\TypeInfo\Type;
@@ -33,6 +35,7 @@ use function array_key_exists;
 use function array_keys;
 use function array_values;
 use function hash;
+use function sprintf;
 use function str_replace;
 use function str_starts_with;
 use function strlen;
@@ -192,6 +195,60 @@ final class TypeResolverTest extends TestCase
 
         // Two classes, two entries. One key would leave a single entry behind.
         self::assertCount(2, $cache->storedKeys(), 'Each class gets a key of its own.');
+    }
+
+    #[Test]
+    public function itResolvesTheTypeWhenTheCachePoolRefusesToWork(): void
+    {
+        // A PSR-6 pool may raise InvalidArgumentException for a key it will not accept, and the
+        // resolver builds its own keys - so a pool disagreeing about them is a cache problem, not
+        // a mapping one. Both the read and the write swallow it: resolution is the job, caching is
+        // the optimisation, and a mapping run must not fail because a cache would not cooperate.
+        // Two answers, because nothing can be cached: the extractor has to be able to answer
+        // both times for the assertions below to say anything about the cache rather than about the
+        // stub running out.
+        $typeExtractor = new StubPropertyTypeExtractor(
+            new BuiltinType(TypeIdentifier::INT),
+            new BuiltinType(TypeIdentifier::INT),
+        );
+        $resolver = new TypeResolver(new PropertyInfoExtractor([], [$typeExtractor]), new RefusingCachePool());
+
+        $first  = $resolver->resolve(TypeResolverFixture::class, 'baz');
+        $second = $resolver->resolve(TypeResolverFixture::class, 'baz');
+
+        self::assertTrue($first->isIdentifiedBy(TypeIdentifier::INT));
+        self::assertTrue($second->isIdentifiedBy(TypeIdentifier::INT));
+
+        // Nothing was cached, so the extractor answered twice - which is what pins that the
+        // failure was swallowed rather than silently turned into a hit.
+        self::assertSame(2, $typeExtractor->callCount);
+    }
+
+    #[Test]
+    public function itReadsANullableUnionOffTheNativeDeclarationWhenNoDocblockDoes(): void
+    {
+        // With no type extractor able to answer, the resolver falls back to reflection. A native
+        // union has to survive that fallback WITH its nullability: dropping the null would make
+        // the mapper report a type mismatch for a value the property accepts.
+        $resolver = new TypeResolver(new PropertyInfoExtractor([], []));
+
+        $type = $resolver->resolve(NativelyTypedFixture::class, 'unionOrNull');
+
+        self::assertInstanceOf(NullableType::class, $type);
+        self::assertSame('int|null|string', (string) $type, 'Reflection order, not declaration order.');
+    }
+
+    #[Test]
+    public function itKeepsANativeUnionThatDoesNotAcceptNull(): void
+    {
+        // The discriminator: the same fallback, one member fewer, and no nullable wrapper.
+        $resolver = new TypeResolver(new PropertyInfoExtractor([], []));
+
+        $type = $resolver->resolve(NativelyTypedFixture::class, 'union');
+
+        self::assertInstanceOf(UnionType::class, $type);
+        self::assertNotInstanceOf(NullableType::class, $type);
+        self::assertSame('int|string', (string) $type);
     }
 
     #[Test]
@@ -406,4 +463,93 @@ final class StubPropertyTypeExtractor implements PropertyTypeExtractorInterface
  */
 final class TypeResolverFixture
 {
+}
+
+/**
+ * A pool that refuses every key it is given, the way a PSR-6 implementation may for a key whose
+ * shape it does not accept.
+ */
+final class RefusingCachePool implements CacheItemPoolInterface
+{
+    public function getItem(string $key): CacheItemInterface
+    {
+        throw new RefusedCacheKey($key);
+    }
+
+    /**
+     * @param array<array-key, string> $keys
+     *
+     * @return iterable<string, CacheItemInterface>
+     */
+    public function getItems(array $keys = []): iterable
+    {
+        throw new RefusedCacheKey('');
+    }
+
+    public function hasItem(string $key): bool
+    {
+        throw new RefusedCacheKey($key);
+    }
+
+    public function clear(): bool
+    {
+        return true;
+    }
+
+    public function deleteItem(string $key): bool
+    {
+        throw new RefusedCacheKey($key);
+    }
+
+    /**
+     * @param array<array-key, string> $keys
+     */
+    public function deleteItems(array $keys): bool
+    {
+        throw new RefusedCacheKey('');
+    }
+
+    public function save(CacheItemInterface $item): bool
+    {
+        throw new RefusedCacheKey($item->getKey());
+    }
+
+    public function saveDeferred(CacheItemInterface $item): bool
+    {
+        throw new RefusedCacheKey($item->getKey());
+    }
+
+    public function commit(): bool
+    {
+        return true;
+    }
+}
+
+/**
+ * The PSR-6 exception a pool raises for a key it will not accept.
+ *
+ * Extends the plain Exception, not SPL's InvalidArgumentException, on purpose: PSR-6 requires only
+ * that the exception implement Psr\Cache\InvalidArgumentException, and a conforming pool need not
+ * extend the SPL class. Extending it too would let the test pass even if TypeResolver caught the
+ * SPL class rather than the PSR interface - so it would not pin that the PSR interface is honoured.
+ */
+final class RefusedCacheKey extends Exception implements CacheInvalidArgumentException
+{
+    public function __construct(string $key)
+    {
+        parent::__construct(sprintf('Refusing the key "%s".', $key));
+    }
+}
+
+/**
+ * Properties that declare their types natively and say nothing in a docblock, so that only
+ * reflection can answer for them.
+ *
+ * @internal
+ */
+final class NativelyTypedFixture
+{
+    public int|string|null $unionOrNull = null;
+
+    public int|string $union = 0;
 }

@@ -18,6 +18,7 @@ use MagicSunday\JsonMapper\Attribute\UnknownPropertyCollector;
 use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionException;
+use ReflectionIntersectionType;
 use ReflectionMethod;
 use ReflectionNamedType;
 use ReflectionParameter;
@@ -291,7 +292,15 @@ final class ClassMetadataFactory
             return true;
         }
 
-        return false;
+        // An intersection has no null that satisfies it - every member is a class or interface, and
+        // null implements none of them - so a payload omitting it leaves the property uninitialised
+        // and reading it back raises. Answering "not required" for one treated it like a type with
+        // a usable absent value, which is what strict mode exists to say it is not.
+        //
+        // Anything else reaching here declared no type at all, and so makes no claim the payload
+        // can fail to meet. (Such a property also reports an implicit null default, so it has
+        // usually returned further up.)
+        return $type instanceof ReflectionIntersectionType;
     }
 
     /**
@@ -380,6 +389,11 @@ final class ClassMetadataFactory
      */
     private function getReflectionClass(string $className): ?ReflectionClass
     {
+        // Cannot currently answer null: every class reaching the factory came through the class
+        // resolver, which refuses a name that resolves to nothing, and an object is instantiated
+        // only after the instantiability check has passed. Every caller therefore takes its
+        // non-null branch. It stays because the alternative is a ReflectionException from a
+        // constructor - no MappingException, and outside error collection entirely.
         if (!class_exists($className)) {
             return null;
         }
