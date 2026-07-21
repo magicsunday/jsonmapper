@@ -14,6 +14,7 @@ namespace MagicSunday\Test\Attribute;
 use InvalidArgumentException;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\Test\Classes\Simple;
+use MagicSunday\Test\Classes\SnakeCaseKnownPropertyCollectorEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorDuplicateEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorHiddenEntity;
@@ -51,6 +52,48 @@ final class UnknownPropertyCollectorTest extends TestCase
         self::assertInstanceOf(UnknownPropertyCollectorEntity::class, $result);
         self::assertSame('Ada', $result->name);
         self::assertSame(['age' => '36', 'city' => 'London'], $result->extra);
+    }
+
+    /**
+     * The collector preserves the ORIGINAL payload key, not the converted one. The whole suite runs
+     * with the camelCase converter active, so a snake_case unknown key is the case that
+     * distinguishes the two: `favourite_colour` must be kept as it arrived, because the collector's
+     * promise is a faithful copy of the unmapped part of the payload and a property-name converter
+     * has no business rewriting a key that matches no property. The value is kept raw either way.
+     */
+    #[Test]
+    public function preservesTheOriginalSnakeCaseKeyRatherThanTheConvertedOne(): void
+    {
+        $result = $this->getJsonMapper()->map(
+            ['name' => 'Ada', 'favourite_colour' => 'green', 'city' => 'London'],
+            UnknownPropertyCollectorEntity::class,
+        );
+
+        self::assertInstanceOf(UnknownPropertyCollectorEntity::class, $result);
+        self::assertSame('Ada', $result->name);
+        self::assertSame(
+            ['favourite_colour' => 'green', 'city' => 'London'],
+            $result->extra,
+            'The snake_case key is kept verbatim, not camelised to favouriteColour.',
+        );
+    }
+
+    /**
+     * The discriminator for the test above: unknown-ness is still decided on the CONVERTED name, so
+     * a snake_case key that camelises onto a declared property is mapped, not collected. Only the
+     * STORED key changed, not which keys count as unknown.
+     */
+    #[Test]
+    public function stillMapsASnakeCaseKeyThatConvertsOntoADeclaredProperty(): void
+    {
+        $result = $this->getJsonMapper()->map(
+            ['full_name' => 'Ada Lovelace', 'city' => 'London'],
+            SnakeCaseKnownPropertyCollectorEntity::class,
+        );
+
+        self::assertInstanceOf(SnakeCaseKnownPropertyCollectorEntity::class, $result);
+        self::assertSame('Ada Lovelace', $result->fullName, 'full_name mapped onto fullName.');
+        self::assertSame(['city' => 'London'], $result->extra, 'Only the genuinely unknown key was collected.');
     }
 
     /**

@@ -717,6 +717,7 @@ final readonly class JsonMapper
 
             $context->withPathSegment($pathSegment, function (MappingContext $propertyContext) use (
                 $resolvedClassName,
+                $propertyName,
                 $normalizedProperty,
                 $propertyValue,
                 &$mappedProperties,
@@ -733,12 +734,21 @@ final readonly class JsonMapper
                 // than dropping or reporting it. The collector's own key is excluded explicitly (as
                 // well as through the membership check) so it is never collected into itself even
                 // when an extractor is configured not to expose the collector property.
+                //
+                // Whether the key is UNKNOWN is decided on the converted name - a snake_case key
+                // that camelises onto a declared property is not unknown. But what is STORED is the
+                // ORIGINAL payload key, so the collected map is a faithful copy of the unmapped part
+                // of the payload: applying a property-name converter to a key that matches no
+                // property would silently rewrite it. is_string is a narrowing, not a real branch -
+                // an int key normalises to an int and is dropped by the guard above.
                 if (
                     ($collectorProperty !== null)
                     && ($normalizedProperty !== $collectorProperty)
                     && !in_array($normalizedProperty, $properties, true)
                 ) {
-                    $collectedUnknown[$normalizedProperty] = $propertyValue;
+                    if (is_string($propertyName)) {
+                        $collectedUnknown[$propertyName] = $propertyValue;
+                    }
 
                     return;
                 }

@@ -16,12 +16,16 @@ use Attribute;
 /**
  * Attribute marking a property as the sink for unknown input keys.
  *
- * Each source key that matches no declared property is collected, by its normalized name and its
- * raw, unconverted input value, into an associative `array<string, mixed>` and assigned to the
- * marked property as-is, instead of being ignored or reported. The per-value conversion pipeline is
- * bypassed, so the marked property's element type is deliberately open and the consumer interprets
- * the raw map itself. The value is only assigned when at least one unknown key is present, so the
- * property otherwise keeps its constructor default.
+ * Each source key that matches no declared property is collected, under its ORIGINAL payload
+ * spelling and with its raw, unconverted input value, into an associative `array<string, mixed>`
+ * and assigned to the marked property as-is, instead of being ignored or reported. Key and value
+ * are both preserved verbatim, so the collected map is a faithful copy of the unmapped part of the
+ * payload: a configured property-name converter decides whether a key is unknown, but does not
+ * rewrite one that is - `favourite_colour` stays `favourite_colour` rather than becoming
+ * `favouriteColour`. The per-value conversion pipeline is bypassed, so the marked property's
+ * element type is deliberately open and the consumer interprets the raw map itself. The value is
+ * only assigned when at least one unknown key is present, so the property otherwise keeps its
+ * constructor default.
  *
  * The attribute is consumed through property reflection, so it must annotate a property — including
  * a promoted constructor property, which is reflected as one. The marked property must be
