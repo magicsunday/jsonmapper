@@ -116,8 +116,13 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
   reason. Conversion runs against the type the resolver could DERIVE, which is not always the type
   the target declares: an intersection is modelled by neither PropertyInfo nor the reflection
   fallback, so it resolves to nullable `mixed` and accepts every payload, leaving the property to
-  refuse it as a native `TypeError`. The record names the type the PROPERTY declares - the type
-  conversion ran against is by definition the one that accepted the value.
+  refuse it as a native `TypeError`. The accessor wraps that into an `InvalidTypeException` carrying
+  the refused type, which the record then names - accurate even for a property reachable only
+  through a setter, where the declared type read from reflection would wrongly be `mixed`. A
+  variadic setter bypasses the accessor, so its argument-type refusal is caught tightly around the
+  call and named with the VARIADIC PARAMETER's type. What is deliberately NOT caught is a
+  `TypeError` raised inside a consumer's setter BODY: that is a bug in the setter, not a payload
+  mismatch, so it propagates rather than being re-labelled as one and buried in the report.
 * The abort-or-record policy lives in `MappingContext::throwOrRecord()`, whose name states the
   order because the order is the contract. A site that has something usable to hand back - an empty
   collection, an unconverted value - routes through it. The two that do not both record BEFORE

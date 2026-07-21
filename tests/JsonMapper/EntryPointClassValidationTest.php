@@ -15,6 +15,7 @@ use DomainException;
 use InvalidArgumentException;
 use MagicSunday\Test\Fixtures\EntryPoint\AbstractShape;
 use MagicSunday\Test\Fixtures\EntryPoint\Circle;
+use MagicSunday\Test\Fixtures\EntryPoint\CollectionPropertyHolder;
 use MagicSunday\Test\Fixtures\EntryPoint\Shape;
 use MagicSunday\Test\Fixtures\EntryPoint\ShapeHolder;
 use MagicSunday\Test\Fixtures\Enum\SampleStatus;
@@ -127,6 +128,23 @@ final class EntryPointClassValidationTest extends TestCase
                 'And not the one the resolver chose.',
             );
         }
+    }
+
+    #[Test]
+    public function itRefusesAnUninstantiableCollectionWrapperOnAProperty(): void
+    {
+        // A collection-typed property resolves its wrapper class inside CollectionFactory, a lane
+        // the entry-point check never sees. An abstract wrapper there used to reach `new $class`
+        // and raise a native Error that escaped the report; it is now refused with a catchable
+        // InvalidArgumentException, the same guarantee the entry point gives - and without echoing
+        // the wrapper name, which a docblock or a resolver may have supplied.
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/cannot be instantiated/');
+
+        $this->getJsonMapper()->map(
+            ['shapes' => [['name' => 'a', 'radius' => 1]]],
+            CollectionPropertyHolder::class,
+        );
     }
 
     #[Test]

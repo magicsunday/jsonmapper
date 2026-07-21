@@ -151,7 +151,16 @@ final readonly class JsonMapper
             $this->classResolver,
             // Fulfils CollectionFactoryInterface's instantiator, whose nullable $arguments the null
             // arm answers - unreachable today, kept because the signature admits it.
+            //
+            // The instantiability guard runs here too: a collection-typed PROPERTY resolves its
+            // wrapper class through this lane, and that class - named by a docblock @var or a
+            // class-map entry - can be an interface or abstract just as the entry-point classes
+            // can. Unguarded it reached `new $className` and raised a native Error that no
+            // MappingException catch collects, the same escape the entry point closes. echoName is
+            // false because the wrapper name may be docblock- or resolver-derived, not the caller's.
             function (string $className, ?array $arguments): object {
+                $this->assertInstantiable($className, $className, false);
+
                 if ($arguments === null) {
                     return $this->makeInstance($className);
                 }
@@ -1595,7 +1604,7 @@ final readonly class JsonMapper
                     'Class [%s] cannot be instantiated. Map it to a concrete class with addCustomClassMapEntry().',
                     $requested,
                 )
-                : 'The class the class map resolved cannot be instantiated.',
+                : 'The resolved class cannot be instantiated.',
         );
     }
 
@@ -1626,55 +1635,56 @@ final readonly class JsonMapper
             );
         }
 
+        // A variadic setter is called directly, bypassing the accessor, so its argument-type
+        // refusal is a raw TypeError the accessor never wraps. It is caught tightly, around the
+        // call alone, and reported with the VARIADIC PARAMETER's type - not the backing property's,
+        // which for `setTags(int ...$t)` over an `array $tags` property would name the wrong type.
+        if (is_array($value)) {
+            $methodName = 'set' . ucfirst($name);
+
+            if (method_exists($entity, $methodName)) {
+                $method     = new ReflectionMethod($entity, $methodName);
+                $parameters = $method->getParameters();
+
+                if ((count($parameters) === 1) && $parameters[0]->isVariadic()) {
+                    $callable = [$entity, $methodName];
+
+                    if (is_callable($callable)) {
+                        try {
+                            call_user_func_array($callable, $value);
+                        } catch (TypeError) {
+                            $parameterType = $parameters[0]->getType();
+
+                            throw new TypeMismatchException(
+                                $context->getPath(),
+                                $parameterType instanceof ReflectionType ? $this->describeReflectionType($parameterType) : 'mixed',
+                                get_debug_type($value),
+                            );
+                        }
+                    }
+
+                    return;
+                }
+            }
+        }
+
         // The write is the one step the conversion pipeline does not decide. It converts against
         // the type the resolver could derive, and that is not always the type the target declares:
         // an intersection is modelled by neither PropertyInfo nor the reflection fallback, so it
         // resolves to nullable mixed, which accepts every payload and leaves the property to refuse
-        // it. Unguarded, that refusal arrived as a native error and escaped past the report the
-        // caller was promised. The variadic-setter call is inside the guard too - it bypasses the
-        // accessor, so its argument-type refusal is a raw TypeError the accessor never wraps.
+        // it. That refusal reaches the accessor as a native TypeError, which it wraps into an
+        // InvalidTypeException carrying the refused type - accurate even when the write went through
+        // a setter whose parameter type differs from the backing property, or when there is no
+        // backing property to reflect at all (a property exposed only through an accessor pair).
+        //
+        // Only the accessor's own InvalidTypeException is caught. A raw TypeError raised INSIDE a
+        // consumer's setter body is deliberately left to propagate: it is a bug in that setter, not
+        // a payload type mismatch, and reporting it as one would blame a possibly-valid value and,
+        // in report mode, bury the real fault.
         try {
-            if (is_array($value)) {
-                $methodName = 'set' . ucfirst($name);
-
-                if (method_exists($entity, $methodName)) {
-                    $method     = new ReflectionMethod($entity, $methodName);
-                    $parameters = $method->getParameters();
-
-                    if ((count($parameters) === 1) && $parameters[0]->isVariadic()) {
-                        $callable = [$entity, $methodName];
-
-                        if (is_callable($callable)) {
-                            call_user_func_array($callable, $value);
-                        }
-
-                        return;
-                    }
-                }
-            }
-
             $this->accessor->setValue($entity, $name, $value);
         } catch (InvalidTypeException $exception) {
-            // The accessor already computed the refused type from the native TypeError, so this is
-            // accurate even when the write went through a setter whose parameter type differs from
-            // the backing property, or when there is no backing property to reflect at all - the
-            // case a property exposed only through an accessor pair produces, where reading the
-            // declared type below would wrongly report mixed.
             throw new TypeMismatchException($context->getPath(), $exception->expectedType, get_debug_type($value));
-        } catch (TypeError) {
-            // A TypeError the accessor did not wrap: the variadic call above bypasses it, and a
-            // setter body can raise one the accessor rethrows raw. Converting it here keeps the
-            // contract that no native error escapes the report; the trade is that a genuine bug in
-            // a setter body is reported as a type mismatch rather than surfacing on its own. No
-            // refused-type string is available, so the property's declared type is named, or mixed
-            // when it declares none.
-            $declaredType = $reflectionProperty?->getType();
-
-            throw new TypeMismatchException(
-                $context->getPath(),
-                $declaredType instanceof ReflectionType ? $this->describeReflectionType($declaredType) : 'mixed',
-                get_debug_type($value),
-            );
         }
     }
 

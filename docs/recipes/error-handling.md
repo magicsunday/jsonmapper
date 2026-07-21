@@ -186,6 +186,20 @@ The refused name is echoed only when it is the name **you** passed. A class-map 
 the payload, so when the resolver picked the target the message names the requested class instead —
 enough to find the entry, without reflecting a payload-chosen string into a response body.
 
+## When the write itself refuses the value
+
+Conversion runs against the type the mapper could derive from a property, and that is not always the
+type the property declares. A property typed by an **intersection** (`A&B`) is the reachable case:
+the mapper cannot model it, so it accepts any converted value and the property refuses it at the
+write. That refusal is reported as a `TypeMismatchException` at the property path, naming the
+declared type — not left to escape as a native error. A no-default intersection property is also
+reported as **missing** in strict mode, because no absent value satisfies it.
+
+A `TypeError` raised **inside your own setter body** (the setter passes the value on to another
+strict-typed call) is deliberately *not* caught and re-labelled. It is a bug in the setter rather
+than a payload mismatch, so it propagates as itself instead of being reported against the payload
+value and buried in the report.
+
 ## Which entry point throws
 
 Strict mode decides *what* counts as a failure. It does **not** decide what happens to one - that is
