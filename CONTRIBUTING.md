@@ -28,7 +28,10 @@ CI at ≥ 90 %; run it locally with `composer ci:test:php:coverage:gate`.
 
 - Branch from `main`. Name an issue-tied branch exactly `GH-<number>`.
 - Commit subjects are English, imperative, and capitalised: `GH-<number>: Add …` for issue-tied
-  work, or `Add …` for a free change. No `feat:`/`fix:` conventional-commit prefixes.
+  work, or `Add …` for a free change. Conventional-commit prefixes are rejected in any spelling
+  (`feat:`, the capitalised `Fix:`, the scoped `Feat(api)!:`), and so are path-like starts
+  (`src/JsonMapper.php: …`). A pull request is checked against this by
+  `.github/workflows/commit-lint.yml`; `AGENTS.md` §3 states the full rule.
 - Group changes into logical commits — one concern each; keep style-only fixes separate from
   behaviour changes.
 - Open the PR against `main`, describe the scope, the motivation, and how you verified it, and close
