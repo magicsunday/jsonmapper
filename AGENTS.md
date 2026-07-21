@@ -112,6 +112,12 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
 * A rejected value is recorded exactly once. Recording it and then continuing produces either a
   duplicate record further up or a native crash - throw instead, and let the single catch site
   record it.
+* The write can fail after the conversion pipeline accepted the value, and it is guarded for that
+  reason. Conversion runs against the type the resolver could DERIVE, which is not always the type
+  the target declares: an intersection is modelled by neither PropertyInfo nor the reflection
+  fallback, so it resolves to nullable `mixed` and accepts every payload, leaving the property to
+  refuse it as a native `TypeError`. The record names the type the PROPERTY declares - the type
+  conversion ran against is by definition the one that accepted the value.
 * The abort-or-record policy lives in `MappingContext::throwOrRecord()`, whose name states the
   order because the order is the contract. A site that has something usable to hand back - an empty
   collection, an unconverted value - routes through it. The two that do not both record BEFORE

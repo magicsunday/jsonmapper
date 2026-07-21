@@ -49,8 +49,13 @@ use MagicSunday\JsonMapper\Value\ValueConverter;
 use Psr\Cache\CacheItemPoolInterface;
 use ReflectionClass;
 use ReflectionException;
+use ReflectionIntersectionType;
 use ReflectionMethod;
+use ReflectionNamedType;
 use ReflectionProperty;
+use ReflectionType;
+use ReflectionUnionType;
+use Symfony\Component\PropertyAccess\Exception\InvalidTypeException;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
@@ -69,6 +74,7 @@ use function array_diff;
 use function array_filter;
 use function array_is_list;
 use function array_key_exists;
+use function array_map;
 use function array_replace;
 use function array_unique;
 use function array_values;
@@ -837,7 +843,11 @@ final readonly class JsonMapper
             ): void {
                 try {
                     $this->setProperty($entity, $property, $value, $propertyContext);
-                } catch (ReadonlyPropertyException $exception) {
+                } catch (ReadonlyPropertyException|TypeMismatchException $exception) {
+                    // Enumerated rather than caught as MappingException: these are the two ways a
+                    // write itself fails, and both belong to the property the path already names.
+                    // A wider catch here would also absorb whatever a future step before the write
+                    // starts raising, and report it against the wrong path.
                     $this->handleMappingException($exception, $propertyContext);
                 }
             });
@@ -1533,6 +1543,9 @@ final readonly class JsonMapper
 
     /**
      * Sets a property value.
+     *
+     * @throws ReadonlyPropertyException When the target property cannot be written after construction.
+     * @throws TypeMismatchException     When the target's declared type refuses the converted value.
      */
     private function setProperty(
         object $entity,
@@ -1569,6 +1582,64 @@ final readonly class JsonMapper
             }
         }
 
-        $this->accessor->setValue($entity, $name, $value);
+        // The write is the one step the conversion pipeline does not decide. It converts against
+        // the type the resolver could derive, and that is not always the type the target declares:
+        // an intersection is modelled by neither PropertyInfo nor the reflection fallback, so it
+        // resolves to nullable mixed, which accepts every payload and leaves the property to
+        // refuse it. Unguarded, that refusal arrived as a native TypeError - wrapped by the
+        // accessor into its own InvalidTypeException on the property path - and escaped past the
+        // report the caller was promised.
+        try {
+            $this->accessor->setValue($entity, $name, $value);
+        } catch (InvalidTypeException) {
+            $declaredType = $reflectionProperty?->getType();
+
+            throw new TypeMismatchException(
+                $context->getPath(),
+                // The type the PROPERTY declares, which is not the type the value was converted
+                // against - that one accepted it. A property without a reflectable type cannot
+                // refuse anything, so mixed is what the mapper modelled the target as and also
+                // the only way to reach here without one.
+                $declaredType instanceof ReflectionType ? $this->describeReflectionType($declaredType) : 'mixed',
+                get_debug_type($value),
+            );
+        }
+    }
+
+    /**
+     * Renders a reflected type the way it was declared.
+     *
+     * Assembled from the parts rather than cast to string, because ReflectionType::__toString() is
+     * marked deprecated in favour of asking the concrete subclass.
+     *
+     * @param ReflectionType $type Reflected declaration of a property or parameter.
+     *
+     * @return string The declaration in source form, such as "(A&B)|null"
+     */
+    private function describeReflectionType(ReflectionType $type): string
+    {
+        if ($type instanceof ReflectionNamedType) {
+            // Without the ?-prefix a nullable name carries: a standalone nullable declaration is
+            // one the type resolver models, so it is converted against its own type and never
+            // reaches this describer. Inside a union, null appears as its own member anyway.
+            return $type->getName();
+        }
+
+        if ($type instanceof ReflectionIntersectionType) {
+            return implode('&', array_map($this->describeReflectionType(...), $type->getTypes()));
+        }
+
+        if ($type instanceof ReflectionUnionType) {
+            return implode('|', array_map(
+                fn (ReflectionType $member): string => $member instanceof ReflectionIntersectionType
+                    ? '(' . $this->describeReflectionType($member) . ')'
+                    : $this->describeReflectionType($member),
+                $type->getTypes(),
+            ));
+        }
+
+        // No other ReflectionType subclass exists. Kept so a future one is described as the
+        // mapper's own fallback rather than as an empty string.
+        return 'mixed';
     }
 }
