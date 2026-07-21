@@ -237,7 +237,9 @@ List changed API surfaces and relevant attributes/converters in the “Reference
 ## 8) Definition of Done (DoD)
 
 * ✅ PHPUnit green (positive & negative cases covered).
-* ✅ **Coverage ≥ 90 %** (`composer ci:test:php:unit:coverage`).
+* ✅ **Coverage ≥ 90 %** — machine-enforced in CI by the `coverage` job via
+  `composer ci:test:php:coverage:gate`, which runs `ci:test:php:unit:coverage` and fails the build
+  when line coverage drops below the threshold.
 * ✅ PHPStan passes (at least all modified files).
 * ✅ Rector & CS fixer clean; commit formatting changes.
 * ✅ **CPD** detects no relevant duplicates.
@@ -285,7 +287,7 @@ List changed API surfaces and relevant attributes/converters in the “Reference
 * [ ] `composer ci:test:php:rector`
 * [ ] `composer ci:test:php:cpd`
 * [ ] `composer ci:test:php:unit`
-* [ ] `composer ci:test:php:unit:coverage`
+* [ ] `composer ci:test:php:coverage:gate` (coverage ≥ 90 %, enforced in CI)
 * [ ] No `mixed`, `empty()`, or nested ternaries.
 * [ ] Classes/tests mirror namespaces; descriptive names; inline comments only when logic is complex.
 * [ ] Value objects/enums instead of magic strings.

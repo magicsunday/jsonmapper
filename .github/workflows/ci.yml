@@ -104,3 +104,44 @@ jobs:
             - name: Construct the mapper and map a payload
               run: |
                   php .github/scripts/production-install-smoke.php
+
+    coverage:
+        name: Coverage gate
+        runs-on: ubuntu-latest
+
+        steps:
+            # A single interpreter is enough: line coverage does not vary by PHP version, so the
+            # gate is not run per matrix leg. pcov rather than Xdebug for a faster coverage run.
+            - name: Set up PHP version 8.3
+              uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+              with:
+                  php-version: '8.3'
+                  coverage: pcov
+                  tools: composer:v2
+
+            - name: Checkout repository
+              uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+              with:
+                  persist-credentials: false
+
+            - name: Get composer cache directory
+              id: composer-cache
+              run: |
+                  echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+            - name: Cache Composer dependencies
+              uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ${{ steps.composer-cache.outputs.dir }}
+                  key: ${{ runner.os }}-8.3-composer-${{ hashFiles('**/composer.json') }}
+                  restore-keys: |
+                      ${{ runner.os }}-8.3-composer-
+
+            - name: Install dependencies
+              run: |
+                  composer install --prefer-dist --no-interaction --no-progress
+
+            # Runs the coverage suite and fails when line coverage drops below the target the
+            # definition of done in AGENTS.md documents.
+            - name: Enforce the coverage target
+              run: |
+                  composer ci:test:php:coverage:gate
