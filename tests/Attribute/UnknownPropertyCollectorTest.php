@@ -12,6 +12,8 @@ declare(strict_types=1);
 namespace MagicSunday\Test\Attribute;
 
 use InvalidArgumentException;
+use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
+use MagicSunday\Test\Classes\Simple;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorDuplicateEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorHiddenEntity;
@@ -49,6 +51,63 @@ final class UnknownPropertyCollectorTest extends TestCase
         self::assertInstanceOf(UnknownPropertyCollectorEntity::class, $result);
         self::assertSame('Ada', $result->name);
         self::assertSame(['age' => '36', 'city' => 'London'], $result->extra);
+    }
+
+    /**
+     * Strict mode and the collector answer the same question in opposite directions, and the
+     * collector wins: a key it has taken is no longer unknown, so reporting it would ask the
+     * caller to fix a payload the class explicitly asked to receive.
+     */
+    #[Test]
+    public function doesNotReportKeysTheCollectorTookEvenInStrictMode(): void
+    {
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
+            ['name' => 'Ada', 'age' => '36', 'city' => 'London'],
+            UnknownPropertyCollectorEntity::class,
+        );
+
+        self::assertFalse($result->getReport()->hasErrors(), 'Collected is not unknown.');
+
+        $mapped = $result->getValue();
+
+        self::assertInstanceOf(UnknownPropertyCollectorEntity::class, $mapped);
+        self::assertSame(['age' => '36', 'city' => 'London'], $mapped->extra);
+    }
+
+    /**
+     * The other direction: the collector property is one the payload is not expected to supply, so
+     * strict mode must not report it as missing either. It has a default, and that default is what
+     * an absent collector means.
+     */
+    #[Test]
+    public function doesNotReportTheCollectorItselfAsMissingInStrictMode(): void
+    {
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
+            ['name' => 'Ada'],
+            UnknownPropertyCollectorEntity::class,
+        );
+
+        self::assertFalse($result->getReport()->hasErrors());
+
+        $mapped = $result->getValue();
+
+        self::assertInstanceOf(UnknownPropertyCollectorEntity::class, $mapped);
+        self::assertSame(['_default' => true], $mapped->extra, 'And it keeps its default.');
+    }
+
+    /**
+     * The discriminator for both: without a collector, the very same unknown key IS reported - so
+     * the two assertions above pin the collector rather than strict mode being inert.
+     */
+    #[Test]
+    public function stillReportsAnUnknownKeyOnAClassWithoutACollector(): void
+    {
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
+            ['name' => 'Ada', 'city' => 'London'],
+            Simple::class,
+        );
+
+        self::assertTrue($result->getReport()->hasErrors());
     }
 
     /**

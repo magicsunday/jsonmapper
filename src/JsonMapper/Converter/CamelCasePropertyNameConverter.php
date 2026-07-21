@@ -14,6 +14,9 @@ namespace MagicSunday\JsonMapper\Converter;
 use Doctrine\Inflector\Inflector;
 use Doctrine\Inflector\InflectorFactory;
 
+use function strtolower;
+use function strtoupper;
+
 /**
  * CamelCasePropertyNameConverter.
  *
@@ -44,6 +47,33 @@ final readonly class CamelCasePropertyNameConverter implements PropertyNameConve
      */
     public function convert(string $name): string
     {
-        return $this->inflector->camelize($name);
+        return $this->inflector->camelize($this->normalizeCaselessName($name));
+    }
+
+    /**
+     * Lower-cases a name that carries no case information of its own.
+     *
+     * A SCREAMING_SNAKE key states every word boundary with a separator and says nothing with its
+     * case, so the case can be discarded. Left alone, the inflector reads it as one word already
+     * capitalised and answers "ADDRESS_LINE" with "aDDRESSLINE" - a name no PHP property is
+     * declared under, so the key mapped to nothing at all.
+     *
+     * The whole name has to be caseless in this way. A name with any lower-case letter states its
+     * boundaries by case as well, and flattening it would destroy them: "HTTPServer" would become
+     * "httpserver", where leaving it alone at least keeps the segments a reader can see.
+     *
+     * @param string $name Raw property name as provided by the JSON payload.
+     *
+     * @return string The name, lower-cased when its case carries no information
+     */
+    private function normalizeCaselessName(string $name): string
+    {
+        $lowered = strtolower($name);
+
+        if (($name !== strtoupper($name)) || ($name === $lowered)) {
+            return $name;
+        }
+
+        return $lowered;
     }
 }
