@@ -148,6 +148,10 @@ final readonly class JsonMapper
         $this->collectionFactory              = new CollectionFactory(
             $this->valueConverter,
             $this->classResolver,
+            // The null arm is the factory's "no collection" answer, which every call site into it
+            // rules out before handing a payload over - so it is unreachable from here. It stays
+            // because the factory's own signature admits null and this closure is what fulfils it:
+            // a wrapper built with no arguments is the only sensible reading of "nothing to wrap".
             function (string $className, ?array $arguments): object {
                 if ($arguments === null) {
                     return $this->makeInstance($className);
@@ -943,6 +947,9 @@ final readonly class JsonMapper
      */
     private function wrapCollection(string $collectionClassName, ?array $elements): ?object
     {
+        // Null reaches here only from mapIterable()'s "no collection" answer, which its callers
+        // already handle before wrapping - so this cannot currently run. Kept because it is what
+        // stops a null being passed to a collection constructor as if it were an element list.
         if ($elements === null) {
             return null;
         }

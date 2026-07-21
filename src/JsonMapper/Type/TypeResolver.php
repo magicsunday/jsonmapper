@@ -271,6 +271,10 @@ final class TypeResolver
         if ($type->isBuiltin()) {
             $identifier = TypeIdentifier::tryFrom($name);
 
+            // Cannot currently answer null: TypeIdentifier names every builtin a PROPERTY may
+            // declare, and self/static/parent are not builtin as far as reflection is concerned.
+            // It stays because the mapping is between two independent vocabularies - PHP's and
+            // Symfony's - and a builtin added to one before the other is how they diverge.
             if ($identifier === null) {
                 return null;
             }
@@ -311,6 +315,11 @@ final class TypeResolver
             $types[] = $this->normalizeType($inner);
         }
 
+        // A union of nothing but null types, which no declaration produces: a bare null is a
+        // builtin rather than a union, and every nullable declaration names something beside it.
+        // The fallback is the same one a property without type information gets, so a union that
+        // did arrive this way would pass its value through rather than reporting every payload as
+        // a mismatch.
         if ($types === []) {
             return $allowsNull ? Type::nullable($this->defaultType) : $this->defaultType;
         }

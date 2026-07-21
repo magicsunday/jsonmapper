@@ -60,6 +60,19 @@ final class ClassResolverTest extends TestCase
     }
 
     #[Test]
+    public function itRejectsAnEmptyClassName(): void
+    {
+        // The empty string is what a lookup that found nothing produces - a config key read into a
+        // class map, an environment variable that was never set. class_exists('') is false, so
+        // without its own branch it would be reported as a class that does not exist, sending the
+        // reader looking for a typo in a name there is none of.
+        $this->expectException(DomainException::class);
+        $this->expectExceptionMessageMatches('/^Resolved class name must not be empty\.$/');
+
+        (new ClassResolver())->add('', DummyMappedClass::class);
+    }
+
+    #[Test]
     public function itRejectsResolversReturningNonStrings(): void
     {
         // Registered through the public API rather than written into the private map: a closure's

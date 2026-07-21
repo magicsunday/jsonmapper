@@ -76,6 +76,14 @@ parameters:
             message: '#^Parameter \#1 \$type of method MagicSunday\\JsonMapper\\Collection\\CollectionFactory\:\:fromCollectionType\(\) expects #'
             path: %currentWorkingDirectory%/tests/JsonMapper/Collection/CollectionFactoryTest.php
 
+        # The empty name IS the test's purpose: it is what a lookup that found nothing produces -
+        # an unset environment variable, a missing config key - which is exactly the input the
+        # guard under test exists for. A class-string here would delete the test case.
+        -
+            identifier: argument.type
+            message: '#^Parameter \#1 \$className of method MagicSunday\\JsonMapper\\Resolver\\ClassResolver\:\:add\(\) expects class\-string, string given\.$#'
+            path: %currentWorkingDirectory%/tests/JsonMapper/Resolver/ClassResolverTest.php
+
         # The contract violation IS the test's purpose: a closure's declared return type is
         # documentation to PHP, not a runtime check, so a consumer whose resolver returns the wrong
         # thing reaches the guard under test through the same public add(). Satisfying the analyser
