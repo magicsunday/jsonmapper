@@ -96,12 +96,17 @@ final class PropertyWriteFailureTest extends TestCase
     #[Test]
     public function itLetsATypeErrorFromInsideAVariadicSetterBodyPropagate(): void
     {
-        // The write guard converts an argument-type refusal at the CALL boundary into a recorded
-        // mismatch, but a TypeError raised INSIDE the setter body is a bug in the setter, not a
-        // payload mismatch - reporting it as one would blame a valid value (the elements ARE ints)
-        // and, in report mode, bury the real fault. It is left to propagate as itself.
+        // A TypeError raised inside a variadic setter body is a bug in the setter, not a payload
+        // mismatch - reporting it as one would blame a valid value (the elements ARE ints) and, in
+        // report mode, bury the real fault. The write guard does not catch a variadic TypeError at
+        // all, so it propagates as itself.
+        //
+        // The fixture raises it from the setter's OWN frame, which is the shape a trace-frame
+        // heuristic would have masked (it looks identical to an argument-binding refusal): this
+        // pins that the lane does not classify by frame but simply lets every variadic TypeError
+        // through.
         $this->expectException(TypeError::class);
-        $this->expectExceptionMessageMatches('/requireString\(\)/');
+        $this->expectExceptionMessageMatches('/Deliberate setter-body failure/');
 
         $this->getJsonMapper()->mapWithReport(
             ['values' => [1, 2]],

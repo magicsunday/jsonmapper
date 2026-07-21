@@ -118,11 +118,16 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
   fallback, so it resolves to nullable `mixed` and accepts every payload, leaving the property to
   refuse it as a native `TypeError`. The accessor wraps that into an `InvalidTypeException` carrying
   the refused type, which the record then names - accurate even for a property reachable only
-  through a setter, where the declared type read from reflection would wrongly be `mixed`. A
-  variadic setter bypasses the accessor, so its argument-type refusal is caught tightly around the
-  call and named with the VARIADIC PARAMETER's type. What is deliberately NOT caught is a
-  `TypeError` raised inside a consumer's setter BODY: that is a bug in the setter, not a payload
-  mismatch, so it propagates rather than being re-labelled as one and buried in the report.
+  through a setter, where the declared type read from reflection would wrongly be `mixed`. Only the
+  accessor's own `InvalidTypeException` is caught. A raw `TypeError` is deliberately NOT: a
+  variadic setter is spread-called directly (the accessor cannot unpack an array into `...$args`),
+  and no `TypeError` is caught around that call - the elements are already converted to the resolved
+  element type, so a refusal there means the docblock element type and the setter parameter type
+  disagree, a DTO defect, and a `TypeError` raised inside any setter BODY is a bug in the setter.
+  Both propagate as themselves rather than being re-labelled as a payload mismatch and buried in the
+  report. Do NOT try to classify a variadic `TypeError` by its trace frame: an argument-binding
+  refusal and a body error both report the setter as their innermost frame, so the two cannot be
+  told apart that way, and the attempt masks the body bug it means to preserve.
 * The abort-or-record policy lives in `MappingContext::throwOrRecord()`, whose name states the
   order because the order is the contract. A site that has something usable to hand back - an empty
   collection, an unconverted value - routes through it. The two that do not both record BEFORE

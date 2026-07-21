@@ -49,12 +49,8 @@ use MagicSunday\JsonMapper\Value\ValueConverter;
 use Psr\Cache\CacheItemPoolInterface;
 use ReflectionClass;
 use ReflectionException;
-use ReflectionIntersectionType;
 use ReflectionMethod;
-use ReflectionNamedType;
 use ReflectionProperty;
-use ReflectionType;
-use ReflectionUnionType;
 use Symfony\Component\PropertyAccess\Exception\InvalidTypeException;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
@@ -69,13 +65,11 @@ use Symfony\Component\TypeInfo\Type\ObjectType;
 use Symfony\Component\TypeInfo\Type\UnionType;
 use Symfony\Component\TypeInfo\TypeIdentifier;
 use Traversable;
-use TypeError;
 
 use function array_diff;
 use function array_filter;
 use function array_is_list;
 use function array_key_exists;
-use function array_map;
 use function array_replace;
 use function array_unique;
 use function array_values;
@@ -1635,10 +1629,13 @@ final readonly class JsonMapper
             );
         }
 
-        // A variadic setter is called directly, bypassing the accessor, so its argument-type
-        // refusal is a raw TypeError the accessor never wraps. It is caught tightly, around the
-        // call alone, and reported with the VARIADIC PARAMETER's type - not the backing property's,
-        // which for `setTags(int ...$t)` over an `array $tags` property would name the wrong type.
+        // A variadic setter is spread-called directly - the accessor would pass the array as a
+        // single argument instead of unpacking it. No TypeError is caught around the call: the
+        // elements are already converted to the resolved element type, so an argument-type refusal
+        // here means the property's docblock element type and the setter's parameter type disagree
+        // - a defect in the DTO, not the payload - and it propagates loudly like the setter-body
+        // TypeError the accessor lane below also lets through, rather than being reported against a
+        // value that satisfied the type the pipeline converted it to.
         if (is_array($value)) {
             $methodName = 'set' . ucfirst($name);
 
@@ -1650,30 +1647,7 @@ final readonly class JsonMapper
                     $callable = [$entity, $methodName];
 
                     if (is_callable($callable)) {
-                        try {
-                            call_user_func_array($callable, $value);
-                        } catch (TypeError $typeError) {
-                            // Only an argument-type refusal at the CALL boundary is a value mismatch
-                            // to report. A TypeError from inside the setter BODY is a bug in the
-                            // setter and must propagate, the same decision the accessor lane below
-                            // makes - catching both would re-bury a real fault the way the broad
-                            // catch this replaced did. PHP attributes an argument-binding error to
-                            // the called method, so its innermost trace frame is $methodName; a body
-                            // error names the inner call instead.
-                            $trace = $typeError->getTrace();
-
-                            if (($trace[0]['function'] ?? null) !== $methodName) {
-                                throw $typeError;
-                            }
-
-                            $parameterType = $parameters[0]->getType();
-
-                            throw new TypeMismatchException(
-                                $context->getPath(),
-                                $parameterType instanceof ReflectionType ? $this->describeReflectionType($parameterType) : 'mixed',
-                                get_debug_type($value),
-                            );
-                        }
+                        call_user_func_array($callable, $value);
                     }
 
                     return;
@@ -1699,42 +1673,5 @@ final readonly class JsonMapper
         } catch (InvalidTypeException $exception) {
             throw new TypeMismatchException($context->getPath(), $exception->expectedType, get_debug_type($value));
         }
-    }
-
-    /**
-     * Renders a reflected type the way it was declared.
-     *
-     * Assembled from the parts rather than cast to string, because ReflectionType::__toString() is
-     * marked deprecated in favour of asking the concrete subclass.
-     *
-     * @param ReflectionType $type Reflected declaration of a property or parameter.
-     *
-     * @return string The declaration in source form, such as "(A&B)|null"
-     */
-    private function describeReflectionType(ReflectionType $type): string
-    {
-        if ($type instanceof ReflectionNamedType) {
-            // Without the ?-prefix a nullable name carries: a standalone nullable declaration is
-            // one the type resolver models, so it is converted against its own type and never
-            // reaches this describer. Inside a union, null appears as its own member anyway.
-            return $type->getName();
-        }
-
-        if ($type instanceof ReflectionIntersectionType) {
-            return implode('&', array_map($this->describeReflectionType(...), $type->getTypes()));
-        }
-
-        if ($type instanceof ReflectionUnionType) {
-            return implode('|', array_map(
-                fn (ReflectionType $member): string => $member instanceof ReflectionIntersectionType
-                    ? '(' . $this->describeReflectionType($member) . ')'
-                    : $this->describeReflectionType($member),
-                $type->getTypes(),
-            ));
-        }
-
-        // No other ReflectionType subclass exists. Kept so a future one is described as the
-        // mapper's own fallback rather than as an empty string.
-        return 'mixed';
     }
 }

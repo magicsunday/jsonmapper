@@ -11,12 +11,17 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\Fixtures\PropertyWrite;
 
+use TypeError;
+
 /**
  * A variadic setter whose BODY raises a TypeError, so a test can prove that a bug inside a setter
  * is left to propagate rather than being re-labelled as a payload type mismatch.
  *
- * The variadic argument binding succeeds - the elements are ints - and only the delegating call
- * inside the body fails, which is exactly the case the write guard must not mask.
+ * The variadic argument binding succeeds - the elements are ints - and the failure is raised from
+ * the setter's OWN frame. That is the shape a trace-frame heuristic cannot tell apart from an
+ * argument-binding refusal (both report the setter as their innermost frame), so it pins that the
+ * write guard does not try to classify a variadic TypeError at all: it simply lets every one
+ * through.
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
@@ -42,20 +47,8 @@ final class VariadicBodyThrowingHolder
      */
     public function setValues(int ...$values): void
     {
-        foreach ($values as $value) {
-            $this->requireString($value);
-        }
-
         $this->values = $values;
-    }
 
-    /**
-     * A strict-typed delegate the body calls with an int, raising a TypeError from inside the body.
-     *
-     * @param string $value Deliberately typed so an int argument refuses.
-     */
-    private function requireString(string $value): void
-    {
-        // Never reached with a valid argument; exists only to raise a body-level TypeError.
+        throw new TypeError('Deliberate setter-body failure raised from the setter frame.');
     }
 }
