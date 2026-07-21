@@ -192,8 +192,19 @@ composer ci:test
 - Coding standards dry-run (`php-cs-fixer --dry-run`)
 - Copy/paste detection (`jscpd`)
 
+## 🔒 Backward compatibility & support
+
+Releases follow [Semantic Versioning](https://semver.org): the public surface documented in
+[`docs/API.md`](docs/API.md) — the `JsonMapper` entry points, `JsonMapperConfiguration`, the mapper
+attributes, `TypeHandlerInterface` and `PropertyNameConverterInterface` — changes in a
+backward-incompatible way only in a major release. The `Value\Strategy\*` classes are `@internal`
+and are not part of that surface; see the note in [`docs/API.md`](docs/API.md).
+
+`3.x` is the current development line. It requires PHP `^8.3` and is verified in CI against PHP 8.3,
+8.4 and 8.5.
+
 ## 🤝 Contributing
 
-See `CONTRIBUTING.md` for contributor workflow and minimal setup.
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the contributor workflow and setup.
 
-If contributions are prepared or modified by an LLM/agent, follow `AGENTS.md`.
+If contributions are prepared or modified by an LLM/agent, follow [`AGENTS.md`](AGENTS.md).

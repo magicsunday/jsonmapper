@@ -159,8 +159,12 @@ $propertyAccessor = PropertyAccess::createPropertyAccessor();
 $mapper = new JsonMapper($propertyInfo, $propertyAccessor);
 
 // Route SDK payloads to specific DTOs based on runtime discriminator data.
-$mapper->addCustomClassMapEntry(SdkFoo::class, static function (array $payload): string {
-    // Decide which DTO to instantiate by inspecting the payload type.
-    return $payload['type'] === 'bar' ? FooBar::class : FooBaz::class;
+$mapper->addCustomClassMapEntry(SdkFoo::class, static function (mixed $payload): string {
+    // The resolver receives the decoded fragment as it arrived - a stdClass with the recommended
+    // json_decode(..., associative: false), or an array with associative: true. Read the
+    // discriminator either way, so the resolver does not depend on the caller's decode mode.
+    $type = is_array($payload) ? ($payload['type'] ?? null) : ($payload->type ?? null);
+
+    return $type === 'bar' ? FooBar::class : FooBaz::class;
 });
 ```
