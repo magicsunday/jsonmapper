@@ -143,7 +143,11 @@ final readonly class JsonMapper
         $this->collectionDocBlockTypeResolver = new CollectionDocBlockTypeResolver();
         $this->valueConverter                 = new ValueConverter();
         $this->collectionFactory              = new CollectionFactory(
-            $this->valueConverter,
+            // The single value-conversion entry point, shared with the property path: routing each
+            // collection element back through convertValue() gives an element the same null policy,
+            // null guard and union dispatch a top-level property gets, instead of the raw strategy
+            // chain that knows none of them. #87.
+            fn (Type $type, mixed $value, MappingContext $elementContext): mixed => $this->convertValue($value, $type, $elementContext),
             $this->classResolver,
             // Fulfils CollectionFactoryInterface's instantiator, whose nullable $arguments the null
             // arm answers - unreachable today, kept because the signature admits it.
