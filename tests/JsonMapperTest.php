@@ -374,7 +374,11 @@ JSON
                     }
 
                     return Person::class;
-                }
+                },
+                // The allowlist is passed even though this resolver returns only constants: it is
+                // the canonical payload-driven-resolver example, and a reader copying its shape who
+                // later returns a payload-derived name inherits the guard rather than an open door.
+                [VipPerson::class, Person::class],
             )
             ->map(
                 $this->getJsonAsArray($jsonString),
