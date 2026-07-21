@@ -340,13 +340,17 @@ final readonly class JsonMapper
 
         $resolvedClassName = $className === null
             ? null
-            : $this->classResolver->resolve($className, $json, $context);
+            : $this->assertInstantiable(
+                $this->classResolver->resolve($className, $json, $context),
+                $className,
+            );
 
         $resolvedCollectionClassName = $collectionClassName === null
             ? null
-            : $this->classResolver->resolve($collectionClassName, $json, $context);
-
-        $this->assertClassesExists($resolvedClassName, $resolvedCollectionClassName);
+            : $this->assertInstantiable(
+                $this->classResolver->resolve($collectionClassName, $json, $context),
+                $collectionClassName,
+            );
 
         $collectionValueType = $this->extractCollectionType(
             $resolvedClassName,
@@ -1509,35 +1513,42 @@ final readonly class JsonMapper
     }
 
     /**
-     * Assert that the given classes exist.
+     * Asserts that a class the call named can actually be built.
+     *
+     * Existence is not the question the entry point has to answer - the resolver already refused a
+     * name that resolves to nothing. What is left is whether `new $className` can run: an
+     * interface, an abstract class, an enum and a class with a private constructor all pass an
+     * existence check and then raise a native Error, which is invisible to error collection and
+     * says nothing about which argument was wrong.
+     *
+     * @param class-string $resolved  Class name the resolver produced.
+     * @param class-string $requested Class name the call passed in.
+     *
+     * @return class-string The resolved name, unchanged
+     *
+     * @throws InvalidArgumentException When the resolved class cannot be instantiated.
      */
-    private function assertClassesExists(?string $className, ?string $collectionClassName = null): void
+    private function assertInstantiable(string $resolved, string $requested): string
     {
-        if (
-            ($className !== null)
-            && !class_exists($className)
-        ) {
-            throw new InvalidArgumentException(
-                sprintf(
-                    'Class [%s] does not exist',
-                    $className
-                )
-            );
+        if (class_exists($resolved) && (new ReflectionClass($resolved))->isInstantiable()) {
+            return $resolved;
         }
 
-        if ($collectionClassName === null) {
-            return;
-        }
-
-        if (class_exists($collectionClassName)) {
-            return;
-        }
-
+        // The resolved name is echoed only when it IS the name the call passed. A class-map entry
+        // may derive it from the payload, and this exception escapes past the report into whatever
+        // generic handler the consumer wrote, so echoing a resolver's output there would put a
+        // payload-chosen string into a response body. The requested name is the caller's own
+        // either way, and enough to find the entry that produced the wrong target.
         throw new InvalidArgumentException(
-            sprintf(
-                'Class [%s] does not exist',
-                $collectionClassName
-            )
+            $resolved === $requested
+                ? sprintf(
+                    'Class [%s] cannot be instantiated. Map it to a concrete class with addCustomClassMapEntry().',
+                    $requested,
+                )
+                : sprintf(
+                    'The class the class map resolved for [%s] cannot be instantiated.',
+                    $requested,
+                ),
         );
     }
 

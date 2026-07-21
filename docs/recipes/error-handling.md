@@ -170,8 +170,20 @@ A property that declares no type at all is not coerced: it makes no claim about 
 decoded payload is assigned unchanged - array, object, scalar or null alike, with nothing reported.
 
 Configuration problems are not mapping failures and still surface as exceptions in both modes: a
-class name that does not exist, or a collection whose element type cannot be resolved, is a defect
-in the call rather than in the payload.
+class name that does not exist, a class that cannot be instantiated, or a collection whose element
+type cannot be resolved, is a defect in the call rather than in the payload.
+
+"Cannot be instantiated" covers more than a typo: an **interface**, an **abstract class**, an
+**enum** and a class with a **private constructor** all exist as far as `class_exists()` is
+concerned, and all four make `new $className` raise. They are refused at the entry point with an
+`InvalidArgumentException` naming the class, rather than reaching the constructor and raising a
+native `Error` that no error collection can see. To map onto an interface or an abstract base,
+register the concrete target with `addCustomClassMapEntry()` — the class map is consulted first, so
+by the time the check runs there is nothing left to refuse.
+
+The refused name is echoed only when it is the name **you** passed. A class-map resolver's input is
+the payload, so when the resolver picked the target the message names the requested class instead —
+enough to find the entry, without reflecting a payload-chosen string into a response body.
 
 ## Which entry point throws
 
