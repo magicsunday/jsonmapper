@@ -17,7 +17,6 @@ use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Exception\CollectionMappingException;
 use MagicSunday\JsonMapper\Exception\MappingException;
 use MagicSunday\JsonMapper\Resolver\ClassResolver;
-use MagicSunday\JsonMapper\Value\ValueConverter;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\BuiltinType;
 use Symfony\Component\TypeInfo\Type\CollectionType;
@@ -44,10 +43,11 @@ use function iterator_to_array;
 final readonly class CollectionFactory implements CollectionFactoryInterface
 {
     /**
+     * @param Closure(Type, mixed, MappingContext): mixed                $convertValue The single value-conversion entry point, shared with the property path so an element is decided by the same null policy, null guard and union dispatch a property is.
      * @param Closure(class-string, array<array-key, mixed>|null):object $instantiator
      */
     public function __construct(
-        private ValueConverter $valueConverter,
+        private Closure $convertValue,
         private ClassResolver $classResolver,
         private Closure $instantiator,
     ) {
@@ -104,7 +104,7 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
 
         foreach ($source as $key => $value) {
             try {
-                $converted = $context->withPathSegment((string) $key, fn (MappingContext $childContext): mixed => $this->valueConverter->convert($valueType, $value, $childContext));
+                $converted = $context->withPathSegment((string) $key, fn (MappingContext $childContext): mixed => ($this->convertValue)($valueType, $value, $childContext));
 
                 if ($sourceIsList) {
                     $collection[] = $converted;

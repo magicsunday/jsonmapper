@@ -88,7 +88,9 @@ final class CollectionFactoryTest extends TestCase
         $valueConverter->addStrategy(new PassthroughValueConversionStrategy());
 
         return new CollectionFactory(
-            $valueConverter,
+            // The value-conversion facade the real mapper injects is a convertValue() closure; here
+            // it wraps a passthrough-only ValueConverter so the factory is exercised in isolation.
+            static fn (Type $type, mixed $value, MappingContext $context): mixed => $valueConverter->convert($type, $value, $context),
             new ClassResolver(),
             static fn (string $className, ?array $arguments): object => new $className(
                 ...($arguments ?? []),

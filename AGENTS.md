@@ -154,6 +154,19 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
   docblock-first because `array` narrowed to `string[]` is the library's core capability, so the
   resolver must not be turned into "native always wins". The widening direction is refused at the
   hand-over instead, by the two guards above.
+* Value conversion has ONE policy-holding entry point: `JsonMapper::convertValue()`. It is not a
+  thin wrapper over the strategy chain - it decides `CollectionType` and `UnionType` by `instanceof`
+  and holds the null policy (the null guard for a non-nullable target, the null type, and the
+  treat-null-as-empty-collection option) BEFORE the chain runs. Every value a collection element
+  included must reach it: `CollectionFactory` therefore receives a `convertValue()` closure, not the
+  raw `ValueConverter`, so an element is decided by the same policy, guard and union dispatch a
+  top-level property is. A second caller reaching into `ValueConverter::convert()` directly would
+  reopen the split #87 closed - a null accepted as a collection element while it is rejected as a
+  property of the same declared type. `convertValue()` intercepts `CollectionType`, `UnionType`,
+  the null type and a null on a non-nullable target itself, then delegates whatever is left to the
+  chain; so a genuine collection or union is decided by `convertValue()`, not by the chain's
+  matching strategy, and the chain still handles what actually reaches it (a null on a nullable
+  target via the null strategy, an `ObjectType` collection-wrapper via the collection strategy).
 * The abort-or-record policy lives in `MappingContext::throwOrRecord()`, whose name states the
   order because the order is the contract. A site that has something usable to hand back - an empty
   collection, an unconverted value - routes through it. The two that do not both record BEFORE
