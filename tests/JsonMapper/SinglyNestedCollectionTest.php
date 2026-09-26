@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\Test\JsonMapper;
 
 use InvalidArgumentException;
+use MagicSunday\JsonMapper;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\Author;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\CollectionShapesHolder;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\EncapsulatedIterableHolder;
@@ -22,6 +23,8 @@ use MagicSunday\Test\Fixtures\Docs\NestedCollections\SinglyNestedArticle;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\Tag;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\TagInterface;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 
 use function array_keys;
@@ -39,6 +42,8 @@ use function preg_quote;
  *
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class SinglyNestedCollectionTest extends TestCase
 {
     #[Test]

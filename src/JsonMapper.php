@@ -332,6 +332,11 @@ final readonly class JsonMapper
      * @param JsonMapperConfiguration|null $configuration       Optional configuration that overrides the default mapper settings.
      *
      * @return mixed The mapped PHP value or collection produced from the given JSON.
+     *
+     * @throws TypeMismatchException      When the value does not match the declared type.
+     * @throws CollectionMappingException When a collection value cannot be mapped.
+     * @throws MappingException           When the value cannot be mapped.
+     * @throws InvalidArgumentException   When a resolved class cannot be instantiated.
      */
     public function map(
         mixed $json,
@@ -358,6 +363,12 @@ final readonly class JsonMapper
      * @param bool                         $echoUnresolvableClass Whether $className is caller-supplied and so safe to echo.
      *
      * @return mixed The mapped PHP value or collection produced from the given JSON.
+     *
+     * @throws TypeMismatchException               When the value does not match the declared type.
+     * @throws CollectionMappingException          When a collection value cannot be mapped.
+     * @throws MappingException                    When the value cannot be mapped.
+     * @throws MissingConstructorArgumentException When a required, non-nullable argument has no value and no default.
+     * @throws InvalidArgumentException            When the resolved class cannot be instantiated.
      */
     private function doMap(
         mixed $json,
@@ -457,6 +468,8 @@ final readonly class JsonMapper
      * @param JsonMapperConfiguration|null $configuration       Optional configuration that overrides the default mapper settings.
      *
      * @return MappingResult Mapping result containing the mapped value and a detailed report.
+     *
+     * @throws MappingException When the value cannot be mapped.
      */
     public function mapWithReport(
         mixed $json,
@@ -534,6 +547,9 @@ final readonly class JsonMapper
      * @param MappingContext    $context                     Mapping context forwarded to nested mappings.
      *
      * @return mixed|null Returns the mapped collection when handled, null otherwise.
+     *
+     * @throws CollectionMappingException When a collection value cannot be mapped.
+     * @throws MappingException           When the value cannot be mapped.
      */
     private function mapCollection(
         mixed $json,
@@ -662,6 +678,9 @@ final readonly class JsonMapper
      * @param MappingContext                 $context           Mapping context forwarded to nested mappings.
      *
      * @return object Instantiated and populated object that represents the mapped payload.
+     *
+     * @throws MissingConstructorArgumentException When a required, non-nullable argument has no value and no default.
+     * @throws TypeMismatchException               When the value does not match the declared type.
      */
     private function mapSingleObject(
         array|object $json,
@@ -879,6 +898,9 @@ final readonly class JsonMapper
      * @param MappingContext       $context           Active mapping context.
      *
      * @return object The built and populated object.
+     *
+     * @throws MissingConstructorArgumentException When a required, non-nullable argument has no value and no default.
+     * @throws TypeMismatchException               When the value does not match the declared type.
      */
     private function hydrate(
         string $resolvedClassName,
@@ -934,6 +956,8 @@ final readonly class JsonMapper
      * @param class-string              $resolvedClassName  Fully qualified class name receiving the mapped values.
      *
      * @return string|null Returns the validated property name or null when the property should be skipped.
+     *
+     * @throws MappingException When the value cannot be mapped.
      */
     private function validateAndNormalize(
         string $normalizedProperty,
@@ -1021,6 +1045,8 @@ final readonly class JsonMapper
      * @param MappingException $exception Exception that occurred while mapping a property.
      * @param MappingContext   $context   Context collecting the error information and deciding
      *                                    whether a failure aborts the run.
+     *
+     * @throws MappingException When the value cannot be mapped.
      */
     private function handleMappingException(
         MappingException $exception,
@@ -1043,6 +1069,7 @@ final readonly class JsonMapper
      * Converts the provided JSON value using the registered strategies.
      *
      * @throws TypeMismatchException When a null value targets a non-nullable type.
+     * @throws MappingException      When the value cannot be mapped.
      */
     private function convertValue(
         mixed $json,
@@ -1133,6 +1160,7 @@ final readonly class JsonMapper
      * @return mixed Value converted to a type accepted by the union.
      *
      * @throws TypeMismatchException When a null value targets a union without a null member.
+     * @throws MappingException      When the value cannot be mapped.
      */
     private function convertUnionValue(
         mixed $json,

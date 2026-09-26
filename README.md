@@ -190,6 +190,8 @@ composer ci:test
 - Static analysis (`phpstan`)
 - Refactoring dry-run (`rector --dry-run`)
 - Coding standards dry-run (`php-cs-fixer --dry-run`)
+- Architecture layers (`deptrac`)
+- Tool configs against the shared coding-standard templates (`check-consumer-config.php`)
 - Copy/paste detection (`jscpd`)
 
 ## 🔒 Backward compatibility & support

@@ -11,14 +11,19 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper;
 
+use MagicSunday\JsonMapper;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\Article;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\ArticleCollection;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\NestedTagCollection;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\Tag;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\TagCollection;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class DocsNestedCollectionsTest extends TestCase
 {
     #[Test]

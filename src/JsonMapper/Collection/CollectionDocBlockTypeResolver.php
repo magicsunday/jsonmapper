@@ -38,7 +38,7 @@ use function sprintf;
  */
 final class CollectionDocBlockTypeResolver
 {
-    private DocBlockFactoryInterface $docBlockFactory;
+    private readonly DocBlockFactoryInterface $docBlockFactory;
 
     /**
      * Resolutions already performed, keyed by class name, with null meaning "no collection type".

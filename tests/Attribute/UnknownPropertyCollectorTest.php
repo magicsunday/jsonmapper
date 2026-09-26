@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\Test\Attribute;
 
 use InvalidArgumentException;
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\Test\Classes\Simple;
 use MagicSunday\Test\Classes\SnakeCaseKnownPropertyCollectorEntity;
@@ -24,10 +25,12 @@ use MagicSunday\Test\Classes\UnknownPropertyCollectorStaticEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorTypedEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorUnionEntity;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
- * Tests the {@see \MagicSunday\JsonMapper\Attribute\UnknownPropertyCollector} attribute: a property
+ * Tests the {@see JsonMapper\Attribute\UnknownPropertyCollector} attribute: a property
  * marked with it receives every source key that matches no declared property, so a caller can
  * preserve unmodelled input instead of losing it.
  *
@@ -35,6 +38,8 @@ use PHPUnit\Framework\Attributes\Test;
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class UnknownPropertyCollectorTest extends TestCase
 {
     /**

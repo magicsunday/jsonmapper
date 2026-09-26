@@ -13,6 +13,7 @@ namespace MagicSunday\Test\JsonMapper;
 
 use DomainException;
 use InvalidArgumentException;
+use MagicSunday\JsonMapper;
 use MagicSunday\Test\Fixtures\EntryPoint\AbstractShape;
 use MagicSunday\Test\Fixtures\EntryPoint\Circle;
 use MagicSunday\Test\Fixtures\EntryPoint\CollectionPropertyHolder;
@@ -20,6 +21,8 @@ use MagicSunday\Test\Fixtures\EntryPoint\Shape;
 use MagicSunday\Test\Fixtures\EntryPoint\ShapeHolder;
 use MagicSunday\Test\Fixtures\Enum\SampleStatus;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestWith;
@@ -35,6 +38,8 @@ use function preg_quote;
  *
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class EntryPointClassValidationTest extends TestCase
 {
     /**

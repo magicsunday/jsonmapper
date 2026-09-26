@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="./.build/vendor/phpunit/phpunit/phpunit.xsd"
+         requireCoverageMetadata="true"
          beStrictAboutCoverageMetadata="true"
          beStrictAboutOutputDuringTests="true"
          bootstrap="./.build/vendor/autoload.php"
@@ -8,13 +9,17 @@
          colors="true"
          displayDetailsOnPhpunitDeprecations="true"
          executionOrder="depends,defects"
+         failOnNotice="true"
+         failOnDeprecation="true"
          failOnPhpunitDeprecation="true"
+         failOnPhpunitNotice="true"
          failOnRisky="true"
          failOnWarning="true"
 >
     <testsuites>
         <testsuite name="Unit Tests">
             <directory>tests</directory>
+            <exclude>tests/Architecture</exclude>
         </testsuite>
     </testsuites>
 

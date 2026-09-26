@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\Test\JsonMapper\Collection;
 
 use InvalidArgumentException;
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Collection\CollectionDocBlockTypeResolver;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\TagCollection;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\UnannotatedCollection;
@@ -24,6 +25,8 @@ use phpDocumentor\Reflection\DocBlockFactory;
 use phpDocumentor\Reflection\DocBlockFactoryInterface;
 use phpDocumentor\Reflection\Location;
 use phpDocumentor\Reflection\Types\Context;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -38,6 +41,8 @@ use function preg_quote;
  *
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class CollectionDocBlockTypeResolverTest extends TestCase
 {
     /**

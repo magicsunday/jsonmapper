@@ -12,12 +12,15 @@ declare(strict_types=1);
 namespace MagicSunday\Test\JsonMapper\Collection;
 
 use DomainException;
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Collection\CollectionFactory;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Resolver\ClassResolver;
 use MagicSunday\JsonMapper\Value\Strategy\PassthroughValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\ValueConverter;
 use MagicSunday\Test\Classes\Simple;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\TypeInfo\Type;
@@ -33,6 +36,8 @@ use Symfony\Component\TypeInfo\Type\ObjectType;
  *
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class CollectionFactoryTest extends TestCase
 {
     #[Test]

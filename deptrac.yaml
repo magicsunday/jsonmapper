@@ -1,0 +1,132 @@
+# Deptrac configuration — copy to `deptrac.yaml` in the consumer root.
+#
+# The canonical layer definitions and the allowed-dependency ruleset are imported
+# from the shared package; this file only declares which paths to analyse. The
+# import path assumes the default Composer `vendor/` layout — a repository that
+# installs its dev tooling into a build directory (e.g. `.build/vendor`) adjusts
+# the import path the same way it does for the PHPStan include.
+#
+# Wire it as the consumer `ci:test:php:deptrac` script:
+#   "ci:test:php:deptrac": ["deptrac analyse --no-progress"]
+# `deptrac analyse` auto-discovers this `deptrac.yaml`. Only the layer ruleset is
+# enforced; dependencies on classes outside every layer (the framework, webtrees
+# core, PHP built-ins) are reported as "uncovered" but do not fail the run.
+# `--fail-on-uncovered` additionally reds any uncovered dependency — do NOT enable
+# it wholesale, since every external dependency is uncovered; it is only useful
+# once external namespaces are given their own catch-all layer.
+imports:
+    - .build/vendor/magicsunday/coding-standard/deptrac/layers.yaml
+
+deptrac:
+    paths:
+        - src
+
+    # Package-local layers: one per src/JsonMapper/<Area> namespace, plus the JsonMapper entry
+    # class. Configuration is collected by the shared layer of the same name.
+    layers:
+        -
+            name: Mapper
+            collectors:
+                -
+                    type: classNameRegex
+                    value: '#^MagicSunday\\JsonMapper$#'
+        -
+            name: Attribute
+            collectors:
+                -
+                    type: directory
+                    value: 'src/JsonMapper/Attribute/.*'
+        -
+            name: Collection
+            collectors:
+                -
+                    type: directory
+                    value: 'src/JsonMapper/Collection/.*'
+        -
+            name: Context
+            collectors:
+                -
+                    type: directory
+                    value: 'src/JsonMapper/Context/.*'
+        -
+            name: Converter
+            collectors:
+                -
+                    type: directory
+                    value: 'src/JsonMapper/Converter/.*'
+        -
+            name: Exception
+            collectors:
+                -
+                    type: directory
+                    value: 'src/JsonMapper/Exception/.*'
+        -
+            name: Metadata
+            collectors:
+                -
+                    type: directory
+                    value: 'src/JsonMapper/Metadata/.*'
+        -
+            name: Report
+            collectors:
+                -
+                    type: directory
+                    value: 'src/JsonMapper/Report/.*'
+        -
+            name: Resolver
+            collectors:
+                -
+                    type: directory
+                    value: 'src/JsonMapper/Resolver/.*'
+        -
+            name: Type
+            collectors:
+                -
+                    type: directory
+                    value: 'src/JsonMapper/Type/.*'
+        -
+            name: Value
+            collectors:
+                -
+                    type: directory
+                    value: 'src/JsonMapper/Value/.*'
+
+    # Allow-lists: each area may depend only on the areas listed. They pin the current acyclic
+    # graph; the entry class wires everything. Configuration's entry widens the shared layer's
+    # list (Deptrac unites imported rulesets) by the MappingContext option keys it references.
+    ruleset:
+        Attribute: ~
+        Exception: ~
+        Converter: ~
+        Type: ~
+        Metadata:
+            - Attribute
+        Context:
+            - Exception
+        Configuration:
+            - Context
+        Report:
+            - Context
+        Resolver:
+            - Context
+        Collection:
+            - Context
+            - Exception
+            - Resolver
+        Value:
+            - Collection
+            - Context
+            - Exception
+            - Resolver
+        Mapper:
+            - Attribute
+            - Collection
+            - Configuration
+            - Context
+            - Converter
+            - Exception
+            - Metadata
+            - Report
+            - Resolver
+            - Type
+            - Value

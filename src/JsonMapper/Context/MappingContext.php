@@ -76,17 +76,11 @@ final class MappingContext
     private array $errorRecords = [];
 
     /**
-     * @var array<string, mixed>
-     */
-    private array $options;
-
-    /**
      * @param mixed                $rootInput The original JSON payload handed to the mapper
      * @param array<string, mixed> $options   Context options influencing mapping behaviour
      */
-    public function __construct(private readonly mixed $rootInput, array $options = [])
+    public function __construct(private readonly mixed $rootInput, private array $options = [])
     {
-        $this->options = $options;
     }
 
     /**

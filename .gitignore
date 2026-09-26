@@ -23,3 +23,4 @@ package-lock.json
 .phplint.cache
 .phpunit.result.cache
 .phpunit.cache
+/.deptrac.cache

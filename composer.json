@@ -24,14 +24,7 @@
         "symfony/type-info": "^7.3 || ^8.0"
     },
     "require-dev": {
-        "friendsofphp/php-cs-fixer": "^3.65",
-        "overtrue/phplint": "^9.0",
-        "phpstan/phpstan": "^2.0",
-        "phpstan/phpstan-deprecation-rules": "^2.0",
-        "phpstan/phpstan-phpunit": "^2.0",
-        "phpstan/phpstan-strict-rules": "^2.0",
-        "phpunit/phpunit": "^12.0 || ^13.0",
-        "rector/rector": "^2.0"
+        "magicsunday/coding-standard": "^2.1"
     },
     "autoload": {
         "psr-4": {
@@ -70,6 +63,12 @@
         "ci:test:php:rector": [
             "@ci:rector --dry-run"
         ],
+        "ci:test:php:deptrac": [
+            "deptrac analyse --no-progress"
+        ],
+        "ci:test:php:templates": [
+            "check-consumer-config.php ."
+        ],
         "ci:test:php:cpd": [
             "npx jscpd --config .jscpd.json --skip-comments --no-tips"
         ],
@@ -89,6 +88,8 @@
             "@ci:test:php:phpstan",
             "@ci:test:php:rector",
             "@ci:test:php:cgl",
+            "@ci:test:php:deptrac",
+            "@ci:test:php:templates",
             "@ci:test:php:cpd"
         ],
         "post-update-cmd": [

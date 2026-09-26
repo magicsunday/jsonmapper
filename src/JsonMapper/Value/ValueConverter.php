@@ -13,6 +13,7 @@ namespace MagicSunday\JsonMapper\Value;
 
 use LogicException;
 use MagicSunday\JsonMapper\Context\MappingContext;
+use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\JsonMapper\Value\Strategy\ValueConversionStrategyInterface;
 use Symfony\Component\TypeInfo\Type;
 
@@ -51,6 +52,8 @@ final class ValueConverter
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return mixed Result from the first strategy that declares support for the value.
+     *
+     * @throws TypeMismatchException When the value does not match the declared type.
      */
     public function convert(Type $type, mixed $value, MappingContext $context): mixed
     {

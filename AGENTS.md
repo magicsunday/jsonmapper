@@ -57,6 +57,11 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
 ## 3) Standard tooling & commands
 
 * **Runtime:** PHP 8.3/8.4/8.5
+* **Shared configs:** PHPStan, PHP-CS-Fixer, Rector and Deptrac build on `magicsunday/coding-standard`; the
+  repository files only add the package-local paths, header and exceptions.
+* **Coverage metadata:** `phpunit.xml` requires it. Every test class carries `#[CoversClass(JsonMapper::class)]`
+  and `#[CoversNamespace('MagicSunday\JsonMapper')]`: the suite drives the library through the public mapper,
+  so each class targets all of `src/`.
 * **Composer scripts:**
     * `composer ci:cgl`
     * `composer ci:rector`
@@ -66,9 +71,11 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
     * `composer ci:test:php:cpd`
     * `composer ci:test:php:unit`
     * `composer ci:test:php:cgl`
+    * `composer ci:test:php:deptrac` — architecture layers (`deptrac.yaml`: the shared magicsunday/coding-standard ruleset plus one layer per `src/JsonMapper/<Area>` namespace, pinned to the current acyclic dependency graph)
+    * `composer ci:test:php:templates` — tool configs checked against the coding-standard templates
     * `composer ci:test:php:unit:coverage`
     * `composer ci:test` — the aggregate the README points contributors at; runs lint, unit,
-      PHPStan, Rector, CGL and CPD in that order
+      PHPStan, Rector, CGL, Deptrac, templates and CPD in that order
 * **Node tooling:** `npx jscpd --config .jscpd.json --skip-comments --no-tips` (executed by `ci:test:php:cpd`; `npm install jscpd@^5.0.11` runs via `post-update-cmd`).
 
 **Git flow (no ad-hoc diffs):**
@@ -324,6 +331,8 @@ List changed API surfaces and relevant attributes/converters in the “Reference
 * [ ] `composer ci:test:php:lint`
 * [ ] `composer ci:test:php:phpstan`
 * [ ] `composer ci:test:php:rector`
+* [ ] `composer ci:test:php:deptrac`
+* [ ] `composer ci:test:php:templates`
 * [ ] `composer ci:test:php:cpd`
 * [ ] `composer ci:test:php:unit`
 * [ ] `composer ci:test:php:coverage:gate` (coverage ≥ 90 %, enforced in CI)

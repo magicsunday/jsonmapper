@@ -52,6 +52,8 @@ trait ObjectTypeConversionGuardTrait
      * @param MappingContext           $context Mapping context providing configuration such as strict mode.
      *
      * @return void
+     *
+     * @throws TypeMismatchException When the value does not match the declared type.
      */
     private function guardNullableValue(mixed $value, ObjectType $type, MappingContext $context): void
     {
@@ -84,6 +86,8 @@ trait ObjectTypeConversionGuardTrait
      * @param callable(string, mixed): mixed $converter Callback that performs the actual conversion when a class-string is available.
      *
      * @return mixed Result from the converter or the original value when no object type was detected.
+     *
+     * @throws TypeMismatchException When the value does not match the declared type.
      */
     private function convertObjectValue(Type $type, MappingContext $context, mixed $value, callable $converter): mixed
     {

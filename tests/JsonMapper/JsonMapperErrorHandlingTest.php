@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper;
 
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Exception\CollectionMappingException;
 use MagicSunday\JsonMapper\Exception\MissingConstructorArgumentException;
@@ -37,6 +38,8 @@ use MagicSunday\Test\Classes\UnionHolder;
 use MagicSunday\Test\Classes\UntypedPropertyHolder;
 use MagicSunday\Test\Classes\UntypedReplaceNullCollectionHolder;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionProperty;
@@ -46,6 +49,8 @@ use function get_debug_type;
 /**
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class JsonMapperErrorHandlingTest extends TestCase
 {
     #[Test]
@@ -170,6 +175,7 @@ final class JsonMapperErrorHandlingTest extends TestCase
         self::assertCount(3, $errors);
 
         $errorsByPath = [];
+
         foreach ($errors as $error) {
             $errorsByPath[$error->getPath()] = $error;
         }

@@ -15,11 +15,15 @@ use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter;
 use MagicSunday\Test\Classes\CamelCasePerson;
 use MagicSunday\Test\Classes\Simple;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\TestCase;
 
 /**
  * @covers \MagicSunday\JsonMapper::createWithDefaults
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class JsonMapperFactoryTest extends TestCase
 {
     public function testCreateWithDefaultsReturnsConfiguredMapper(): void

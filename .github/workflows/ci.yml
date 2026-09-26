@@ -72,6 +72,16 @@ jobs:
               run: |
                   composer ci:test:php:cgl
 
+            - name: Deptrac
+              if: ${{ !cancelled() }}
+              run: |
+                  composer ci:test:php:deptrac
+
+            - name: Templates
+              if: ${{ !cancelled() }}
+              run: |
+                  composer ci:test:php:templates
+
             - name: CPD
               if: ${{ !cancelled() }}
               run: composer ci:test:php:cpd

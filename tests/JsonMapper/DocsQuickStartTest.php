@@ -11,13 +11,18 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper;
 
+use MagicSunday\JsonMapper;
 use MagicSunday\Test\Fixtures\Docs\QuickStart\Article;
 use MagicSunday\Test\Fixtures\Docs\QuickStart\ArticleCollection;
 use MagicSunday\Test\Fixtures\Docs\QuickStart\Comment;
 use MagicSunday\Test\Fixtures\Docs\QuickStart\CommentCollection;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class DocsQuickStartTest extends TestCase
 {
     #[Test]

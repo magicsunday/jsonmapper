@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test;
 
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Exception\MissingConstructorArgumentException;
 use MagicSunday\Test\Classes\CamelCaseReadonly;
@@ -22,6 +23,8 @@ use MagicSunday\Test\Classes\ReadonlyHolder;
 use MagicSunday\Test\Classes\ReadonlyValueObject;
 use MagicSunday\Test\Classes\ReplaceNullReadonly;
 use MagicSunday\Test\Classes\VariadicConstructor;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 
 use function preg_quote;
@@ -34,6 +37,8 @@ use function preg_quote;
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class ConstructorHydrationTest extends TestCase
 {
     /**

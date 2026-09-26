@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper;
 
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Context\MappingError;
@@ -18,6 +19,8 @@ use MagicSunday\Test\Classes\UnionObjectHolder;
 use MagicSunday\Test\Classes\UnionScalarHolder;
 use MagicSunday\Test\Classes\UnionThenFailingHolder;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -30,6 +33,8 @@ use function array_map;
  *
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class UnionResolutionTest extends TestCase
 {
     /**

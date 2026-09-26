@@ -9,22 +9,12 @@
 
 declare(strict_types=1);
 
-use Rector\CodeQuality\Rector\ClassMethod\LocallyCalledStaticMethodToNonStaticRector;
-use Rector\CodingStyle\Rector\Catch_\CatchExceptionNameMatchingTypeRector;
 use Rector\Config\RectorConfig;
-use Rector\DeadCode\Rector\ClassMethod\RemoveUselessParamTagRector;
-use Rector\DeadCode\Rector\ClassMethod\RemoveUselessReturnTagRector;
-use Rector\DeadCode\Rector\Property\RemoveUselessVarTagRector;
-use Rector\Php80\Rector\Class_\ClassPropertyAssignToConstructorPromotionRector;
-use Rector\Php81\Rector\Property\ReadOnlyPropertyRector;
-use Rector\Set\ValueObject\LevelSetList;
-use Rector\Set\ValueObject\SetList;
-use Rector\TypeDeclaration\Rector\ClassMethod\ParamTypeByMethodCallTypeRector;
 
 return static function (RectorConfig $rectorConfig): void {
     $rectorConfig->paths([
         __DIR__ . '/src/',
-        // Exclude tests-directory as this would change test cases too
+        // tests/ stays out: rewriting it would change the test cases themselves.
         // __DIR__ . '/tests/',
     ]);
 
@@ -55,33 +45,9 @@ return static function (RectorConfig $rectorConfig): void {
     }
 
     $rectorConfig->phpstanConfig(__DIR__ . '/phpstan.neon');
-    $rectorConfig->importNames();
-    $rectorConfig->removeUnusedImports();
-    $rectorConfig->disableParallel();
     $rectorConfig->cacheDirectory(__DIR__ . '/.build/cache/.rector.cache');
     $rectorConfig->containerCacheDirectory(__DIR__ . '/.build/cache/.rector.container.cache');
 
-    // Define what rule sets will be applied
-    $rectorConfig->sets([
-        SetList::CODE_QUALITY,
-        SetList::CODING_STYLE,
-        SetList::DEAD_CODE,
-        SetList::EARLY_RETURN,
-        SetList::INSTANCEOF,
-        SetList::PRIVATIZATION,
-        SetList::TYPE_DECLARATION,
-        LevelSetList::UP_TO_PHP_83,
-    ]);
-
-    // Skip some rules
-    $rectorConfig->skip([
-        CatchExceptionNameMatchingTypeRector::class,
-        ClassPropertyAssignToConstructorPromotionRector::class,
-        LocallyCalledStaticMethodToNonStaticRector::class,
-        ParamTypeByMethodCallTypeRector::class,
-        ReadOnlyPropertyRector::class,
-        RemoveUselessParamTagRector::class,
-        RemoveUselessReturnTagRector::class,
-        RemoveUselessVarTagRector::class,
-    ]);
+    // The shared rule sets and skips; 80300 is this package's PHP floor.
+    (require __DIR__ . '/.build/vendor/magicsunday/coding-standard/rector/base.php')($rectorConfig, 80300);
 };

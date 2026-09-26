@@ -11,12 +11,15 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper;
 
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Exception\MissingConstructorArgumentException;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\Test\Fixtures\Docs\ErrorHandling\Article;
 use MagicSunday\Test\Fixtures\Docs\ErrorHandling\ImmutableArticle;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\TypeInfo\TypeIdentifier;
@@ -27,6 +30,8 @@ use Symfony\Component\TypeInfo\TypeIdentifier;
  *
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class DocsErrorHandlingTest extends TestCase
 {
     #[Test]

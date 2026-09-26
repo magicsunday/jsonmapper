@@ -14,8 +14,11 @@ namespace MagicSunday\Test\JsonMapper\Type;
 use ArrayAccess;
 use Closure;
 use Countable;
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Type\NativeTypeMatcher;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionFunction;
@@ -40,6 +43,8 @@ use function trim;
  *
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class NativeTypeMatcherTest extends TestCase
 {
     /**

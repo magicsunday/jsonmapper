@@ -11,16 +11,21 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper\Report;
 
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Context\MappingError;
 use MagicSunday\JsonMapper\Exception\UnknownPropertyException;
 use MagicSunday\JsonMapper\Report\MappingReport;
 use MagicSunday\JsonMapper\Report\MappingResult;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class MappingResultTest extends TestCase
 {
     #[Test]

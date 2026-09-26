@@ -11,15 +11,20 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper\Report;
 
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Context\MappingError;
 use MagicSunday\JsonMapper\Exception\MissingPropertyException;
 use MagicSunday\JsonMapper\Report\MappingReport;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class MappingReportTest extends TestCase
 {
     #[Test]

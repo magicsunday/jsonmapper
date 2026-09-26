@@ -66,6 +66,8 @@ final class EnumValueConversionStrategy implements ValueConversionStrategyInterf
      *
      * @return mixed Enum case - resolved through the case factory for a backed enum, by case name
      *               for a pure one.
+     *
+     * @throws TypeMismatchException When the value does not match the declared type.
      */
     public function convert(Type $type, mixed $value, MappingContext $context): mixed
     {

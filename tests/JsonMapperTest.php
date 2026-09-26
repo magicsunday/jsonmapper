@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\Test;
 
 use DateInterval;
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\JsonMapper\Exception\UnknownPropertyException;
@@ -38,6 +39,8 @@ use MagicSunday\Test\Classes\UnionHolder;
 use MagicSunday\Test\Classes\VariadicSetterClass;
 use MagicSunday\Test\Classes\VipPerson;
 use MagicSunday\Test\Fixtures\Enum\SampleStatus;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use stdClass;
@@ -53,6 +56,8 @@ use function is_string;
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 class JsonMapperTest extends TestCase
 {
     /**
@@ -405,7 +410,8 @@ JSON
     {
         $result = $this->getJsonMapper()
             ->map(
-                $this->getJsonAsArray(<<<JSON
+                $this->getJsonAsArray(
+                    <<<JSON
 {
     "simple": null
 }
@@ -426,7 +432,8 @@ JSON
     {
         $result = $this->getJsonMapper()
             ->map(
-                $this->getJsonAsArray(<<<JSON
+                $this->getJsonAsArray(
+                    <<<JSON
 {
     "privateProperty": "Private property value"
 }
@@ -447,7 +454,8 @@ JSON
     {
         $result = $this->getJsonMapper()
             ->map(
-                $this->getJsonAsArray(<<<JSON
+                $this->getJsonAsArray(
+                    <<<JSON
 {
     "private_property": "Private property value"
 }
@@ -468,7 +476,8 @@ JSON
     {
         $result = $this->getJsonMapper()
             ->map(
-                $this->getJsonAsArray(<<<JSON
+                $this->getJsonAsArray(
+                    <<<JSON
 [
     {
         "name": "foo"
@@ -497,7 +506,8 @@ JSON
     {
         $result = $this->getJsonMapper()
             ->map(
-                $this->getJsonAsArray(<<<JSON
+                $this->getJsonAsArray(
+                    <<<JSON
 {
     "name": "foo"
 }
@@ -519,7 +529,8 @@ JSON
     {
         $result = $this->getJsonMapper()
             ->map(
-                $this->getJsonAsArray(<<<JSON
+                $this->getJsonAsArray(
+                    <<<JSON
 {
     "persons": [
         [

@@ -11,17 +11,22 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper;
 
+use MagicSunday\JsonMapper;
 use MagicSunday\Test\Classes\Base;
 use MagicSunday\Test\Classes\Collection;
 use MagicSunday\Test\Classes\LargeDatasetItem;
 use MagicSunday\Test\Classes\LargeDatasetRoot;
 use MagicSunday\Test\Classes\RecursiveNode;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class JsonMapperRobustnessTest extends TestCase
 {
     #[Test]
@@ -58,6 +63,7 @@ final class JsonMapperRobustnessTest extends TestCase
         self::assertInstanceOf(RecursiveNode::class, $result);
 
         $node = $result;
+
         for ($i = 0; $i < $depth; ++$i) {
             self::assertSame('level-' . $i, $node->name);
 
@@ -84,6 +90,7 @@ final class JsonMapperRobustnessTest extends TestCase
         // element are asserted by their own values, so a run that dropped, duplicated or
         // reordered entries cannot satisfy the count alone.
         $items = [];
+
         for ($i = 0; $i < 500; ++$i) {
             $items[] = [
                 'identifier' => $i,
