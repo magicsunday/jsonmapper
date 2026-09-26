@@ -11,9 +11,12 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper;
 
+use MagicSunday\JsonMapper;
 use MagicSunday\Test\Classes\SharedDefaultHolder;
 use MagicSunday\Test\Classes\ThrowingDefaultHolder;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
@@ -26,6 +29,8 @@ use PHPUnit\Framework\Attributes\Test;
  *
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class DefaultValueEvaluationTest extends TestCase
 {
     #[Test]

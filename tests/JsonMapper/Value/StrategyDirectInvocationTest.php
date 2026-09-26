@@ -13,6 +13,7 @@ namespace MagicSunday\Test\JsonMapper\Value;
 
 use DateTime;
 use LogicException;
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\JsonMapper\Resolver\ClassResolver;
@@ -22,6 +23,8 @@ use MagicSunday\JsonMapper\Value\Strategy\ObjectValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\Strategy\PassthroughValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\Strategy\ValueConversionStrategyInterface;
 use MagicSunday\JsonMapper\Value\ValueConverter;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\TypeInfo\Type;
@@ -42,6 +45,8 @@ use Symfony\Component\TypeInfo\TypeIdentifier;
  *
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class StrategyDirectInvocationTest extends TestCase
 {
     #[Test]

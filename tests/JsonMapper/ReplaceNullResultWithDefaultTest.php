@@ -11,10 +11,13 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper;
 
+use MagicSunday\JsonMapper;
 use MagicSunday\Test\Fixtures\Enum\SampleStatus;
 use MagicSunday\Test\Fixtures\ReplaceNull\NullProducingStatusHandler;
 use MagicSunday\Test\Fixtures\ReplaceNull\StatusHolder;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
@@ -30,6 +33,8 @@ use PHPUnit\Framework\Attributes\Test;
  *
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class ReplaceNullResultWithDefaultTest extends TestCase
 {
     #[Test]

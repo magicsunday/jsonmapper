@@ -13,8 +13,11 @@ namespace MagicSunday\Test\JsonMapper\Configuration;
 
 use DateTimeInterface;
 use InvalidArgumentException;
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Context\MappingContext;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -29,6 +32,8 @@ use PHPUnit\Framework\TestCase;
  *
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class RestoredConfigurationTest extends TestCase
 {
     /**

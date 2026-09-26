@@ -16,12 +16,16 @@ use MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter;
 use MagicSunday\Test\Fixtures\Cache\InMemoryCachePool;
 use MagicSunday\Test\Fixtures\Docs\QuickStart\Article;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
 
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class JsonMapperTypeCacheTest extends TestCase
 {
     #[Test]

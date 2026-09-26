@@ -11,11 +11,14 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper;
 
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Exception\CollectionMappingException;
 use MagicSunday\Test\Classes\Base;
 use MagicSunday\Test\Classes\BaseCollection;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -36,6 +39,8 @@ use PHPUnit\Framework\Attributes\Test;
  *
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class PayloadShapeEdgeCaseTest extends TestCase
 {
     #[Test]

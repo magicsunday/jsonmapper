@@ -14,9 +14,12 @@ namespace MagicSunday\Test\JsonMapper\Type;
 use DateInterval;
 use DateTimeInterface;
 use Exception;
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Type\TypeResolver;
 use MagicSunday\Test\Classes\Ns\Item as NamespacedItem;
 use MagicSunday\Test\Classes\Ns_Item as UnderscoredItem;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Cache\CacheItemInterface;
@@ -43,6 +46,8 @@ use function strlen;
 /**
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class TypeResolverTest extends TestCase
 {
     #[Test]

@@ -11,7 +11,10 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\Converter;
 
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Converter\CamelCasePropertyNameConverter;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -23,6 +26,8 @@ use PHPUnit\Framework\TestCase;
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 class CamelCasePropertyNameConverterTest extends TestCase
 {
     /**

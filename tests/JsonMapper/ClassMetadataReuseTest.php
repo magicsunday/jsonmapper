@@ -15,6 +15,8 @@ use MagicSunday\JsonMapper;
 use MagicSunday\Test\Classes\Base;
 use MagicSunday\Test\Classes\BaseCollection;
 use MagicSunday\Test\JsonMapper\Stub\CountingPropertyListExtractor;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\PropertyAccess\PropertyAccess;
@@ -31,6 +33,8 @@ use function array_fill;
  *
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class ClassMetadataReuseTest extends TestCase
 {
     #[Test]

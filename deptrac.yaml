@@ -1,0 +1,22 @@
+# Deptrac configuration — copy to `deptrac.yaml` in the consumer root.
+#
+# The canonical layer definitions and the allowed-dependency ruleset are imported
+# from the shared package; this file only declares which paths to analyse. The
+# import path assumes the default Composer `vendor/` layout — a repository that
+# installs its dev tooling into a build directory (e.g. `.build/vendor`) adjusts
+# the import path the same way it does for the PHPStan include.
+#
+# Wire it as the consumer `ci:test:php:deptrac` script:
+#   "ci:test:php:deptrac": ["deptrac analyse --no-progress"]
+# `deptrac analyse` auto-discovers this `deptrac.yaml`. Only the layer ruleset is
+# enforced; dependencies on classes outside every layer (the framework, webtrees
+# core, PHP built-ins) are reported as "uncovered" but do not fail the run.
+# `--fail-on-uncovered` additionally reds any uncovered dependency — do NOT enable
+# it wholesale, since every external dependency is uncovered; it is only useful
+# once external namespaces are given their own catch-all layer.
+imports:
+    - .build/vendor/magicsunday/coding-standard/deptrac/layers.yaml
+
+deptrac:
+    paths:
+        - src

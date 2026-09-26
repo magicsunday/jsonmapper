@@ -11,10 +11,13 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper;
 
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\Test\Classes\Base;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
@@ -25,6 +28,8 @@ use PHPUnit\Framework\Attributes\Test;
  *
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class CustomContextOptionTest extends TestCase
 {
     #[Test]
@@ -63,7 +68,7 @@ final class CustomContextOptionTest extends TestCase
                 null,
                 $context,
             );
-        } catch (\MagicSunday\JsonMapper\Exception\MappingException) {
+        } catch (JsonMapper\Exception\MappingException) {
             // Strict mode may reject this fixture; what matters is the context afterwards.
         }
 

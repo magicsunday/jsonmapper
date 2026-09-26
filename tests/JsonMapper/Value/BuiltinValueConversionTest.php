@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\Test\JsonMapper\Value;
 
 use ArrayIterator;
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\Test\Classes\CallableDocBlockPropertyHolder;
@@ -20,6 +21,8 @@ use MagicSunday\Test\Classes\IterablePropertyHolder;
 use MagicSunday\Test\Classes\MixedPropertyHolder;
 use MagicSunday\Test\Classes\TrueTypedPropertyHolder;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionProperty;
@@ -35,6 +38,8 @@ use function preg_quote;
  *
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class BuiltinValueConversionTest extends TestCase
 {
     /**

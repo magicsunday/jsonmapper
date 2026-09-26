@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper;
 
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\Test\Fixtures\PropertyWrite\IntersectionTypedHolder;
 use MagicSunday\Test\Fixtures\PropertyWrite\MarkerA;
@@ -18,6 +19,8 @@ use MagicSunday\Test\Fixtures\PropertyWrite\MarkerB;
 use MagicSunday\Test\Fixtures\PropertyWrite\VariadicBodyThrowingHolder;
 use MagicSunday\Test\Fixtures\Shapes\AccessorOnlyHolder;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 use TypeError;
 
@@ -33,6 +36,8 @@ use TypeError;
  *
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class PropertyWriteFailureTest extends TestCase
 {
     #[Test]

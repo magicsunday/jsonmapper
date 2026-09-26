@@ -11,12 +11,15 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper\Value;
 
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\Test\Classes\EnumHolder;
 use MagicSunday\Test\Classes\IntBackedEnumHolder;
 use MagicSunday\Test\Fixtures\Enum\SamplePriority;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionProperty;
 
@@ -31,6 +34,8 @@ use ReflectionProperty;
  *
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class EnumValueConversionTest extends TestCase
 {
     #[Test]

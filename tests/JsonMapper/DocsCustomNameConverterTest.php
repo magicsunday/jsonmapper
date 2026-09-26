@@ -15,12 +15,16 @@ use MagicSunday\JsonMapper;
 use MagicSunday\Test\Fixtures\Converter\UpperSnakeCaseConverter;
 use MagicSunday\Test\Fixtures\Docs\NameConverter\Event;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
 
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class DocsCustomNameConverterTest extends TestCase
 {
     #[Test]

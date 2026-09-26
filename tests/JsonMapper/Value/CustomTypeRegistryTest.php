@@ -13,9 +13,12 @@ namespace MagicSunday\Test\JsonMapper\Value;
 
 use InvalidArgumentException;
 use LogicException;
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Value\CustomTypeRegistry;
 use MagicSunday\JsonMapper\Value\TypeHandlerInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\TypeInfo\Type\ObjectType;
@@ -25,6 +28,8 @@ use function is_string;
 /**
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class CustomTypeRegistryTest extends TestCase
 {
     #[Test]

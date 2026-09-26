@@ -1,12 +1,11 @@
 includes:
-    - %currentWorkingDirectory%/.build/vendor/phpstan/phpstan-strict-rules/rules.neon
-    - %currentWorkingDirectory%/.build/vendor/phpstan/phpstan-deprecation-rules/rules.neon
-    - %currentWorkingDirectory%/.build/vendor/phpstan/phpstan-phpunit/extension.neon
-    - %currentWorkingDirectory%/.build/vendor/phpstan/phpstan-phpunit/rules.neon
+    - %currentWorkingDirectory%/.build/vendor/magicsunday/coding-standard/phpstan/base.neon
 
 parameters:
-    # You can currently choose from 11 levels (0 is the loosest and 10 is the strictest).
-    level: max
+    # level: max and the rule packs (strict, deprecation, phpunit) come from the shared base.
+    phpVersion:
+        min: 80300
+        max: 80500
 
     tmpDir: %currentWorkingDirectory%/.build/cache/.phpstan.cache
 
@@ -19,6 +18,13 @@ parameters:
         - %currentWorkingDirectory%/.build/
 
     ignoreErrors:
+        # A test method that calls a throwing API documents nothing by carrying @throws: PHPUnit
+        # catches whatever it throws and turns it into a failure (or an expectException pass).
+        # Checked-exception contracts are enforced on src/, where callers depend on them.
+        -
+            identifier: missingType.checkedException
+            path: %currentWorkingDirectory%/tests/*
+
         # The missing type IS the fixture's purpose: it pins the type resolver's fallback for
         # properties without any type metadata. Adding a type would delete the test case.
         -

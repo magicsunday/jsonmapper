@@ -11,8 +11,11 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\Attribute;
 
+use MagicSunday\JsonMapper;
 use MagicSunday\Test\Classes\ReplacePropertyTestClass;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
@@ -22,6 +25,8 @@ use PHPUnit\Framework\Attributes\Test;
  * @license https://opensource.org/licenses/MIT
  * @link    https://github.com/magicsunday/jsonmapper/
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 class ReplacePropertyTest extends TestCase
 {
     /**

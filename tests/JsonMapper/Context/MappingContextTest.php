@@ -11,14 +11,19 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper\Context;
 
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 /**
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class MappingContextTest extends TestCase
 {
     #[Test]

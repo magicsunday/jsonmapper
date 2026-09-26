@@ -12,11 +12,14 @@ declare(strict_types=1);
 namespace MagicSunday\Test\JsonMapper\Value;
 
 use DateTimeImmutable;
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\Test\Classes\DateTimeHolder;
 use MagicSunday\Test\Classes\EnumHolder;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -27,6 +30,8 @@ use PHPUnit\Framework\Attributes\Test;
  *
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class UnusableDateAndEnumValueTest extends TestCase
 {
     /**

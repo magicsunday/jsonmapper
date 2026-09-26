@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper\Type;
 
+use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\Test\Fixtures\TypePrecedence\AccessorWideningHolder;
 use MagicSunday\Test\Fixtures\TypePrecedence\ParentTypedConstructorHolder;
@@ -22,6 +23,8 @@ use MagicSunday\Test\Fixtures\TypePrecedence\VariadicConstructorHolder;
 use MagicSunday\Test\Fixtures\TypePrecedence\WideningConstructorHolder;
 use MagicSunday\Test\Fixtures\TypePrecedence\WideningPropertyHolder;
 use MagicSunday\Test\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 
 /**
@@ -41,6 +44,8 @@ use PHPUnit\Framework\Attributes\Test;
  *
  * @internal
  */
+#[CoversClass(JsonMapper::class)]
+#[CoversNamespace('MagicSunday\JsonMapper')]
 final class TypePrecedenceTest extends TestCase
 {
     #[Test]
