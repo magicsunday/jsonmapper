@@ -63,6 +63,8 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
      * @return array<array-key, mixed>|null Normalised collection data, or null when no collection was
      *                                      asked for. A recorded conversion failure yields an empty
      *                                      array, never null - consumers read null as an absence.
+     *
+     * @throws MappingException When the value cannot be mapped.
      */
     public function mapIterable(mixed $json, Type $valueType, MappingContext $context): ?array
     {
@@ -156,6 +158,8 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
      * @param MappingContext                                                           $context Mapping context controlling strict mode and error tracking.
      *
      * @return object|array<array-key, mixed>|null Instantiated collection wrapper or the normalised array values.
+     *
+     * @throws MappingException When the value cannot be mapped.
      */
     public function fromCollectionType(CollectionType $type, mixed $json, MappingContext $context): array|object|null
     {

@@ -90,6 +90,8 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return mixed Instance of the configured date/time class.
+     *
+     * @throws TypeMismatchException When the value does not match the declared type.
      */
     public function convert(Type $type, mixed $value, MappingContext $context): mixed
     {

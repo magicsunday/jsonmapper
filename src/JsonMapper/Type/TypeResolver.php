@@ -29,7 +29,7 @@ use function hash;
 /**
  * Resolves property types using Symfony's PropertyInfo component.
  */
-final class TypeResolver
+final readonly class TypeResolver
 {
     /**
      * Schema token of the cached type shape. Bump it whenever the resolution semantics change,
@@ -67,8 +67,8 @@ final class TypeResolver
     private BuiltinType $defaultType;
 
     public function __construct(
-        private readonly PropertyInfoExtractorInterface $extractor,
-        private readonly ?CacheItemPoolInterface $cache = null,
+        private PropertyInfoExtractorInterface $extractor,
+        private ?CacheItemPoolInterface $cache = null,
     ) {
         $this->defaultType = new BuiltinType(TypeIdentifier::MIXED);
     }

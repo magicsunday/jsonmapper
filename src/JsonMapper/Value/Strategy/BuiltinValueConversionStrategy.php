@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\JsonMapper\Value\Strategy;
 
 use MagicSunday\JsonMapper\Context\MappingContext;
+use MagicSunday\JsonMapper\Exception\MappingException;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\BuiltinType;
@@ -105,6 +106,9 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return mixed Value cast to the requested builtin type when possible.
+     *
+     * @throws TypeMismatchException When the value does not match the declared type.
+     * @throws MappingException      When the value cannot be mapped.
      */
     public function convert(Type $type, mixed $value, MappingContext $context): mixed
     {
@@ -238,6 +242,9 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
      * @param MappingContext              $context Mapping context providing configuration such as strict mode.
      *
      * @return void
+     *
+     * @throws MappingException      When the value cannot be mapped.
+     * @throws TypeMismatchException When the value does not match the declared type.
      */
     private function guardCompatibility(mixed $value, BuiltinType $type, MappingContext $context): void
     {

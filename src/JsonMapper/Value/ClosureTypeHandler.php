@@ -23,7 +23,7 @@ use function sprintf;
 /**
  * Decorates a closure so that it can be used as a type handler.
  */
-final class ClosureTypeHandler implements TypeHandlerInterface
+final readonly class ClosureTypeHandler implements TypeHandlerInterface
 {
     private Closure $converter;
 
@@ -32,7 +32,7 @@ final class ClosureTypeHandler implements TypeHandlerInterface
      * @param callable(mixed):mixed|callable(mixed, MappingContext):mixed $converter Callable receiving the mapped value and
      *                                                                               optionally the mapping context.
      */
-    public function __construct(private readonly string $className, callable $converter)
+    public function __construct(private string $className, callable $converter)
     {
         $this->converter = $this->normalizeConverter($converter);
     }
