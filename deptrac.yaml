@@ -20,3 +20,113 @@ imports:
 deptrac:
     paths:
         - src
+
+    # Package-local layers: one per src/JsonMapper/<Area> namespace, plus the JsonMapper entry
+    # class. Configuration is collected by the shared layer of the same name.
+    layers:
+        -
+            name: Mapper
+            collectors:
+                -
+                    type: classNameRegex
+                    value: '#^MagicSunday\\JsonMapper$#'
+        -
+            name: Attribute
+            collectors:
+                -
+                    type: directory
+                    value: 'src/JsonMapper/Attribute/.*'
+        -
+            name: Collection
+            collectors:
+                -
+                    type: directory
+                    value: 'src/JsonMapper/Collection/.*'
+        -
+            name: Context
+            collectors:
+                -
+                    type: directory
+                    value: 'src/JsonMapper/Context/.*'
+        -
+            name: Converter
+            collectors:
+                -
+                    type: directory
+                    value: 'src/JsonMapper/Converter/.*'
+        -
+            name: Exception
+            collectors:
+                -
+                    type: directory
+                    value: 'src/JsonMapper/Exception/.*'
+        -
+            name: Metadata
+            collectors:
+                -
+                    type: directory
+                    value: 'src/JsonMapper/Metadata/.*'
+        -
+            name: Report
+            collectors:
+                -
+                    type: directory
+                    value: 'src/JsonMapper/Report/.*'
+        -
+            name: Resolver
+            collectors:
+                -
+                    type: directory
+                    value: 'src/JsonMapper/Resolver/.*'
+        -
+            name: Type
+            collectors:
+                -
+                    type: directory
+                    value: 'src/JsonMapper/Type/.*'
+        -
+            name: Value
+            collectors:
+                -
+                    type: directory
+                    value: 'src/JsonMapper/Value/.*'
+
+    # Allow-lists: each area may depend only on the areas listed. They pin the current acyclic
+    # graph; the entry class wires everything. Configuration's entry widens the shared layer's
+    # list (Deptrac unites imported rulesets) by the MappingContext option keys it references.
+    ruleset:
+        Attribute: ~
+        Exception: ~
+        Converter: ~
+        Type: ~
+        Metadata:
+            - Attribute
+        Context:
+            - Exception
+        Configuration:
+            - Context
+        Report:
+            - Context
+        Resolver:
+            - Context
+        Collection:
+            - Context
+            - Exception
+            - Resolver
+        Value:
+            - Collection
+            - Context
+            - Exception
+            - Resolver
+        Mapper:
+            - Attribute
+            - Collection
+            - Configuration
+            - Context
+            - Converter
+            - Exception
+            - Metadata
+            - Report
+            - Resolver
+            - Type
+            - Value
