@@ -71,7 +71,7 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
     * `composer ci:test:php:cpd`
     * `composer ci:test:php:unit`
     * `composer ci:test:php:cgl`
-    * `composer ci:test:php:deptrac` — architecture layers (`deptrac.yaml`: the shared magicsunday/coding-standard ruleset plus one layer per `src/JsonMapper/<Area>` namespace, pinned to the current acyclic dependency graph)
+    * `composer ci:test:php:deptrac` — architecture layers (`deptrac.yaml`: the shared magicsunday/coding-standard ruleset plus one layer per `src/JsonMapper/<Area>` namespace, pinned to the current acyclic dependency graph; the script also runs `deptrac debug:unassigned` and the `check-deptrac-cycles.php` layer-cycle gate)
     * `composer ci:test:php:templates` — tool configs checked against the coding-standard templates
     * `composer ci:test:php:unit:coverage`
     * `composer ci:test` — the aggregate the README points contributors at; runs lint, unit,

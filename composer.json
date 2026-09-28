@@ -24,7 +24,7 @@
         "symfony/type-info": "^7.3 || ^8.0"
     },
     "require-dev": {
-        "magicsunday/coding-standard": "^2.1"
+        "magicsunday/coding-standard": "^3.0"
     },
     "autoload": {
         "psr-4": {
@@ -64,7 +64,11 @@
             "@ci:rector --dry-run"
         ],
         "ci:test:php:deptrac": [
-            "deptrac analyse --no-progress"
+            "deptrac analyse --no-progress",
+            "deptrac debug:unassigned",
+            "@php -r \"is_dir('.build') || mkdir('.build', 0777, true);\"",
+            "deptrac analyse --no-progress --formatter=graphviz-dot --output=.build/deptrac-layers.dot",
+            "check-deptrac-cycles.php .build/deptrac-layers.dot"
         ],
         "ci:test:php:templates": [
             "check-consumer-config.php ."
