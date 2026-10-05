@@ -9,6 +9,13 @@ permissions:
     contents: read
 
 jobs:
+    # Copy-paste detection runs in the shared Node-only lane, since jscpd is a
+    # Node tool.
+    cpd:
+        uses: magicsunday/.github/.github/workflows/cpd.yml@main
+        permissions:
+            contents: read
+
     build:
         runs-on: ubuntu-latest
 
@@ -81,10 +88,6 @@ jobs:
               if: ${{ !cancelled() }}
               run: |
                   composer ci:test:php:templates
-
-            - name: CPD
-              if: ${{ !cancelled() }}
-              run: composer ci:test:php:cpd
 
     production-install:
         name: Production install (--no-dev)

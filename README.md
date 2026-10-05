@@ -169,12 +169,13 @@ Prerequisites:
 
 - PHP `^8.3`
 - Extensions: `json`
-- Node.js (for the copy-paste detection gate, run via `npx`)
+- Node.js (for the copy-paste detection gate, installed from the lockfile with `npm ci`)
 
 Install dependencies:
 
 ```bash
 composer install
+npm ci
 ```
 
 Run the mandatory quality gate:
