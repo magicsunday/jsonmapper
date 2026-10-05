@@ -76,7 +76,7 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
     * `composer ci:test:php:unit:coverage`
     * `composer ci:test` — the aggregate the README points contributors at; runs lint, unit,
       PHPStan, Rector, CGL, Deptrac, templates and CPD in that order
-* **Node tooling:** `npx jscpd --config .jscpd.json --skip-comments --no-tips` (executed by `ci:test:php:cpd`; `npm install jscpd@^5.0.11` runs via `post-update-cmd`).
+* **Node tooling:** `ci:test:php:cpd` runs the installed `node_modules/.bin/jscpd`, so run `npm ci` once first. jscpd is pinned to an exact version in `package.json`. CI runs it as its own job through the shared `cpd.yml` workflow of the `.github` repository, reported as `cpd / Copy-paste detection`.
 
 **Git flow (no ad-hoc diffs):**
 
