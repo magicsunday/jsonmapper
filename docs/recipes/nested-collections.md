@@ -118,26 +118,69 @@ annotation such as "@extends App\TagBag<YourClass>".
 This is a defect in the class definition rather than in the payload, so it is raised in both
 strict and lenient mode instead of being collected into the report.
 
-Note that a collection is recognised by being a container — traversable or array-accessible, and
-holding its contents in the type it inherits from. A data object that merely implements
-`IteratorAggregate` and annotates what it yields keeps its own properties and is mapped as the
-object it is.
+A collection is recognised by the two interfaces that let the mapper fill it and read it back:
+`ArrayAccess`, so each element can be written through `offsetSet`, and `Traversable`, so the result
+can be iterated. `ArrayObject` and its subclasses satisfy both, and so does a hand-rolled container.
+A class that implements `Traversable` alone, without `ArrayAccess`, is not recognised as a container,
+so a plain property typed as it maps its own fields as an ordinary object.
 
-### Current limitation
+### Hand-rolled collections
 
-Recognition requires the class to declare no properties of its own, which holds for `ArrayObject`
-and `ArrayIterator` subclasses because their storage is not visible to reflection. A hand-rolled
-collection that keeps its elements in a declared property is therefore **not** recognised yet:
+A container does not have to extend `ArrayObject`. A class that keeps its elements in a declared
+property is recognised just the same, as long as it implements both `ArrayAccess` and `Traversable`
+and annotates what it yields. How it is filled then depends on its constructor. A container whose
+constructor takes no arguments — like the `TagBag` below, which declares none — is built empty and
+filled element by element through `offsetSet`, so a private storage array is no obstacle and no
+list-accepting constructor is needed. A container whose constructor declares a parameter is handed
+the whole list through that constructor instead, so a class that builds or validates from its
+elements keeps doing so:
 
 ```php
-final class TagBag implements IteratorAggregate
+/**
+ * @implements IteratorAggregate<int, Tag>
+ * @implements ArrayAccess<int, Tag>
+ */
+final class TagBag implements IteratorAggregate, ArrayAccess
 {
     /** @var array<int, Tag> */
-    private array $items = [];   // visible to reflection, so not recognised as a container
+    private array $items = [];
+
+    public function getIterator(): Traversable
+    {
+        return new ArrayIterator($this->items);
+    }
+
+    public function offsetExists(mixed $offset): bool
+    {
+        return isset($this->items[$offset]);
+    }
+
+    public function offsetGet(mixed $offset): mixed
+    {
+        return $this->items[$offset] ?? null;
+    }
+
+    public function offsetSet(mixed $offset, mixed $value): void
+    {
+        if ($offset === null) {
+            $this->items[] = $value;
+
+            return;
+        }
+
+        $this->items[$offset] = $value;
+    }
+
+    public function offsetUnset(mixed $offset): void
+    {
+        unset($this->items[$offset]);
+    }
 }
 ```
 
-Extend `ArrayObject` for now. Tracked in issue 97.
+A class that implements only `IteratorAggregate`, without `ArrayAccess`, is not recognised as a
+container, so a plain property typed as it maps its own fields instead of being filled from the list.
+Give it `ArrayAccess` to have the mapper treat it as a collection.
 
 ## Union and nullable element types
 

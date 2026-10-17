@@ -12,12 +12,9 @@ declare(strict_types=1);
 namespace MagicSunday\JsonMapper\Value\Strategy;
 
 use ArrayAccess;
-use ArrayIterator;
-use ArrayObject;
 use MagicSunday\JsonMapper\Collection\CollectionDocBlockTypeResolver;
 use MagicSunday\JsonMapper\Collection\CollectionFactoryInterface;
 use MagicSunday\JsonMapper\Context\MappingContext;
-use ReflectionClass;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\CollectionType;
 use Symfony\Component\TypeInfo\Type\GenericType;
@@ -132,12 +129,14 @@ final readonly class CollectionValueConversionStrategy implements ValueConversio
      * would build it from the payload's elements and silently drop every property it declares -
      * the payload arrives, the object is of the right class, and its fields are empty.
      *
-     * A collection wrapper holds its contents in the container it inherits from and declares no
-     * state of its own, so its own properties are the discriminator.
+     * The discriminator is the interface pair the mapper needs to fill the container and read it
+     * back: ArrayAccess, to write each element through offsetSet, and Traversable, to iterate the
+     * result. A class declaring a visible storage property is a collection just the same, and a data
+     * object that implements Traversable alone, without ArrayAccess, is not.
      *
      * @param Type $type Type metadata describing the target property.
      *
-     * @return bool TRUE when the type names a traversable container without own properties
+     * @return bool TRUE when the class implements both ArrayAccess and Traversable
      */
     private function isCollectionClass(Type $type): bool
     {
@@ -151,26 +150,6 @@ final readonly class CollectionValueConversionStrategy implements ValueConversio
             return false;
         }
 
-        // A subclass of one of the array containers is a collection by construction - its storage
-        // is inherited, so properties it declares are helpers rather than mapped state. Judging it
-        // by its own properties would refuse a perfectly ordinary collection that keeps a counter.
-        if (is_a($className, ArrayObject::class, true) || is_a($className, ArrayIterator::class, true)) {
-            return true;
-        }
-
-        if (!is_a($className, Traversable::class, true) && !is_a($className, ArrayAccess::class, true)) {
-            return false;
-        }
-
-        // Anything else is judged by whether it declares state of its own: a data object that
-        // merely implements IteratorAggregate keeps its properties and must not be hydrated from
-        // the payload's elements.
-        //
-        // Static members are counted along with instance ones, which reads like an oversight and
-        // is not: a class reaching this point declares no inherited storage, so without an
-        // instance property it has nowhere to put the elements and cannot serve as a collection
-        // whatever its static members say. Filtering them would change the verdict only for a
-        // class that is unusable either way.
-        return (new ReflectionClass($className))->getProperties() === [];
+        return is_a($className, Traversable::class, true) && is_a($className, ArrayAccess::class, true);
     }
 }

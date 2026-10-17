@@ -24,7 +24,8 @@ use function is_object;
  * Converts a payload into a {@see MoneyBag}.
  *
  * Registered explicitly by the caller, which is what has to outrank the collection strategy's
- * shape heuristic - MoneyBag is traversable and propertyless, so that heuristic claims it.
+ * shape heuristic - MoneyBag implements both ArrayAccess and Traversable, the interface pair that
+ * heuristic claims.
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
