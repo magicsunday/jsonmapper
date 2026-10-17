@@ -13,6 +13,7 @@ namespace MagicSunday\Test\JsonMapper;
 
 use InvalidArgumentException;
 use MagicSunday\JsonMapper;
+use MagicSunday\Test\Fixtures\Docs\NestedCollections\ArrayAccessDataObjectHolder;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\Author;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\CollectionShapesHolder;
 use MagicSunday\Test\Fixtures\Docs\NestedCollections\EncapsulatedIterableHolder;
@@ -111,6 +112,23 @@ final class SinglyNestedCollectionTest extends TestCase
     }
 
     #[Test]
+    public function itLeavesAnArrayAccessOnlyDataObjectToTheObjectStrategy(): void
+    {
+        // The mirror control. Recognising a collection by ArrayAccess alone would claim this object,
+        // which offers the write side without being iterable, and the factory would build it from the
+        // payload's elements and drop both properties. Recognition requires Traversable as well, so
+        // an array-accessible but non-iterable object keeps mapping its own fields.
+        $holder = $this->getJsonMapper()->map(
+            $this->getJsonAsObject('{"payload": {"title": "hello", "count": 7}}'),
+            ArrayAccessDataObjectHolder::class,
+        );
+
+        self::assertInstanceOf(ArrayAccessDataObjectHolder::class, $holder);
+        self::assertSame('hello', $holder->payload->title);
+        self::assertSame(7, $holder->payload->count);
+    }
+
+    #[Test]
     public function itKeepsTheKeyTypeDeclaredByTheClassAnnotation(): void
     {
         // What this really pins is the map-shaped (non-list) payload path: a JSON object whose
@@ -183,10 +201,11 @@ final class SinglyNestedCollectionTest extends TestCase
     #[Test]
     public function itLetsARegisteredHandlerWinOverTheContainerHeuristic(): void
     {
-        // addType() is the documented escape hatch, so it has to outrank a strategy that
-        // recognises a collection by its shape. MoneyBag is traversable and declares no
-        // properties, so the heuristic claims it - and used to, ahead of the handler, turning a
-        // registered converter into an exception about a missing annotation.
+        // addTypeHandler() is the documented escape hatch, so it has to outrank a strategy that
+        // recognises a collection by its shape. MoneyBag implements both ArrayAccess and
+        // Traversable, the interface pair the heuristic claims, so without the handler winning it
+        // would be routed to the collection factory and reported as a type mismatch - its int
+        // constructor parameter rejecting the element array - instead of the converted value.
         $mapper = $this->getJsonMapper();
         $mapper->addTypeHandler(new MoneyBagTypeHandler());
 

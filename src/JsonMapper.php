@@ -149,8 +149,10 @@ final readonly class JsonMapper
             // chain that knows none of them. #87.
             fn (Type $type, mixed $value, MappingContext $elementContext): mixed => $this->convertValue($value, $type, $elementContext),
             $this->classResolver,
-            // Fulfils CollectionFactoryInterface's instantiator, whose nullable $arguments the null
-            // arm answers - unreachable today, kept because the signature admits it.
+            // Fulfils CollectionFactoryInterface's instantiator. Both arms are live: wrapElements()
+            // passes null to construct an ArrayAccess wrapper empty before writing it through
+            // offsetSet, and passes the mapped elements to build every other wrapper through its
+            // constructor.
             //
             // The instantiability guard runs here too: a collection-typed PROPERTY resolves its
             // wrapper class through this lane, and that class - named by a docblock @var or a
@@ -158,12 +160,21 @@ final readonly class JsonMapper
             // can. Unguarded it reached `new $className` and raised a native Error that no
             // MappingException catch collects, the same escape the entry point closes. echoName is
             // false because the wrapper name may be docblock- or resolver-derived, not the caller's.
-            function (string $className, ?array $arguments): object {
+            //
+            // The constructor arm pre-checks the element list against the constructor before new,
+            // the same way the object-construction lane checks every argument: a list the
+            // constructor cannot receive is reported without building, so no native error escapes,
+            // and a TypeError raised inside the constructor body still propagates as itself. The
+            // check lives here because it needs the Type layer the collection factory must not
+            // depend on.
+            function (string $className, ?array $arguments, MappingContext $context): object {
                 $this->assertInstantiable($className, $className, false);
 
                 if ($arguments === null) {
                     return $this->makeInstance($className);
                 }
+
+                $this->assertCollectionConstructorAcceptsElements($className, $arguments, $context);
 
                 return $this->makeInstance($className, $arguments);
             },
@@ -590,6 +601,7 @@ final readonly class JsonMapper
             return $this->wrapCollection(
                 $resolvedCollectionClassName,
                 $this->collectionFactory->mapIterable($json, $collectionValueType, $context),
+                $context,
             );
         }
 
@@ -605,7 +617,7 @@ final readonly class JsonMapper
             // depending only on whether an element class was also passed.
             if (($json === null) && ($resolvedCollectionClassName !== null)) {
                 return $context->shouldTreatNullAsEmptyCollection()
-                    ? $this->wrapCollection($resolvedCollectionClassName, [])
+                    ? $this->wrapCollection($resolvedCollectionClassName, [], $context)
                     : null;
             }
 
@@ -650,6 +662,7 @@ final readonly class JsonMapper
             return $this->wrapCollection(
                 $resolvedCollectionClassName,
                 $this->collectionFactory->mapIterable($json, $valueType, $context),
+                $context,
             );
         }
 
@@ -1019,24 +1032,91 @@ final readonly class JsonMapper
      * The null case is no longer reachable: both call sites guard against it, one with its own null
      * check and one via isIterableWithArraysOrObjects(), and mapIterable() returns an empty array
      * for a recorded failure rather than its absence sentinel. It is handled rather than asserted
-     * away because the declared return type still permits null, and passing null to a wrapper's
-     * constructor raises a native TypeError - an error that escapes error collection entirely,
-     * which is the one thing this entry point promises not to do. The unreachability is an
+     * away because the declared return type still permits null, and passing null on to
+     * wrapElements() would be refused by its non-nullable array parameter as a native TypeError - an
+     * error that escapes error collection entirely, which is the one thing this entry point promises
+     * not to do. The unreachability is an
      * emergent property of two callers, not an invariant the signature enforces, so the branch is
      * the cheap enforcement at the boundary.
      *
      * @param class-string                 $collectionClassName Fully qualified collection class to instantiate.
      * @param array<array-key, mixed>|null $elements            Mapped elements, or null when there was no collection.
+     * @param MappingContext               $context             Mapping context providing the path for a reported failure.
      *
      * @return object|null Collection instance, or null when there was nothing to wrap.
+     *
+     * @throws MappingException When the constructor lane cannot receive the mapped elements.
      */
-    private function wrapCollection(string $collectionClassName, ?array $elements): ?object
+    private function wrapCollection(string $collectionClassName, ?array $elements, MappingContext $context): ?object
     {
         if ($elements === null) {
             return null;
         }
 
-        return $this->makeInstance($collectionClassName, $elements);
+        // Delegated so the explicit-collection-class entry point fills a wrapper through the one
+        // method the property path uses. Routing both lanes through it is what stops a hand-rolled
+        // collection being filled here and silently left empty while the property path fills it.
+        return $this->collectionFactory->wrapElements($collectionClassName, $elements, $context);
+    }
+
+    /**
+     * Refuses a collection wrapper whose constructor cannot receive the element list before new runs.
+     *
+     * The constructor lane hands the whole element list to the wrapper's constructor as its single
+     * argument. A first parameter that provably rejects an array, or a further required parameter the
+     * single argument can never satisfy, would raise a native TypeError or ArgumentCountError from
+     * new - a failure outside the error report. It is reported through the MappingException hierarchy
+     * here, before the constructor is called, exactly as the object-construction lane checks each
+     * argument with {@see NativeTypeMatcher}. Because the check runs before new, a TypeError raised
+     * inside the constructor body is left to propagate as itself rather than being masked as a
+     * payload mismatch.
+     *
+     * @param class-string            $className Collection class about to be constructed.
+     * @param array<array-key, mixed> $elements  Element list destined for the constructor's first argument.
+     * @param MappingContext          $context   Mapping context providing the path for the reported failure.
+     *
+     * @return void
+     *
+     * @throws TypeMismatchException               When the first constructor parameter provably rejects the element array.
+     * @throws MissingConstructorArgumentException When a further required parameter can never be supplied.
+     */
+    private function assertCollectionConstructorAcceptsElements(
+        string $className,
+        array $elements,
+        MappingContext $context,
+    ): void {
+        $constructor = (new ReflectionClass($className))->getConstructor();
+
+        if ($constructor === null) {
+            return;
+        }
+
+        $parameters = $constructor->getParameters();
+        $firstType  = ($parameters[0] ?? null)?->getType();
+
+        // The scope is the constructor's DECLARING class, not $className, so a relative type
+        // (self/parent/static) on an inherited constructor resolves the same way the
+        // object-construction lane resolves it. See NativeTypeMatcher and the PHP 8.5 relative-type
+        // reflection note.
+        $scope = $constructor->getDeclaringClass()->getName();
+
+        if (($firstType !== null) && !NativeTypeMatcher::accepts($firstType, $elements, $scope)) {
+            throw new TypeMismatchException(
+                $context->getPath(),
+                NativeTypeMatcher::describe($firstType, $scope),
+                get_debug_type($elements),
+            );
+        }
+
+        foreach ($parameters as $index => $parameter) {
+            if (($index > 0) && !$parameter->isOptional()) {
+                throw new MissingConstructorArgumentException(
+                    $context->getPath(),
+                    $parameter->getName(),
+                    $className,
+                );
+            }
+        }
     }
 
     /**

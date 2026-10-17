@@ -11,12 +11,14 @@ declare(strict_types=1);
 
 namespace MagicSunday\JsonMapper\Collection;
 
+use ArrayAccess;
 use Closure;
 use DomainException;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Exception\CollectionMappingException;
 use MagicSunday\JsonMapper\Exception\MappingException;
 use MagicSunday\JsonMapper\Resolver\ClassResolver;
+use ReflectionClass;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\BuiltinType;
 use Symfony\Component\TypeInfo\Type\CollectionType;
@@ -29,12 +31,16 @@ use Traversable;
 use function array_is_list;
 use function get_debug_type;
 use function get_object_vars;
+use function is_a;
 use function is_array;
 use function is_object;
 use function iterator_to_array;
 
 /**
  * Creates collections and hydrates wrapping collection classes.
+ *
+ * @internal This is not a public extension point. The mapper builds it internally and offers no way
+ *           to supply another, so it carries no backwards-compatibility guarantee.
  *
  * @phpstan-type CollectionWrappedType BuiltinType<TypeIdentifier::ARRAY>|BuiltinType<TypeIdentifier::ITERABLE>|ObjectType<class-string>
  *
@@ -43,8 +49,8 @@ use function iterator_to_array;
 final readonly class CollectionFactory implements CollectionFactoryInterface
 {
     /**
-     * @param Closure(Type, mixed, MappingContext): mixed                $convertValue The single value-conversion entry point, shared with the property path so an element is decided by the same null policy, null guard and union dispatch a property is.
-     * @param Closure(class-string, array<array-key, mixed>|null):object $instantiator
+     * @param Closure(Type, mixed, MappingContext): mixed                                $convertValue The single value-conversion entry point, shared with the property path so an element is decided by the same null policy, null guard and union dispatch a property is.
+     * @param Closure(class-string, array<array-key, mixed>|null, MappingContext):object $instantiator The wrapper instantiator; for the constructor lane it refuses an element list the constructor cannot receive, so a native error never escapes error collection.
      */
     public function __construct(
         private Closure $convertValue,
@@ -172,12 +178,74 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
             $className     = $this->resolveWrappedClass($objectType);
             $resolvedClass = $this->classResolver->resolve($className, $json, $context);
 
-            $instantiator = $this->instantiator;
-
-            return $instantiator($resolvedClass, $collection);
+            return $this->wrapElements($resolvedClass, $collection ?? [], $context);
         }
 
         return $collection;
+    }
+
+    /**
+     * Fills a collection wrapper with the mapped elements, through the mechanism the wrapper supports.
+     *
+     * A wrapper that implements ArrayAccess and whose constructor takes no arguments is built empty
+     * and written element by element through offsetSet, so a container keeping its elements in a
+     * private storage property is filled without a list-accepting constructor. Any other wrapper -
+     * one that is not ArrayAccess, or one whose constructor takes the elements - receives the whole
+     * list as its constructor argument instead. The offsetSet lane is reserved for the wrapper that
+     * CANNOT accept the elements any other way: a constructor that declares parameters is handed the
+     * list, so a class that fills or validates through its constructor keeps doing so.
+     *
+     * Both collection lanes route through here - the property path via {@see fromCollectionType} and
+     * the explicit-collection-class entry point - so the two cannot fill a wrapper differently.
+     *
+     * @param class-string            $className Resolved collection class to build.
+     * @param array<array-key, mixed> $elements  Mapped elements to place into the wrapper.
+     * @param MappingContext          $context   Mapping context providing the path for a reported failure.
+     *
+     * @return object The constructed and filled collection wrapper
+     *
+     * @throws MappingException When the constructor lane cannot receive the mapped elements.
+     */
+    public function wrapElements(string $className, array $elements, MappingContext $context): object
+    {
+        $instantiator = $this->instantiator;
+
+        if (is_a($className, ArrayAccess::class, true) && $this->constructorTakesNoArguments($className)) {
+            /** @var ArrayAccess<array-key, mixed> $wrapper */
+            $wrapper = $instantiator($className, null, $context);
+
+            foreach ($elements as $key => $element) {
+                $wrapper[$key] = $element;
+            }
+
+            return $wrapper;
+        }
+
+        // The instantiator refuses a constructor that cannot receive the element list before it calls
+        // new, so a binding mismatch is reported through the MappingException hierarchy while a
+        // TypeError raised inside the constructor body still propagates as itself - the same policy
+        // the object-construction lane follows. The check lives there, not here, because it needs the
+        // Type layer this one must not depend on.
+        return $instantiator($className, $elements, $context);
+    }
+
+    /**
+     * Reports whether the class's constructor accepts no arguments.
+     *
+     * The offsetSet lane constructs the wrapper empty, so it fits only a class whose constructor
+     * cannot receive the elements at all - one that is absent or declares no parameters. A
+     * constructor that declares any parameter, required or optional, is handed the elements instead,
+     * so a wrapper that fills or validates through its constructor is not bypassed.
+     *
+     * @param class-string $className Class to inspect.
+     *
+     * @return bool TRUE when the constructor is absent or declares no parameters
+     */
+    private function constructorTakesNoArguments(string $className): bool
+    {
+        $constructor = (new ReflectionClass($className))->getConstructor();
+
+        return ($constructor === null) || ($constructor->getNumberOfParameters() === 0);
     }
 
     /**

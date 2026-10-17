@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\JsonMapper\Collection;
 
 use MagicSunday\JsonMapper\Context\MappingContext;
+use MagicSunday\JsonMapper\Exception\MappingException;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\BuiltinType;
 use Symfony\Component\TypeInfo\Type\CollectionType;
@@ -21,6 +22,10 @@ use Symfony\Component\TypeInfo\TypeIdentifier;
 
 /**
  * Describes the operations required to materialize collection values.
+ *
+ * @internal This is not a public extension point. The mapper builds its own CollectionFactory and
+ *           offers no way to supply another, so the interface carries no backwards-compatibility
+ *           guarantee and may gain methods between releases.
  *
  * @template TKey of array-key
  * @template TValue
@@ -53,4 +58,23 @@ interface CollectionFactoryInterface
      * @return array<TKey, TValue>|object|null Instantiated collection wrapper or the normalised array values.
      */
     public function fromCollectionType(CollectionType $type, mixed $json, MappingContext $context): mixed;
+
+    /**
+     * Fills a collection wrapper with already-mapped elements, through the mechanism it supports.
+     *
+     * An ArrayAccess wrapper that constructs without arguments is built empty and written through
+     * offsetSet; any other wrapper receives the elements as its constructor argument. Both collection
+     * lanes route through this one method so they cannot fill a wrapper differently. A constructor
+     * that cannot receive the element list is refused through the MappingException hierarchy rather
+     * than left to raise a native error that escapes error collection.
+     *
+     * @param class-string        $className Resolved collection class to build.
+     * @param array<TKey, TValue> $elements  Mapped elements to place into the wrapper.
+     * @param MappingContext      $context   Mapping context providing the path for a reported failure.
+     *
+     * @return object The constructed and filled collection wrapper
+     *
+     * @throws MappingException When the constructor lane cannot receive the mapped elements.
+     */
+    public function wrapElements(string $className, array $elements, MappingContext $context): object;
 }
