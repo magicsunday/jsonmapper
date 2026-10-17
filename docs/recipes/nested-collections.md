@@ -201,16 +201,26 @@ final class Feed
 when the element type admits it; against `Article|string` it is rejected and reported like any
 other mismatch.
 
-Each element is resolved independently, and members are tried in order until one accepts the
-value. Note that "accepts" currently means "converted without recording an error", not "converted
-without losing anything" — against `int|string` the value `7.5` becomes `7` rather than `"7.5"`.
-Issue 100 tracks defining that rule properly.
+Each element is resolved independently. A member whose scalar type the value already has wins before
+any coercion, so a numeric string such as `"42"` stays a string against `int|string` rather than being
+coerced to an int. This preference applies to scalar members only. Otherwise the members are tried in
+a fixed order the declaration cannot influence (`int|string` and `string|int` are indistinguishable
+once normalised), and the first member that converts the value without recording an error wins. A
+fractional float such as `7.5` is an exact match for no member, and in that fallback the `int` member
+refuses it as a lossy cast while the `string` member refuses a non-string scalar, so it matches no
+member and is not truncated into one.
+
+A value that matches no member is never coerced into one. In a collection the element is dropped and
+reported at its own index, so the surviving elements keep their relative order and no element is
+replaced by an invented value. A scalar property keeps its default, or stays uninitialised if it has
+none, and the failure is reported. A lenient result never holds a value its declared type forbids.
 
 A union or nullable element type is the only case where a `null` element survives. An element type
 that does not admit null rejects one: the element is dropped and the failure reported, rather than
 being turned into an object built from defaults.
 
 Test coverage: `tests/JsonMapper/DocsNestedCollectionsTest.php`,
-`tests/JsonMapper/SinglyNestedCollectionTest.php` and
-`tests/JsonMapper/UnionCollectionElementTest.php`.
+`tests/JsonMapper/SinglyNestedCollectionTest.php`,
+`tests/JsonMapper/UnionCollectionElementTest.php` and
+`tests/JsonMapper/UnionMemberSelectionTest.php`.
 

@@ -824,6 +824,8 @@ JSON
     #[Test]
     public function mapUnionTypeWithNumericString(): void
     {
+        // A numeric string keeps the string member of the union. Its runtime type is an exact match
+        // for a member, which wins before any coercion, so "42" is not pushed into the int member.
         $result = $this->getJsonMapper()
             ->map([
                 'value'    => '42',
@@ -831,7 +833,7 @@ JSON
             ], UnionHolder::class);
 
         self::assertInstanceOf(UnionHolder::class, $result);
-        self::assertSame(42, $result->value);
+        self::assertSame('42', $result->value);
         self::assertSame('hello', $result->fallback);
     }
 

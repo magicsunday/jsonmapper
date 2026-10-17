@@ -85,6 +85,7 @@ use function is_array;
 use function is_callable;
 use function is_int;
 use function is_object;
+use function is_scalar;
 use function is_string;
 use function iterator_to_array;
 use function method_exists;
@@ -1310,8 +1311,9 @@ final readonly class JsonMapper
     }
 
     /**
-     * Tries each member of a union in declaration order and returns the first that converts the
-     * value without producing an error.
+     * Tries the union's non-null members, an exact runtime-type match first and the rest in their
+     * normalised order (see {@see orderUnionCandidatesByExactMatch()}), and returns the first that
+     * converts the value without producing an error.
      *
      * A candidate is judged by whether converting against it recorded anything, so the caller has
      * to run this with error collection forced on - see {@see MappingContext::withForcedErrorCollection()}.
@@ -1319,7 +1321,7 @@ final readonly class JsonMapper
      * not failures the caller asked about.
      *
      * @param mixed                 $json          Raw value to convert.
-     * @param UnionType<Type>       $type          Union whose members are tried in order.
+     * @param UnionType<Type>       $type          Union whose members are tried, exact matches first.
      * @param MappingContext        $context       Mapping context, with error collection forced on.
      * @param MappingException|null $lastException Receives the failure of the last rejected candidate.
      *
@@ -1331,11 +1333,7 @@ final readonly class JsonMapper
         MappingContext $context,
         ?MappingException &$lastException,
     ): array {
-        foreach ($type->getTypes() as $candidate) {
-            if ($this->isNullType($candidate)) {
-                continue;
-            }
-
+        foreach ($this->orderUnionCandidatesByExactMatch($type, $json) as $candidate) {
             $errorCount = $context->getErrorCount();
 
             try {
@@ -1363,6 +1361,56 @@ final readonly class JsonMapper
         }
 
         return [false, null];
+    }
+
+    /**
+     * Orders a union's non-null members so an exact runtime-type match is tried before any coercion.
+     *
+     * The normalised member order is not caller-controlled, so without this a value is mapped to
+     * whichever member is listed first - coercing a numeric string to an int, for one. Trying an
+     * exact match first keeps a value in the member whose type it already has. The relative order is
+     * otherwise preserved, so a value matching no member exactly still follows the normalised order.
+     *
+     * @param UnionType<Type> $type Union whose members are ordered.
+     * @param mixed           $json Raw value the members are matched against.
+     *
+     * @return list<Type> The non-null members, exact runtime-type matches first.
+     */
+    private function orderUnionCandidatesByExactMatch(UnionType $type, mixed $json): array
+    {
+        $exactMatches       = [];
+        $coercionCandidates = [];
+
+        foreach ($type->getTypes() as $candidate) {
+            if ($this->isNullType($candidate)) {
+                continue;
+            }
+
+            if ($this->isExactScalarTypeMatch($candidate, $json)) {
+                $exactMatches[] = $candidate;
+            } else {
+                $coercionCandidates[] = $candidate;
+            }
+        }
+
+        return [...$exactMatches, ...$coercionCandidates];
+    }
+
+    /**
+     * Reports whether the value already has the scalar type of the member, needing no conversion.
+     *
+     * The per-type check is delegated to the type itself, but only for a scalar builtin. An array,
+     * object or collection member accepts a payload that still has to be converted (wrapped, element-
+     * mapped, hydrated), so it is deliberately left to the coercion pass rather than treated as exact.
+     *
+     * @param Type  $candidate Union member to test.
+     * @param mixed $json      Raw value to match against the member.
+     *
+     * @return bool TRUE when the value already has the member's scalar type.
+     */
+    private function isExactScalarTypeMatch(Type $candidate, mixed $json): bool
+    {
+        return ($candidate instanceof BuiltinType) && is_scalar($json) && $candidate->accepts($json);
     }
 
     /**
