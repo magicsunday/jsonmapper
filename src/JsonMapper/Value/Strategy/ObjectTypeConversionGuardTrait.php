@@ -46,8 +46,8 @@ trait ObjectTypeConversionGuardTrait
      * Executes the provided converter when a valid object type is available.
      *
      * @param Type                           $type      Type metadata describing the target property.
-     * @param callable(string, mixed): mixed $converter Callback that performs the actual conversion when a class-string is available.
      * @param mixed                          $value     Raw value coming from the input payload.
+     * @param callable(string, mixed): mixed $converter Callback that performs the actual conversion when a class-string is available.
      *
      * @return mixed Result from the converter or the original value when no object type was detected.
      */
@@ -55,7 +55,7 @@ trait ObjectTypeConversionGuardTrait
     {
         $objectType = $this->extractObjectType($type);
 
-        // Unreachable while the chain is ordered as it is: supports() returns false for a non-object
+        // Unreachable while the chain is entered as it is: supports() returns false for a non-object
         // type, so convert() is not called for one. It also narrows the nullable result of
         // extractObjectType(). A chain change that let a non-object type through gets the value
         // handed back untouched rather than a dereferenced null.

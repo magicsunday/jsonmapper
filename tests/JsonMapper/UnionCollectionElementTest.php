@@ -54,8 +54,8 @@ final class UnionCollectionElementTest extends TestCase
         );
 
         // The null member of the element type is what permits this. The non-nullable sibling
-        // below is the control: without it this assertion would pass for a union forbidding null
-        // too, since a value-keyed null strategy claims every null before the type is inspected.
+        // below is the control. Without it this assertion would also pass for a union that forbids
+        // null, whenever a null is let through regardless of the element type.
         self::assertInstanceOf(UnionElementCollectionHolder::class, $holder);
         self::assertInstanceOf(Simple::class, $holder->nullableItems[0]);
         self::assertNull($holder->nullableItems[1], 'A null element stays null rather than being rejected.');
@@ -119,9 +119,8 @@ final class UnionCollectionElementTest extends TestCase
     #[Test]
     public function itRejectsANullElementOfANonNullableElementType(): void
     {
-        // The control for the test above. A null element used to be claimed by the null strategy
-        // before the element type was ever consulted, so a null landed in a list whose declared
-        // type forbids it - no error, no dropped element.
+        // The control for the test above. A null element must be checked against the element type,
+        // or a null lands in a list whose declared type forbids it - no error, no dropped element.
         $result = $this->getJsonMapper()->mapWithReport(
             ['nonNullableItems' => [null, 'ok']],
             UnionElementCollectionHolder::class,

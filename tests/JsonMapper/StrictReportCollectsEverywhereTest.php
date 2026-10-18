@@ -41,8 +41,8 @@ use function preg_quote;
  *   - the collection factory's non-iterable guard  -> itReports...ForACollectionProperty/Root
  *   - the collection factory's element loop        -> itKeepsValidSiblings..., itCollectsEvery...
  *   - the builtin strategy's compatibility guard   -> itKeepsACoercibleElementMismatch...
- *   - the builtin strategy's null branch           -> NOT covered: the null strategy is registered
- *     first and answers every null, so nothing reaches it through the converter chain
+ *   - the builtin strategy's null branch           -> NOT covered: convertValue() answers every
+ *     null before the chain runs, so nothing reaches it through the converter chain
  *   - the union fallback in convertUnionValue()    -> NOT covered: unreachable, see the test below
  *
  * The last two are named rather than quietly omitted: a list that claims complete coverage is
