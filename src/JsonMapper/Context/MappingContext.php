@@ -13,6 +13,7 @@ namespace MagicSunday\JsonMapper\Context;
 
 use DateTimeInterface;
 use MagicSunday\JsonMapper\Exception\MappingException;
+use MagicSunday\JsonMapper\Exception\MissingPropertyException;
 
 use function array_key_exists;
 use function array_replace;
@@ -107,6 +108,16 @@ final class MappingContext
     private ?int $trialCeiling = null;
 
     /**
+     * Number of failures a trial window refused to store because it was full.
+     */
+    private int $trialRefused = 0;
+
+    /**
+     * Number of those refusals that were something other than a missing property.
+     */
+    private int $trialRefusedFailures = 0;
+
+    /**
      * @param mixed                $rootInput The original JSON payload handed to the mapper
      * @param array<string, mixed> $options   Context options influencing mapping behaviour
      */
@@ -158,14 +169,16 @@ final class MappingContext
     }
 
     /**
-     * Executes the callback with error collection switched on, restoring the previous setting
-     * afterwards.
+     * Executes the callback with error collection switched on and aborting switched off,
+     * restoring the previous settings afterwards.
      *
      * Some decisions are made by observing whether a conversion produced an error - union
      * candidate selection being the one that needs it. That observation must not depend on the
      * caller's reporting preference: with collection switched off nothing is recorded, so the
-     * observation would always report success and the decision would silently change. Records
-     * written during the callback are the caller's to keep or discard via {@see trimErrors()}.
+     * observation would always report success and the decision would silently change. Aborting
+     * is switched off so that a failing candidate is recorded and judged instead of ending the
+     * run. Records written during the callback are the caller's to keep, raise or discard via
+     * {@see trimErrors()}.
      *
      * @template TReturn
      *
@@ -194,13 +207,17 @@ final class MappingContext
                 [
                     self::OPTION_COLLECT_ERRORS => true,
 
-                    // Strict mode is overridden for the same reason collection is forced on: a
+                    // Aborting is overridden for the same reason collection is forced on: a
                     // candidate trial is an internal question, not a mapping the caller asked for.
                     // Left on, the first candidate that fails aborts the whole run - so a union
                     // whose LATER member matches perfectly still raised, naming the type that
                     // happened to be tried first. A genuine failure is still raised afterwards, by
                     // the caller, once every candidate has actually been tried.
-                    self::OPTION_STRICT_MODE => false,
+                    //
+                    // Strict mode itself is NOT overridden. It decides what counts as a failure,
+                    // and a value that gets through the trial is still a value the caller asked to
+                    // have validated, so the subtree below a union is checked like any other.
+                    self::OPTION_ABORT_ON_ERROR => false,
                 ],
                 $callback,
             );
@@ -264,9 +281,18 @@ final class MappingContext
         }
 
         if (count($this->errorRecords) >= ($this->trialCeiling ?? $this->getMaxErrors())) {
-            // What a trial refuses is trimmed anyway, so only a refusal outside one is a loss.
+            // A refusal inside a trial is not a loss yet. The candidate it belongs to is either
+            // rejected, which takes the refusal back, or accepted, which settles it, see
+            // settleTrialRecords(). It is counted because a candidate is judged on what it
+            // recorded, and a failure that was refused must still be able to reject it.
             if ($this->trialCeiling === null) {
                 ++$this->droppedErrors;
+            } else {
+                ++$this->trialRefused;
+
+                if (!$exception instanceof MissingPropertyException) {
+                    ++$this->trialRefusedFailures;
+                }
             }
 
             return;
@@ -525,6 +551,76 @@ final class MappingContext
     public function getErrorCount(): int
     {
         return count($this->errorRecords);
+    }
+
+    /**
+     * Returns how many failures trial windows refused to store so far.
+     *
+     * @internal
+     *
+     * @return int Running count, to be compared with an earlier reading
+     */
+    public function getTrialRefusedCount(): int
+    {
+        return $this->trialRefused;
+    }
+
+    /**
+     * Returns how many of the refused failures were not a missing property.
+     *
+     * @internal
+     *
+     * @return int Running count, to be compared with an earlier reading
+     */
+    public function getTrialRefusedFailureCount(): int
+    {
+        return $this->trialRefusedFailures;
+    }
+
+    /**
+     * Takes back the refusals counted since the given readings, for a candidate that was rejected.
+     *
+     * @internal
+     *
+     * @param int $refused  Reading of {@see getTrialRefusedCount()} taken before the candidate
+     * @param int $failures Reading of {@see getTrialRefusedFailureCount()} taken before the candidate
+     *
+     * @return void
+     */
+    public function restoreTrialRefusals(int $refused, int $failures): void
+    {
+        $this->trialRefused         = $refused;
+        $this->trialRefusedFailures = $failures;
+    }
+
+    /**
+     * Fits the records an accepted candidate left behind into the ceiling and counts what did not fit.
+     *
+     * A trial window may hold more than the ceiling allows, and it refuses what is beyond the
+     * window. Both are failures the report could not keep, so they are dropped when the outermost
+     * window closes. A window inside another leaves them to it. The outer candidate is still being
+     * judged on what is there.
+     *
+     * @internal
+     *
+     * @param int $refusedBefore Reading of {@see getTrialRefusedCount()} taken before the candidates
+     *
+     * @return void
+     */
+    public function settleTrialRecords(int $refusedBefore): void
+    {
+        if ($this->trialCeiling !== null) {
+            return;
+        }
+
+        $ceiling  = $this->getMaxErrors();
+        $overflow = max(count($this->errorRecords) - $ceiling, 0);
+
+        if ($overflow > 0) {
+            $this->trimErrors($ceiling);
+        }
+
+        $this->droppedErrors += $overflow + ($this->trialRefused - $refusedBefore);
     }
 
     /**
