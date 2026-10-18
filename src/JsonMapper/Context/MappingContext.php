@@ -13,6 +13,7 @@ namespace MagicSunday\JsonMapper\Context;
 
 use DateTimeInterface;
 use MagicSunday\JsonMapper\Exception\MappingException;
+use MagicSunday\JsonMapper\Exception\MissingConstructorArgumentException;
 use MagicSunday\JsonMapper\Exception\MissingPropertyException;
 
 use function array_key_exists;
@@ -26,6 +27,7 @@ use function is_int;
 use function is_string;
 use function max;
 use function min;
+use function str_starts_with;
 
 use const FILTER_VALIDATE_INT;
 use const PHP_INT_MAX;
@@ -323,7 +325,58 @@ final class MappingContext
             return;
         }
 
+        if ($this->repeatsRecordedOmission($exception)) {
+            return;
+        }
+
         $this->addError($exception->getMessage(), $exception);
+    }
+
+    /**
+     * Reports whether a failed construction only repeats an omission that is already recorded.
+     *
+     * A required constructor argument is a required property too, so strict validation reports the
+     * omission first. Construction then fails for the very same absent value, and filing that as
+     * well would count one defect twice, and only for the classes that happen to take their values
+     * through a constructor. The caller already learns the object was not built from the value. The
+     * record has to be one that is still stored: a union candidate drops what it recorded when it
+     * is rejected, and the failure of the member is then the only record there is.
+     *
+     * @param MappingException $exception Failure about to be recorded
+     *
+     * @return bool True when the missing property of that argument is among the latest records
+     */
+    private function repeatsRecordedOmission(MappingException $exception): bool
+    {
+        if (!$exception instanceof MissingConstructorArgumentException) {
+            return false;
+        }
+
+        $objectPath   = $exception->getPath();
+        $expectedPath = $objectPath . '.' . $exception->getArgumentName();
+
+        // The records of the object being built are the latest ones, descendants included, so the
+        // walk ends at the first record that belongs to something else. That keeps the cost to the
+        // records of one object however many failed before it. A failure filed while the
+        // arguments are collected, such as a refused value, can sit between the omissions and the
+        // failed construction, which is why the walk cannot stop at the first other kind of record.
+        for ($index = count($this->errorRecords) - 1; $index >= 0; --$index) {
+            $recorded     = $this->errorRecords[$index]->getException();
+            $recordedPath = $this->errorRecords[$index]->getPath();
+
+            if (($recordedPath !== $objectPath) && !str_starts_with($recordedPath, $objectPath . '.')) {
+                return false;
+            }
+
+            if (
+                ($recorded instanceof MissingPropertyException)
+                && ($recorded->getPath() === $expectedPath)
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper;
 
+use ArrayObject;
 use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Context\MappingError;
@@ -19,17 +20,21 @@ use MagicSunday\JsonMapper\Exception\MissingConstructorArgumentException;
 use MagicSunday\JsonMapper\Exception\MissingPropertyException;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\JsonMapper\Report\MappingResult;
+use MagicSunday\Test\Classes\ConstructorArgumentAndRequiredPropertyDto;
 use MagicSunday\Test\Classes\NullableTwoRequiredPropertiesHolder;
 use MagicSunday\Test\Classes\RequiredConstructorArgumentDto;
 use MagicSunday\Test\Classes\RequiredConstructorArgumentDtoHolder;
+use MagicSunday\Test\Classes\TwoRequiredConstructorArgumentsDto;
 use MagicSunday\Test\Classes\TwoRequiredPropertiesDto;
 use MagicSunday\Test\Classes\TwoRequiredPropertiesHolder;
+use MagicSunday\Test\Classes\WidenedArgumentBeforeRequiredArgumentDto;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
 
 use function array_map;
+use function get_debug_type;
 use function preg_quote;
 
 /**
@@ -104,20 +109,19 @@ final class RootLevelErrorHandlingTest extends TestCase
             RequiredConstructorArgumentDtoHolder::class,
         );
 
-        // Pinned on the exception KIND, not on how many records each lane produced. The root
-        // yields two (the missing property, then the unbuildable object). The nested lane yields
-        // one, because a nullable property takes the union path, which drops what a rejected
-        // member recorded and reports the member's failure once. Asserting equality would bless
-        // that difference, and the duplicate record behind the root's second entry is issue #106.
-        self::assertContains(
-            MissingConstructorArgumentException::class,
+        // Pinned on the exception KIND of each lane. The root reports the omitted value itself,
+        // and that one record already says the object could not be built, together with the null
+        // value. The nested lane takes the union path, which drops what a rejected member
+        // recorded and reports the member's failure. Either way one omission is one record.
+        self::assertSame(
+            [MissingPropertyException::class],
             $this->exceptionClasses($root),
-            'Root: the unbuildable object is reported as such.',
+            'Root: the omitted value is reported once, the null value says nothing was built.',
         );
-        self::assertContains(
-            MissingConstructorArgumentException::class,
+        self::assertSame(
+            [MissingConstructorArgumentException::class],
             $this->exceptionClasses($nested),
-            'Nested: the same failure kind, one level down.',
+            'Nested: the unbuildable member is reported once.',
         );
         // The mapped values differ for a documented reason, not an inconsistent one: the root IS
         // the object that could not be constructed, so there is nothing to hand back, whereas the
@@ -128,6 +132,126 @@ final class RootLevelErrorHandlingTest extends TestCase
             $nested->getValue(),
             'Nested: the holder survives, only the rejected property is left unassigned.',
         );
+    }
+
+    #[Test]
+    public function itRecordsAnOmittedConstructorArgumentOnceInStrictMode(): void
+    {
+        // The constructor argument is a property too, so strict validation reports its omission.
+        // Construction then fails for the very same absent value, and a second record for it
+        // would count one defect twice. The class with a constructor has to report as many
+        // records as the class without one: one per omitted value.
+        $promoted = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
+            [],
+            RequiredConstructorArgumentDto::class,
+        );
+
+        $plain = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
+            [],
+            TwoRequiredPropertiesDto::class,
+        );
+
+        self::assertSame(
+            ['$.name'],
+            array_map(
+                static fn (MappingError $error): string => $error->getPath(),
+                $promoted->getReport()->getErrors(),
+            ),
+        );
+        self::assertSame(2, $plain->getReport()->getErrorCount(), 'One record per omitted value.');
+        self::assertNull($promoted->getValue(), 'The object could not be built.');
+    }
+
+    #[Test]
+    public function itStillRecordsAnUnbuildableObjectWhenNothingReportedTheOmission(): void
+    {
+        // Outside strict mode no missing property is reported, so the failed construction is the
+        // only record of the omission and has to stay.
+        $result = $this->getJsonMapper()->mapWithReport([], RequiredConstructorArgumentDto::class);
+
+        self::assertSame(
+            [MissingConstructorArgumentException::class],
+            $this->exceptionClasses($result),
+        );
+    }
+
+    #[Test]
+    public function itRecordsEveryOmittedConstructorArgumentOnceInStrictMode(): void
+    {
+        // The failed construction names the first omitted argument, and the record of the second
+        // one was filed after it. The construction still repeats an omission on record.
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
+            [],
+            TwoRequiredConstructorArgumentsDto::class,
+        );
+
+        self::assertSame(
+            ['$.first', '$.second'],
+            array_map(
+                static fn (MappingError $error): string => $error->getPath(),
+                $result->getReport()->getErrors(),
+            ),
+        );
+    }
+
+    #[Test]
+    public function itRecordsAnOmittedConstructorArgumentOnceBehindARefusedEarlierArgument(): void
+    {
+        // The earlier argument is refused while the object is being built, which files a record
+        // between the missing property and the failed construction. The omission is still on
+        // record, so the construction must not be recorded for it again.
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
+            ['age' => 'abc'],
+            WidenedArgumentBeforeRequiredArgumentDto::class,
+        );
+
+        self::assertSame(
+            ['$.name' . MissingPropertyException::class, '$.age' . TypeMismatchException::class],
+            array_map(
+                static fn (MappingError $error): string => $error->getPath() . get_debug_type($error->getException()),
+                $result->getReport()->getErrors(),
+            ),
+        );
+    }
+
+    #[Test]
+    public function itRecordsAnOmittedConstructorArgumentOncePerElementOfACollection(): void
+    {
+        // The collection element loop records a failure itself, so the rule that one omission is
+        // one record has to hold on that path as well as on the property path.
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
+            [[], []],
+            RequiredConstructorArgumentDto::class,
+            ArrayObject::class,
+        );
+
+        self::assertSame(
+            ['$.0.name', '$.1.name'],
+            array_map(
+                static fn (MappingError $error): string => $error->getPath(),
+                $result->getReport()->getErrors(),
+            ),
+        );
+    }
+
+    #[Test]
+    public function itRecordsAnUnbuildableObjectWhenAnotherValueWasTheOneReportedMissing(): void
+    {
+        // The latest records hold the missing property label, but the construction fails for the
+        // argument count, whose value was supplied and refused. That omission is not on record, so
+        // the failed construction is the only account of it and has to stay.
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
+            ['count' => ['deep' => 'array']],
+            ConstructorArgumentAndRequiredPropertyDto::class,
+        );
+
+        $records = array_map(
+            static fn (MappingError $error): string => $error->getPath() . ' ' . get_debug_type($error->getException()),
+            $result->getReport()->getErrors(),
+        );
+
+        self::assertContains('$ ' . MissingConstructorArgumentException::class, $records);
+        self::assertContains('$.label ' . MissingPropertyException::class, $records);
     }
 
     #[Test]
@@ -191,14 +315,10 @@ final class RootLevelErrorHandlingTest extends TestCase
 
         $errors = $result->getReport()->getErrors();
 
-        // The count is PROVISIONAL, not a contract: the second record duplicates the first, since
-        // construction fails for exactly the value strict validation already reported missing.
-        // AGENTS.md says a rejected value is recorded once, so this is a defect - tracked as issue
-        // #106 - and the assertion is here to make its resolution visible rather than to bless it.
-        // What the change under test really claims is the part below: recorded, not thrown.
-        self::assertCount(2, $errors, 'Provisional, pending issue #106: the second record duplicates the first.');
+        // One omitted value is one record. Construction fails for exactly the value strict
+        // validation already reported missing, and the null value says nothing was built.
+        self::assertCount(1, $errors, 'The failed construction repeats the omission and is not recorded again.');
         self::assertInstanceOf(MissingPropertyException::class, $errors[0]->getException());
-        self::assertInstanceOf(MissingConstructorArgumentException::class, $errors[1]->getException());
         self::assertSame('$.name', $errors[0]->getPath(), 'The record names the offending property.');
         self::assertNull($result->getValue());
     }
