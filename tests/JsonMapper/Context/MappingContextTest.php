@@ -13,12 +13,16 @@ namespace MagicSunday\Test\JsonMapper\Context;
 
 use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Context\MappingContext;
+use MagicSunday\JsonMapper\Context\MappingError;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+
+use function array_is_list;
+use function array_map;
 
 use const PHP_INT_MAX;
 
@@ -393,5 +397,30 @@ final class MappingContextTest extends TestCase
 
         self::assertSame(2, $context->getErrorCount());
         self::assertSame(1, $context->getDroppedErrorCount(), 'The ceiling applies again after the trial.');
+    }
+
+    #[Test]
+    public function trimErrorsKeepsTheOldestRecordsInOrderAsAList(): void
+    {
+        $context = new MappingContext([]);
+
+        foreach (['$.a', '$.b', '$.c', '$.d'] as $path) {
+            $context->recordException(new TypeMismatchException($path, 'int', 'string'));
+        }
+
+        $context->trimErrors(2);
+
+        $records = $context->getErrorRecords();
+
+        self::assertTrue(array_is_list($records), 'The retained records stay a list after the cut.');
+        self::assertSame(['$.a', '$.b'], array_map(static fn (MappingError $record): ?string => $record->getException()?->getPath(), $records));
+
+        $context->trimErrors(5);
+
+        self::assertCount(2, $context->getErrorRecords(), 'A count above the stored records cuts nothing.');
+
+        $context->trimErrors(0);
+
+        self::assertSame([], $context->getErrorRecords(), 'A count of zero takes every record back.');
     }
 }

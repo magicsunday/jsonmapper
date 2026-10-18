@@ -18,8 +18,8 @@ use MagicSunday\JsonMapper\Exception\MissingPropertyException;
 
 use function array_key_exists;
 use function array_key_last;
+use function array_pop;
 use function array_replace;
-use function array_slice;
 use function count;
 use function filter_var;
 use function implode;
@@ -698,6 +698,11 @@ final class MappingContext
      */
     public function trimErrors(int $count): void
     {
-        $this->errorRecords = array_slice($this->errorRecords, 0, $count);
+        // Pop the surplus off the end. Copying the retained prefix, or rebuilding the list around
+        // the cut, would make a run that keeps rejecting union members pay for the length of the
+        // whole report on every trim, while popping costs what is removed.
+        while (count($this->errorRecords) > max(0, $count)) {
+            array_pop($this->errorRecords);
+        }
     }
 }
