@@ -73,7 +73,6 @@ final class EnumValueConversionStrategy implements ValueConversionStrategyInterf
     {
         return $this->convertObjectValue(
             $type,
-            $context,
             $value,
             static function (string $className, mixed $value) use ($context) {
                 // A pure enum is a UnitEnum but not a BackedEnum, so it has no case factory to

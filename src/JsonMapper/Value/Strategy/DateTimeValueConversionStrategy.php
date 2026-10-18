@@ -97,7 +97,6 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
     {
         return $this->convertObjectValue(
             $type,
-            $context,
             $value,
             static function (string $className, mixed $value) use ($context) {
                 // Resolved once per value and guarded: DateTimeZone raises

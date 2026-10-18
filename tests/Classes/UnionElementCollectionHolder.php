@@ -54,7 +54,7 @@ final class UnionElementCollectionHolder
 
     /**
      * A union with NO null member. An element type that forbids null is the case that separates
-     * "the null strategy claims every null" from "null is checked against the declared type".
+     * "every null is accepted" from "null is checked against the declared type".
      *
      * @var array<int, Simple|string>
      */

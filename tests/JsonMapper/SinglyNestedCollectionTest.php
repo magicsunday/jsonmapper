@@ -263,10 +263,9 @@ final class SinglyNestedCollectionTest extends TestCase
     }
 
     #[Test]
-    public function itLeavesANullPayloadToTheNullStrategy(): void
+    public function itKeepsANullPayloadNullForANullableCollection(): void
     {
-        // The null strategy is registered before this one, so it has to win even though the
-        // collection strategy would now claim the type.
+        // A null payload leaves a nullable collection property null.
         $holder = $this->getJsonMapper()->map(
             $this->getJsonAsObject('{"optional": null}'),
             CollectionShapesHolder::class,

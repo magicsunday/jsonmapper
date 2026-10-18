@@ -172,8 +172,9 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
   property of the same declared type. `convertValue()` intercepts `CollectionType`, `UnionType`,
   the null type and a null on a non-nullable target itself, then delegates whatever is left to the
   chain; so a genuine collection or union is decided by `convertValue()`, not by the chain's
-  matching strategy, and the chain still handles what actually reaches it (a null on a nullable
-  target via the null strategy, an `ObjectType` collection-wrapper via the collection strategy).
+  matching strategy, and the chain still handles what actually reaches it (an `ObjectType`
+  collection-wrapper via the collection strategy). A null never reaches the chain at all, because
+  `convertValue()` returns it for a target that accepts it and rejects it for one that does not.
 * The abort-or-record policy lives in `MappingContext::throwOrRecord()`, whose name states the
   order because the order is the contract. A site that has something usable to hand back - an empty
   collection, an unconverted value - routes through it. The two that do not both record BEFORE

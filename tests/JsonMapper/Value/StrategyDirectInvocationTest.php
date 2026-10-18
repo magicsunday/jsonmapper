@@ -11,7 +11,6 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper\Value;
 
-use DateTime;
 use LogicException;
 use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Context\MappingContext;
@@ -34,7 +33,7 @@ use Symfony\Component\TypeInfo\TypeIdentifier;
 
 /**
  * Several guards inside the strategies are unreachable through the value converter's chain: the
- * chain answers the question first. NullValueConversionStrategy claims every null before a strategy
+ * chain answers the question first. JsonMapper::convertValue() claims every null before a strategy
  * that guards against one runs, and supports() declines a type before convert() could be handed it.
  *
  * The strategies are internal rather than an extension point, so the case those guards defend is not
@@ -65,25 +64,11 @@ final class StrategyDirectInvocationTest extends TestCase
     }
 
     #[Test]
-    public function theObjectGuardRefusesANullForANonNullableType(): void
-    {
-        // The object-trait counterpart of the builtin guard above, and the one the first round of
-        // tests missed. Through the chain a null is claimed by NullValueConversionStrategy first;
-        // a direct call reaches guardNullableValue, which must keep a null off a non-nullable
-        // object target rather than let convertObjectValue return it.
-        $strategy = new DateTimeValueConversionStrategy();
-
-        $this->expectException(TypeMismatchException::class);
-
-        $strategy->convert(new ObjectType(DateTime::class), null, new MappingContext([]));
-    }
-
-    #[Test]
     public function theBuiltinStrategyReturnsNullForAnIdentifierThatAcceptsOne(): void
     {
         // mixed makes no claim about its value, so a null satisfies it - and there is no settype()
-        // equivalent to run. The chain never asks: NullValueConversionStrategy claims the null two
-        // strategies earlier.
+        // equivalent to run. The chain never asks: JsonMapper::convertValue() claims the null before
+        // the chain runs.
         $strategy = new BuiltinValueConversionStrategy();
 
         self::assertNull($strategy->convert(new BuiltinType(TypeIdentifier::MIXED), null, new MappingContext([])));
