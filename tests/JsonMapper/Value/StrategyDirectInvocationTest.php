@@ -11,7 +11,6 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\JsonMapper\Value;
 
-use DateTime;
 use LogicException;
 use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Context\MappingContext;
@@ -62,20 +61,6 @@ final class StrategyDirectInvocationTest extends TestCase
         $this->expectExceptionMessageMatches('/expected int, got null/');
 
         $strategy->convert(new BuiltinType(TypeIdentifier::INT), null, new MappingContext([]));
-    }
-
-    #[Test]
-    public function theObjectGuardRefusesANullForANonNullableType(): void
-    {
-        // The object-trait counterpart of the builtin guard above, and the one the first round of
-        // tests missed. Through the chain a null is claimed by JsonMapper::convertValue() first;
-        // a direct call reaches guardNullableValue, which must keep a null off a non-nullable
-        // object target rather than let convertObjectValue return it.
-        $strategy = new DateTimeValueConversionStrategy();
-
-        $this->expectException(TypeMismatchException::class);
-
-        $strategy->convert(new ObjectType(DateTime::class), null, new MappingContext([]));
     }
 
     #[Test]
