@@ -255,8 +255,8 @@ final class BuiltinValueConversionStrategy implements ValueConversionStrategyInt
                 return;
             }
 
-            // Unreachable while the chain is ordered as it is: NullValueConversionStrategy is
-            // registered first and claims every null before this strategy runs. The strategies are
+            // Unreachable while the chain is entered as it is: JsonMapper::convertValue() claims
+            // every null before the chain runs, so no strategy is asked about one. The strategies are
             // internal, so what this defends is the chain being reordered - not a consumer calling
             // one directly - which would silently drop the check without it.
             //

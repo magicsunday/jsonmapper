@@ -71,7 +71,7 @@ trait ObjectTypeConversionGuardTrait
         }
 
         // Reached only when this trait's strategies are called outside the value converter's
-        // chain, where NullValueConversionStrategy claims every null first. The strategies are
+        // chain, where JsonMapper::convertValue() claims every null first. The strategies are
         // internal, so what this defends is the chain changing rather than a consumer calling one:
         // it keeps a null off a non-nullable object target either way.
         throw new TypeMismatchException($context->getPath(), $type->getClassName(), 'null');

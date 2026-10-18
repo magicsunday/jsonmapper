@@ -41,7 +41,6 @@ use MagicSunday\JsonMapper\Value\Strategy\CollectionValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\Strategy\CustomTypeValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\Strategy\DateTimeValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\Strategy\EnumValueConversionStrategy;
-use MagicSunday\JsonMapper\Value\Strategy\NullValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\Strategy\ObjectValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\Strategy\PassthroughValueConversionStrategy;
 use MagicSunday\JsonMapper\Value\TypeHandlerInterface;
@@ -179,8 +178,6 @@ final readonly class JsonMapper
                 return $this->makeInstance($className, $arguments);
             },
         );
-
-        $this->valueConverter->addStrategy(new NullValueConversionStrategy());
 
         // Custom handlers are registered explicitly by the caller, so they outrank every
         // heuristic below them. The collection strategy in particular recognises a container by
@@ -1170,14 +1167,17 @@ final readonly class JsonMapper
             return null;
         }
 
-        // Reject null for non-nullable targets before it reaches the strategy chain, where the
-        // null strategy would swallow it and the later property assignment would fail with a
-        // native (non-mapping) exception outside the error-collection contract.
-        if (
-            ($json === null)
-            && !$type->isNullable()
-        ) {
-            throw $this->createNullMismatchException($type, $context);
+        if ($json === null) {
+            // Rejected for a non-nullable target here, before the strategy chain: a null that
+            // slipped through would be assigned later and fail with a native exception outside the
+            // error-collection contract. A null the type accepts needs no conversion, and keeping
+            // it out of the chain is what guarantees no strategy, a registered type handler
+            // included, is ever asked about one.
+            if (!$type->isNullable()) {
+                throw $this->createNullMismatchException($type, $context);
+            }
+
+            return null;
         }
 
         return $this->valueConverter->convert($type, $json, $context);
