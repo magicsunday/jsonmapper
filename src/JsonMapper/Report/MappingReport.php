@@ -21,10 +21,13 @@ use function count;
 final readonly class MappingReport
 {
     /**
-     * @param list<MappingError> $errors
+     * @param list<MappingError> $errors        Failures that were kept
+     * @param int                $droppedErrors Failures that were not kept because the ceiling had been reached
      */
-    public function __construct(private array $errors)
-    {
+    public function __construct(
+        private array $errors,
+        private int $droppedErrors = 0,
+    ) {
     }
 
     /**
@@ -53,5 +56,25 @@ final readonly class MappingReport
     public function getErrorCount(): int
     {
         return count($this->errors);
+    }
+
+    /**
+     * Returns how many failures were left out of the report.
+     *
+     * @return int Number of failures beyond the configured ceiling, zero for a complete report
+     */
+    public function getDroppedErrorCount(): int
+    {
+        return $this->droppedErrors;
+    }
+
+    /**
+     * Determines whether failures were left out of the report.
+     *
+     * @return bool True when the ceiling was reached and the report is incomplete
+     */
+    public function isTruncated(): bool
+    {
+        return $this->droppedErrors > 0;
     }
 }

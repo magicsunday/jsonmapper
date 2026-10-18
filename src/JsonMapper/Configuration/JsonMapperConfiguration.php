@@ -42,6 +42,7 @@ final class JsonMapperConfiguration
      * @param string $defaultDateFormat          Default `DateTimeInterface` format used for serialization/deserialization
      * @param bool   $allowScalarToObjectCasting Whether scalars can be coerced into objects when supported
      * @param string $defaultTimezone            Timezone applied to date formats that carry none of their own
+     * @param int    $maxErrors                  How many failures a report keeps before it starts counting what it drops
      */
     public function __construct(
         private bool $strictMode = false,
@@ -52,7 +53,13 @@ final class JsonMapperConfiguration
         private string $defaultDateFormat = DateTimeInterface::ATOM,
         private bool $allowScalarToObjectCasting = false,
         private string $defaultTimezone = self::DEFAULT_TIMEZONE,
+        private int $maxErrors = MappingContext::DEFAULT_MAX_ERRORS,
     ) {
+        if ($maxErrors < 1) {
+            throw new InvalidArgumentException(
+                sprintf('The ceiling for collected errors must be at least 1, %d given.', $maxErrors),
+            );
+        }
     }
 
     /**
@@ -120,6 +127,8 @@ final class JsonMapperConfiguration
             $defaultTimezone = self::DEFAULT_TIMEZONE;
         }
 
+        $maxErrors = MappingContext::normaliseMaxErrors($data['maxErrors'] ?? null);
+
         return new self(
             (bool) ($data['strictMode'] ?? false),
             (bool) ($data['collectErrors'] ?? true),
@@ -129,6 +138,7 @@ final class JsonMapperConfiguration
             $defaultDateFormat,
             (bool) ($data['allowScalarToObjectCasting'] ?? false),
             $defaultTimezone,
+            $maxErrors,
         );
     }
 
@@ -157,13 +167,14 @@ final class JsonMapperConfiguration
             $context->getDefaultDateFormat(),
             $context->shouldAllowScalarToObjectCasting(),
             $context->getDefaultTimezone(),
+            $context->getMaxErrors(),
         );
     }
 
     /**
      * Serializes the configuration into an array representation.
      *
-     * @return array<string, bool|string> Scalar configuration flags indexed by option name
+     * @return array<string, bool|int|string> Scalar configuration values indexed by option name
      */
     public function toArray(): array
     {
@@ -176,13 +187,14 @@ final class JsonMapperConfiguration
             'defaultDateFormat'          => $this->defaultDateFormat,
             'allowScalarToObjectCasting' => $this->allowScalarToObjectCasting,
             'defaultTimezone'            => $this->defaultTimezone,
+            'maxErrors'                  => $this->maxErrors,
         ];
     }
 
     /**
      * Converts the configuration to mapping context options.
      *
-     * @return array<string, bool|string> Mapping context option bag compatible with {@see MappingContext}
+     * @return array<string, bool|int|string> Mapping context option bag compatible with {@see MappingContext}
      */
     public function toOptions(): array
     {
@@ -195,6 +207,7 @@ final class JsonMapperConfiguration
             MappingContext::OPTION_DEFAULT_DATE_FORMAT            => $this->defaultDateFormat,
             MappingContext::OPTION_ALLOW_SCALAR_TO_OBJECT_CASTING => $this->allowScalarToObjectCasting,
             MappingContext::OPTION_DEFAULT_TIMEZONE               => $this->defaultTimezone,
+            MappingContext::OPTION_MAX_ERRORS                     => $this->maxErrors,
         ];
     }
 
@@ -370,6 +383,46 @@ final class JsonMapperConfiguration
         $clone->defaultTimezone = $timezone;
 
         return $clone;
+    }
+
+    /**
+     * Returns a copy with a different ceiling for the failures a report keeps.
+     *
+     * Failures beyond the ceiling are counted, not kept, and the report says so. The ceiling bounds
+     * what a payload can make a report hold, because the number of failures a payload can cause is
+     * bounded only by its size.
+     *
+     * @param int $maxErrors Number of failures to keep, at least one
+     *
+     * @return self Cloned configuration using the provided ceiling
+     *
+     * @throws InvalidArgumentException When the ceiling is below one
+     */
+    public function withMaxErrors(int $maxErrors): self
+    {
+        // Built through the constructor so the one check that rejects a ceiling below one applies
+        // here as well as to a configuration created directly.
+        return new self(
+            $this->strictMode,
+            $this->collectErrors,
+            $this->emptyStringIsNull,
+            $this->ignoreUnknownProperties,
+            $this->treatNullAsEmptyCollection,
+            $this->defaultDateFormat,
+            $this->allowScalarToObjectCasting,
+            $this->defaultTimezone,
+            $maxErrors,
+        );
+    }
+
+    /**
+     * Returns the number of failures a report keeps.
+     *
+     * @return int Ceiling for the collected failures
+     */
+    public function getMaxErrors(): int
+    {
+        return $this->maxErrors;
     }
 
     /**

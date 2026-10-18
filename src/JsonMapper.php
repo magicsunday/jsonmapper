@@ -502,7 +502,12 @@ final readonly class JsonMapper
             $value = null;
         }
 
-        return new MappingResult($value, new MappingReport($context->getErrorRecords()));
+        $report = new MappingReport(
+            $context->getErrorRecords(),
+            $context->getDroppedErrorCount(),
+        );
+
+        return new MappingResult($value, $report);
     }
 
     /**
