@@ -13,6 +13,8 @@ namespace MagicSunday\Test\JsonMapper;
 
 use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
+use MagicSunday\JsonMapper\Context\MappingError;
+use MagicSunday\JsonMapper\Exception\MissingPropertyException;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\Test\Classes\Simple;
 use MagicSunday\Test\Classes\UnionElementCollectionHolder;
@@ -20,6 +22,8 @@ use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
+
+use function array_map;
 
 /**
  * Union resolution existed on the property path only. A collection element declared as a union or
@@ -87,9 +91,10 @@ final class UnionCollectionElementTest extends TestCase
         // A candidate trial is an internal question, not a mapping the caller asked for. With
         // strict mode left on during the trial, the first candidate that failed aborted the whole
         // run - so this perfectly valid element raised "expected string, got stdClass", naming
-        // whichever member happened to be tried first.
+        // whichever member happened to be tried first. The element is complete on purpose, so the
+        // only thing under test is which member it settles on.
         $holder = $this->getJsonMapper()->map(
-            $this->getJsonAsObject('{"unionItems": [{"name": "first"}]}'),
+            $this->getJsonAsObject('{"unionItems": [{"id": 1, "name": "first"}]}'),
             UnionElementCollectionHolder::class,
             null,
             null,
@@ -98,6 +103,47 @@ final class UnionCollectionElementTest extends TestCase
 
         self::assertInstanceOf(UnionElementCollectionHolder::class, $holder);
         self::assertInstanceOf(Simple::class, $holder->unionItems[0]);
+    }
+
+    #[Test]
+    public function itReportsAPropertyTheMatchedUnionMemberLacksInStrictMode(): void
+    {
+        // The counterpart of the test above. The member is chosen on type alone, and strict mode
+        // then still holds the element to its required properties, as it does for an element whose
+        // type involves no union.
+        $result = $this->getJsonMapper()->mapWithReport(
+            $this->getJsonAsObject('{"unionItems": [{"name": "first"}]}'),
+            UnionElementCollectionHolder::class,
+            null,
+            JsonMapperConfiguration::strict(),
+        );
+
+        $holder = $result->getValue();
+
+        self::assertSame(
+            ['$.unionItems.0.id'],
+            array_map(
+                static fn (MappingError $error): string => $error->getPath(),
+                $result->getReport()->getErrors(),
+            ),
+        );
+        self::assertInstanceOf(UnionElementCollectionHolder::class, $holder);
+        self::assertInstanceOf(Simple::class, $holder->unionItems[0]);
+    }
+
+    #[Test]
+    public function itRaisesForAnIncompleteUnionElementEvenWhenNothingIsCollected(): void
+    {
+        // Strict mode aborts on the first failure whether or not failures are kept.
+        $this->expectException(MissingPropertyException::class);
+
+        $this->getJsonMapper()->map(
+            $this->getJsonAsObject('{"unionItems": [{"name": "first"}]}'),
+            UnionElementCollectionHolder::class,
+            null,
+            null,
+            JsonMapperConfiguration::strict()->withErrorCollection(false),
+        );
     }
 
     #[Test]

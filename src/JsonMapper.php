@@ -70,8 +70,10 @@ use function array_filter;
 use function array_is_list;
 use function array_key_exists;
 use function array_replace;
+use function array_slice;
 use function array_unique;
 use function array_values;
+use function assert;
 use function call_user_func_array;
 use function count;
 use function get_debug_type;
@@ -1262,12 +1264,16 @@ final readonly class JsonMapper
 
         $lastException = null;
 
-        // A candidate is accepted when converting the value against it produces no error. That
-        // observation is only possible while errors are actually being recorded, so collection is
-        // forced on for the duration - otherwise a caller who switched reporting off would get the
-        // first candidate every time, and the declared type of the value would depend on an
-        // unrelated setting. Everything recorded here is trimmed away again: these are internal
-        // attempts, not failures the caller asked about.
+        // A candidate is accepted when converting the value against it records no failure other
+        // than a missing property. That observation is only possible while errors are actually
+        // being recorded, so collection is forced on for the duration - otherwise a caller who
+        // switched reporting off would get the first candidate every time, and the declared type
+        // of the value would depend on an unrelated setting. What a rejected candidate recorded is
+        // trimmed away again: these are internal attempts, not failures the caller asked about.
+        // What the accepted one recorded is kept, see releaseMatchedCandidateRecords().
+        $recordedBefore = $context->getErrorCount();
+        $refusedBefore  = $context->getTrialRefusedCount();
+
         // A regular closure rather than an arrow function: the latter captures by value, which
         // would bind the by-reference argument to a copy and leave the failure of the last
         // rejected candidate behind.
@@ -1278,6 +1284,8 @@ final readonly class JsonMapper
         );
 
         if ($matched) {
+            $this->releaseMatchedCandidateRecords($context, $recordedBefore, $refusedBefore);
+
             return $converted;
         }
 
@@ -1304,12 +1312,17 @@ final readonly class JsonMapper
     /**
      * Tries the union's non-null members, an exact runtime-type match first and the rest in their
      * normalised order (see {@see orderUnionCandidatesByExactMatch()}), and returns the first that
-     * converts the value without producing an error.
+     * converts the value without recording any failure.
      *
-     * A candidate is judged by whether converting against it recorded anything, so the caller has
+     * A candidate is judged by whether converting against it recorded a failure, so the caller has
      * to run this with error collection forced on - see {@see MappingContext::withForcedErrorCollection()}.
-     * Records produced by rejected candidates are trimmed away again: they are internal attempts,
-     * not failures the caller asked about.
+     * A missing property is the one failure that does not reject a candidate: it says the payload
+     * lacks something, not that the candidate has the wrong type. The first member that records
+     * nothing else is the one used, and the search stops there. Going on to look for a member that
+     * records nothing at all would convert the subtree of every later member as well, and with a
+     * union nested in its own members that multiplies per level. Records produced by rejected
+     * candidates are trimmed away again: they are internal attempts, not failures the caller asked
+     * about.
      *
      * @param mixed                 $json          Raw value to convert.
      * @param UnionType<Type>       $type          Union whose members are tried, exact matches first.
@@ -1325,19 +1338,23 @@ final readonly class JsonMapper
         ?MappingException &$lastException,
     ): array {
         foreach ($this->orderUnionCandidatesByExactMatch($type, $json) as $candidate) {
-            $errorCount = $context->getErrorCount();
+            $errorCount     = $context->getErrorCount();
+            $refusedCount   = $context->getTrialRefusedCount();
+            $refusedFailure = $context->getTrialRefusedFailureCount();
 
             try {
                 $candidateValue = $this->convertValue($json, $candidate, $context);
             } catch (MappingException $exception) {
                 $context->trimErrors($errorCount);
+                $context->restoreTrialRefusals($refusedCount, $refusedFailure);
                 $lastException = $exception;
 
                 continue;
             }
 
-            if ($context->getErrorCount() > $errorCount) {
+            if ($this->recordedMoreThanMissingProperties($context, $errorCount, $refusedFailure)) {
                 $context->trimErrors($errorCount);
+                $context->restoreTrialRefusals($refusedCount, $refusedFailure);
 
                 $lastException = new TypeMismatchException(
                     $context->getPath(),
@@ -1352,6 +1369,92 @@ final readonly class JsonMapper
         }
 
         return [false, null];
+    }
+
+    /**
+     * Reports whether converting recorded anything since the given count other than missing properties.
+     *
+     * Strict mode stays in force while candidates are tried, so an object that matches the value
+     * still records the required properties the payload left out. Those say nothing about whether
+     * the candidate is the right member of the union, which is decided on type failures alone, and
+     * they belong in the report of the mapping the caller asked for.
+     *
+     * A failure the full trial window refused to store counts as well: it was not kept, but it
+     * happened, and a candidate that produced it is the wrong member.
+     *
+     * @param MappingContext $context         Mapping context the candidate was converted in.
+     * @param int            $recordedAt      Number of records present before the conversion.
+     * @param int            $refusedFailures Refused failures counted before the conversion.
+     *
+     * @return bool TRUE when a record other than a missing property was added.
+     */
+    private function recordedMoreThanMissingProperties(
+        MappingContext $context,
+        int $recordedAt,
+        int $refusedFailures,
+    ): bool {
+        if ($context->getTrialRefusedFailureCount() > $refusedFailures) {
+            return true;
+        }
+
+        foreach (array_slice($context->getErrorRecords(), $recordedAt) as $record) {
+            if (!$record->getException() instanceof MissingPropertyException) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Settles the records an accepted union candidate left behind, as the caller's options ask.
+     *
+     * The trial forces collection on and aborting off, so what the candidate recorded is a strict
+     * mode failure the caller has not been told about yet. An aborting run raises the first one,
+     * whether or not it collects, which for a member that can be built is the exception the plain
+     * object path raises. Otherwise they are dropped when nothing is collected and stay in the
+     * report when something is.
+     *
+     * @param MappingContext $context        Mapping context with the caller's own options restored.
+     * @param int            $recordedBefore Number of records present before the candidates were tried.
+     * @param int            $refusedBefore  Refusals counted before the candidates were tried.
+     *
+     * @return void
+     *
+     * @throws MappingException When the entry point aborts on the first failure.
+     */
+    private function releaseMatchedCandidateRecords(
+        MappingContext $context,
+        int $recordedBefore,
+        int $refusedBefore,
+    ): void {
+        if ($context->getErrorCount() === $recordedBefore) {
+            return;
+        }
+
+        $first = $context->getErrorRecords()[$recordedBefore]->getException();
+
+        if ($context->shouldAbortOnError()) {
+            // The first record stays. The plain object path files the failure at the missing
+            // property before it raises, and the catch the exception reaches files it once more at
+            // the property that holds the object. A plain run stops at the first failure, so the
+            // ones the trial collected behind it go. Where nothing is collected, nothing stays.
+            $context->trimErrors($context->shouldCollectErrors() ? ($recordedBefore + 1) : $recordedBefore);
+
+            // An accepted member recorded nothing but missing properties, each with its exception.
+            assert($first instanceof MappingException);
+
+            throw $first;
+        }
+
+        if (!$context->shouldCollectErrors()) {
+            $context->trimErrors($recordedBefore);
+
+            return;
+        }
+
+        // What is kept has to fit the ceiling of the report, and what did not fit is counted.
+        $context->settleTrialRecords($refusedBefore);
     }
 
     /**

@@ -72,10 +72,8 @@ final class NestedConfigurationRoundtripTest extends TestCase
         // The counterpart: dropping the round trip must not drop the settings with it. Set once at
         // the entry point, the configuration has to still be in force three objects down.
         //
-        // An unknown property rather than a missing one, deliberately: strict mode validates
-        // MISSING properties on the root object only - that is issue #105, filed separately - so a
-        // missing-property assertion here would fail for a reason that has nothing to do with the
-        // round trip this test is about.
+        // An unknown property rather than a missing one, deliberately: the second half of the test
+        // switches unknown properties off again, which a missing property has no option for.
         $payload = $this->getJsonAsObject('{"level2": {"level3": {"value": "x", "surprise": 1}}}');
 
         $reported = $this->getJsonMapper(config: JsonMapperConfiguration::strict())

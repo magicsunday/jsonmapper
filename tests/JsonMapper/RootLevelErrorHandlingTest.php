@@ -19,9 +19,11 @@ use MagicSunday\JsonMapper\Exception\MissingConstructorArgumentException;
 use MagicSunday\JsonMapper\Exception\MissingPropertyException;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\JsonMapper\Report\MappingResult;
+use MagicSunday\Test\Classes\NullableTwoRequiredPropertiesHolder;
 use MagicSunday\Test\Classes\RequiredConstructorArgumentDto;
 use MagicSunday\Test\Classes\RequiredConstructorArgumentDtoHolder;
 use MagicSunday\Test\Classes\TwoRequiredPropertiesDto;
+use MagicSunday\Test\Classes\TwoRequiredPropertiesHolder;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\CoversNamespace;
@@ -102,12 +104,11 @@ final class RootLevelErrorHandlingTest extends TestCase
             RequiredConstructorArgumentDtoHolder::class,
         );
 
-        // Pinned on the exception KIND, not on how many records each lane produced. The counts
-        // genuinely differ - the root yields two (the missing property, then the unbuildable
-        // object), the nested lane one, because strict mode never validates a nested object's
-        // properties at all. That asymmetry predates this change and is tracked in issue #105:
-        // asserting equality would bless the defect, and asserting today's numbers would break
-        // this test the moment #105 is fixed for the right reason. The kind survives either way.
+        // Pinned on the exception KIND, not on how many records each lane produced. The root
+        // yields two (the missing property, then the unbuildable object). The nested lane yields
+        // one, because a nullable property takes the union path, which drops what a rejected
+        // member recorded and reports the member's failure once. Asserting equality would bless
+        // that difference, and the duplicate record behind the root's second entry is issue #106.
         self::assertContains(
             MissingConstructorArgumentException::class,
             $this->exceptionClasses($root),
@@ -234,6 +235,98 @@ final class RootLevelErrorHandlingTest extends TestCase
         self::assertInstanceOf(RequiredConstructorArgumentDto::class, $dto);
         self::assertSame('accepted', $dto->name);
         self::assertFalse($result->getReport()->hasErrors());
+    }
+
+    #[Test]
+    public function itReportsAMissingPropertyAtItsFullPathHoweverTheNestedObjectIsDeclared(): void
+    {
+        $mapper = $this->getJsonMapper(config: JsonMapperConfiguration::strict());
+
+        // The same two violations three ways: as the root, behind a plain property and behind a
+        // nullable one. Strict mode validates the object, not the route that reached it.
+        self::assertSame(
+            ['$.first', '$.second'],
+            $this->errorPaths($mapper->mapWithReport([], TwoRequiredPropertiesDto::class)),
+            'Root: both missing properties are reported.',
+        );
+        self::assertSame(
+            ['$.dto.first', '$.dto.second'],
+            $this->errorPaths($mapper->mapWithReport(['dto' => []], TwoRequiredPropertiesHolder::class)),
+            'Behind a plain property: both missing properties are reported at their full path.',
+        );
+        self::assertSame(
+            ['$.dto.first', '$.dto.second'],
+            $this->errorPaths($mapper->mapWithReport(['dto' => []], NullableTwoRequiredPropertiesHolder::class)),
+            'Behind a nullable property: the same records, not none.',
+        );
+    }
+
+    #[Test]
+    public function itStillBuildsTheObjectBehindANullablePropertyWhileReportingWhatItLacks(): void
+    {
+        // Reporting a violation must not change which value the nullable property settles on: the
+        // nested object is still the one that gets assigned.
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
+            ['dto' => []],
+            NullableTwoRequiredPropertiesHolder::class,
+        );
+
+        $holder = $result->getValue();
+
+        self::assertInstanceOf(NullableTwoRequiredPropertiesHolder::class, $holder);
+        self::assertInstanceOf(TwoRequiredPropertiesDto::class, $holder->dto);
+    }
+
+    #[Test]
+    public function itRaisesTheMissingPropertyBehindANullablePropertyWhenStrictModeAborts(): void
+    {
+        // map() raises on the first strict failure, and the route to the nested object must not
+        // decide whether it does. The plain lane is the reference for what is raised.
+        $mapper = $this->getJsonMapper(config: JsonMapperConfiguration::strict());
+
+        try {
+            $mapper->map(['dto' => []], TwoRequiredPropertiesHolder::class);
+            self::fail('The plain lane is expected to raise.');
+        } catch (MissingPropertyException $plain) {
+            self::assertSame('$.dto.first', $plain->getPath());
+        }
+
+        try {
+            $mapper->map(['dto' => []], NullableTwoRequiredPropertiesHolder::class);
+            self::fail('The nullable lane has to raise as well.');
+        } catch (MissingPropertyException $nullable) {
+            self::assertSame($plain->getPath(), $nullable->getPath());
+        }
+    }
+
+    #[Test]
+    public function itReportsNothingBehindANullablePropertyOutsideStrictMode(): void
+    {
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['dto' => []],
+            NullableTwoRequiredPropertiesHolder::class,
+        );
+
+        $holder = $result->getValue();
+
+        self::assertFalse($result->getReport()->hasErrors(), 'A lenient run reports no missing property.');
+        self::assertInstanceOf(NullableTwoRequiredPropertiesHolder::class, $holder);
+        self::assertInstanceOf(TwoRequiredPropertiesDto::class, $holder->dto);
+    }
+
+    /**
+     * Returns the path of every recorded error, in record order.
+     *
+     * @param MappingResult $result Result whose report is inspected
+     *
+     * @return list<string> Paths of the recorded errors
+     */
+    private function errorPaths(MappingResult $result): array
+    {
+        return array_map(
+            static fn (MappingError $error): string => $error->getPath(),
+            $result->getReport()->getErrors(),
+        );
     }
 
     /**

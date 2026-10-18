@@ -1,0 +1,24 @@
+<?php
+
+/**
+ * This file is part of the package magicsunday/jsonmapper.
+ *
+ * For the full copyright and license information, please read the
+ * LICENSE file that was distributed with this source code.
+ */
+
+declare(strict_types=1);
+
+namespace MagicSunday\Test\Classes;
+
+/**
+ * A union of two objects where the member tried first requires more than the one tried second.
+ *
+ * @author  Rico Sonntag <mail@ricosonntag.de>
+ * @license https://opensource.org/licenses/MIT
+ * @link    https://github.com/magicsunday/jsonmapper/
+ */
+final class UnionLeadingTrailingHolder
+{
+    public UnionLeadingDto|UnionTrailingDto $member;
+}

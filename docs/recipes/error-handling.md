@@ -99,7 +99,8 @@ and switching off the arguments in exception traces (`zend.exception_ignore_args
 ceiling, and limit the size and the nesting depth of the request body before it is decoded. While a
 member of a union is being tried its records are held up to the ceiling above where the attempt began,
 plus one record for each union nested inside it, so the mapper can briefly hold more than the ceiling
-while a union is tried, and they are dropped when the attempt is rejected.
+while a union is tried. They are dropped when the attempt is rejected. When it is accepted, what it
+recorded is cut back to the ceiling and the rest is counted as dropped, like any other failure.
 
 ## Security: do not forward a mapping message to a client
 
@@ -279,7 +280,12 @@ the entry point's job:
 `mapWithReport()` never throws a `MappingException`, whatever configuration it is given. Returning a
 report is the whole reason the method exists, so a configuration that made it throw would leave the
 caller with no way to get one. What `strict()` still changes is the *content* of that report: it adds
-failures lenient mode would never raise, such as a missing or unknown property.
+failures lenient mode would never raise, such as a missing or unknown property. It reports a missing
+property at any depth, including for an object reached through a nullable or union-typed property.
+Where a union offers several object types, a missing property does not decide which one is used.
+The first type whose types match the payload is used, and what it lacks is reported. That holds for a type
+whose properties are set after construction. A type with a required constructor argument is rejected
+for lacking it, like any other type that cannot be built from the payload.
 
 ```php
 $strict = JsonMapperConfiguration::strict();
