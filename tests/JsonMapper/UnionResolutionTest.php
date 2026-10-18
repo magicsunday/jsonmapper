@@ -328,8 +328,8 @@ final class UnionResolutionTest extends TestCase
     #[Test]
     public function itFilesTheRecordsOfTheMatchedMemberAtTheSamePathsAsAPlainProperty(): void
     {
-        // An aborting run files the first missing property where it is and then the property that holds
-        // the object. A union must leave the same trail as a plain property, not only the outer path.
+        // An aborting run files the first missing property where it is and nothing more. A union must
+        // leave the same trail as a plain property, at the path of the property and not of the holder.
         $paths = [];
 
         foreach ([TwoRequiredPropertiesHolder::class, UnionTwoRequiredPropertiesHolder::class] as $class) {
@@ -349,7 +349,7 @@ final class UnionResolutionTest extends TestCase
             }
         }
 
-        self::assertSame(['$.dto.first', '$.dto'], $paths[TwoRequiredPropertiesHolder::class]);
+        self::assertSame(['$.dto.first'], $paths[TwoRequiredPropertiesHolder::class]);
         self::assertSame(
             $paths[TwoRequiredPropertiesHolder::class],
             $paths[UnionTwoRequiredPropertiesHolder::class],

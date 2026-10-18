@@ -165,6 +165,29 @@ final class MappingContextTest extends TestCase
     }
 
     #[Test]
+    public function itDoesNotFileTheFailureOfTheLatestRecordAgain(): void
+    {
+        $context = new MappingContext(['root']);
+        $failure = new TypeMismatchException('$.value', 'int', 'string');
+
+        $context->recordException($failure);
+        $context->recordException($failure);
+
+        self::assertSame(1, $context->getErrorCount());
+    }
+
+    #[Test]
+    public function itFilesADifferentFailureAtTheSamePath(): void
+    {
+        $context = new MappingContext(['root']);
+
+        $context->recordException(new TypeMismatchException('$.value', 'int', 'string'));
+        $context->recordException(new TypeMismatchException('$.value', 'int', 'string'));
+
+        self::assertSame(2, $context->getErrorCount());
+    }
+
+    #[Test]
     public function itAppliesADefaultCeilingWhenNoneIsSet(): void
     {
         $context = new MappingContext(['root']);

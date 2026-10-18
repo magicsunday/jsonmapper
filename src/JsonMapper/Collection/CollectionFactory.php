@@ -144,9 +144,9 @@ final readonly class CollectionFactory
                 // a finally, so a throw from inside the closure propagates cleanly. What the
                 // segment buys is that the record names the element rather than the collection.)
                 //
-                // Rethrowing here means the property loop above records the very same element
-                // failure a second time, so the run has to be one that aborts - otherwise the
-                // caller receives a duplicate and loses the rejected element's valid siblings.
+                // The rethrow reaches the property loop above, which skips the failure because the
+                // latest record was made from it. It still has to be limited to a run that aborts,
+                // otherwise the caller loses the rejected element's valid siblings.
                 if ($context->shouldAbortOnError()) {
                     throw $exception;
                 }

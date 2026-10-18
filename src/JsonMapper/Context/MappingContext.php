@@ -16,6 +16,7 @@ use MagicSunday\JsonMapper\Exception\MappingException;
 use MagicSunday\JsonMapper\Exception\MissingPropertyException;
 
 use function array_key_exists;
+use function array_key_last;
 use function array_replace;
 use function array_slice;
 use function count;
@@ -304,12 +305,24 @@ final class MappingContext
     /**
      * Stores the exception and message for later consumption.
      *
+     * The failure the latest record was made from is not stored a second time. An aborting run
+     * raises the failure of the innermost value and every enclosing level catches it on the way
+     * out, so a rethrown failure stays a single record at the path of the rejected value however
+     * deep it sat. A different failure, also at the same path, is stored.
+     *
      * @param MappingException $exception Exception raised during mapping
      *
      * @return void
      */
     public function recordException(MappingException $exception): void
     {
+        if (
+            ($this->errorRecords !== [])
+            && ($this->errorRecords[array_key_last($this->errorRecords)]->getException() === $exception)
+        ) {
+            return;
+        }
+
         $this->addError($exception->getMessage(), $exception);
     }
 
