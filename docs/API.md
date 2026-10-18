@@ -77,7 +77,10 @@ var_dump($mapper::class);
 > becomes the collection and a single object becomes one element — which is how you consume an API
 > that returns one object for a single hit and a list for several. A **scalar** satisfies neither
 > reading and is reported as a `CollectionMappingException` rather than silently yielding a bare
-> element.
+> element. The same holds when no element class is passed and the element type comes from the
+> collection's `@extends` annotation: a scalar at the root is refused instead of being answered with an
+> empty collection. A `null` still honours `treatNullAsEmptyCollection`, and a collection declared on a
+> property keeps its own handling.
 >
 > An **empty array** without a collection class yields an *instance*, not an empty list: with
 > `associative: true` both `[]` and `{}` decode to an empty array, and a caller passing associative

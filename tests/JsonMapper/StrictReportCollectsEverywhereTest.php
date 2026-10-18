@@ -173,10 +173,9 @@ final class StrictReportCollectsEverywhereTest extends TestCase
     #[Test]
     public function itReportsANonIterablePayloadForACollectionRootWithoutCrashing(): void
     {
-        // The same sentinel reaching the other consumer: the top-level collection lane handed the
-        // value straight to the wrapper's constructor, and ArrayObject::__construct() rejected null
-        // with a TypeError - a native error escaping a run that asked for a report, which the
-        // error-handling contract rules out explicitly.
+        // The top-level collection lane used to hand a null straight to the wrapper's constructor,
+        // and ArrayObject::__construct() rejected it with a TypeError - a native error escaping a
+        // run that asked for a report, which the error-handling contract rules out explicitly.
         $result = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
             'not-a-collection',
             null,
@@ -189,19 +188,13 @@ final class StrictReportCollectsEverywhereTest extends TestCase
             $result->getReport()->getErrors()[0]->getException(),
         );
 
-        // The VALUE is asserted too, and that is what makes this test discriminate. Two separate
-        // changes block the old TypeError - mapIterable() returning [] for a recorded failure, and
-        // wrapCollection()'s null guard - so asserting only the report lets either one cover for
-        // the other. Revert the [] and the guard turns the run into a null from wrapCollection(),
-        // which mapCollection() reports as "not handled", so map() falls through and hands back the
-        // RAW PAYLOAD - the string 'not-a-collection' - with the record still in place and the test
-        // still green. Not merely an absence: unmapped input returned as if it had been mapped.
-        self::assertInstanceOf(
-            BaseCollection::class,
-            $result->getValue(),
-            'A recorded failure still yields a collection, not an absence.',
-        );
-        self::assertCount(0, $result->getValue(), 'Empty, because no element could be mapped.');
+        // The VALUE is asserted too, and that is what makes this test discriminate. A payload that
+        // is no collection at all is refused outright, as it is when an element class is passed,
+        // so the answer is no value and not an empty collection that passes for a legitimate one.
+        // It must not be the raw payload either. Unmapped input handed back as if it had been
+        // mapped is what a fall-through to the single-object lane would produce, with the record
+        // still in place.
+        self::assertNull($result->getValue(), 'A refused payload yields no value, neither an empty collection nor the raw input.');
     }
 
     #[Test]
