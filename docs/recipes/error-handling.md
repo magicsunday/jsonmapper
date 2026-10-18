@@ -43,7 +43,8 @@ var_dump($result->getValue());
 ## What the report covers
 
 In lenient mode `mapWithReport()` records every **mapping** failure - the `MappingException`
-hierarchy - regardless of where in the payload it occurs. A failure on the **root** object is
+hierarchy - regardless of where in the payload it occurs, up to the ceiling described under
+[Bounding the report](#bounding-the-report). A failure on the **root** object is
 reported exactly like one on a nested property; the mapped value is then `null`, so a caller can
 tell "nothing was produced" apart from a partially populated object:
 
@@ -69,6 +70,36 @@ foreach ($result->getReport()->getErrors() as $error) {
 
 `getErrors()` returns `MappingError` records, not exceptions: each carries the path, the message and
 the originating exception.
+
+## Bounding the report
+
+The number of failures a payload can cause grows with its size: a body of many unknown keys files
+one record per key, each carrying a path built from those keys. A report therefore keeps at
+most `MappingContext::DEFAULT_MAX_ERRORS` records unless you set another ceiling:
+
+```php
+$config = JsonMapperConfiguration::lenient()->withMaxErrors(50);
+
+$report = $mapper->mapWithReport($payload, Article::class, configuration: $config)->getReport();
+
+$report->getErrorCount();        // at most 50
+$report->getDroppedErrorCount(); // how many further failures were not kept
+$report->isTruncated();          // true when the report is incomplete
+```
+
+A report that dropped failures says so, so an empty tail is never mistaken for a clean one. The dropped
+count says how many failures the report lost, not how many the mapper met: the failures of a union member
+that was tried and rejected are not part of the report to begin with.
+
+The ceiling bounds the finished report. It does not bound the time spent mapping a hostile payload,
+and the memory a kept record holds grows with the nesting depth of the payload, because a record
+keeps the exception it was made from together with its stack trace. Over a chain of nested objects the
+total grows faster than the depth does, so a deep chain stays expensive with few records kept,
+and switching off the arguments in exception traces (`zend.exception_ignore_args`) reduces it. For untrusted input lower the
+ceiling, and limit the size and the nesting depth of the request body before it is decoded. While a
+member of a union is being tried its records are held up to the ceiling above where the attempt began,
+plus one record for each union nested inside it, so the mapper can briefly hold more than the ceiling
+while a union is tried, and they are dropped when the attempt is rejected.
 
 ## Security: do not forward a mapping message to a client
 
@@ -243,7 +274,7 @@ the entry point's job:
 | Call | Strict mode | Lenient mode |
 |------|-------------|--------------|
 | `map()` | throws on the first failure | collects, returns a partial result |
-| `mapWithReport()` | collects everything into the report | collects everything into the report |
+| `mapWithReport()` | collects into the report, up to the ceiling | collects into the report, up to the ceiling |
 
 `mapWithReport()` never throws a `MappingException`, whatever configuration it is given. Returning a
 report is the whole reason the method exists, so a configuration that made it throw would leave the
@@ -256,7 +287,7 @@ $strict = JsonMapperConfiguration::strict();
 $result = $mapper->mapWithReport([], Article::class, configuration: $strict);
 
 $result->getValue();                      // null - nothing could be built
-$result->getReport()->getErrorCount();    // every strict violation, not just the first
+$result->getReport()->getErrorCount();    // every strict violation up to the ceiling, not just the first
 ```
 
 Use `map()` when the first failure should abort. Use `mapWithReport()` when you want the full picture.

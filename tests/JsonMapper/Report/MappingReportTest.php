@@ -48,4 +48,17 @@ final class MappingReportTest extends TestCase
         self::assertFalse($report->hasErrors());
         self::assertSame(0, $report->getErrorCount());
     }
+
+    #[Test]
+    public function itStatesThatItWasTruncated(): void
+    {
+        $complete  = new MappingReport([]);
+        $truncated = new MappingReport([], 4);
+
+        self::assertFalse($complete->isTruncated());
+        self::assertSame(0, $complete->getDroppedErrorCount());
+        self::assertTrue($truncated->isTruncated());
+        self::assertSame(4, $truncated->getDroppedErrorCount());
+        self::assertTrue((new MappingReport([], 1))->isTruncated(), 'A single dropped failure is enough.');
+    }
 }

@@ -106,6 +106,7 @@ Each `with*` method toggles a single option and returns a clone:
 | `withDefaultDateFormat(string $format)` | Configure the default `DateTimeInterface` parsing format. |
 | `withDefaultTimezone(string $timezone)` | Timezone assumed when the date format carries none. Defaults to `UTC`. |
 | `withScalarToObjectCasting(bool $enabled)` | Allow casting scalar values to object types when possible. |
+| `withMaxErrors(int $maxErrors)` | How many failures a report keeps, at least one. Defaults to `MappingContext::DEFAULT_MAX_ERRORS`. Further failures are counted, see [Bounding the report](recipes/error-handling.md#bounding-the-report). |
 
 Use `toOptions()` to feed configuration data into a `MappingContext`, or `toArray()` to persist settings.
 

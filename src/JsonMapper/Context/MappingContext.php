@@ -18,8 +18,15 @@ use function array_key_exists;
 use function array_replace;
 use function array_slice;
 use function count;
+use function filter_var;
 use function implode;
+use function is_int;
 use function is_string;
+use function max;
+use function min;
+
+use const FILTER_VALIDATE_INT;
+use const PHP_INT_MAX;
 
 /**
  * Represents the state shared while mapping JSON structures.
@@ -60,6 +67,20 @@ final class MappingContext
     public const string OPTION_ABORT_ON_ERROR = 'abort_on_error';
 
     /**
+     * How many failures the context keeps.
+     *
+     * Without a ceiling the number of records, and with it the memory a report holds, would be
+     * decided by the payload: a body of many unknown keys files one record per key. What is dropped
+     * is counted, so a report can say that it is incomplete.
+     */
+    public const string OPTION_MAX_ERRORS = 'max_errors';
+
+    /**
+     * Number of failures kept when the option names none.
+     */
+    public const int DEFAULT_MAX_ERRORS = 1000;
+
+    /**
      * Timezone assumed for a zoneless date format. UTC rather than the host default, so that the
      * same payload yields the same instant wherever it is mapped.
      */
@@ -74,6 +95,16 @@ final class MappingContext
      * @var list<MappingError>
      */
     private array $errorRecords = [];
+
+    /**
+     * Number of failures that were not kept because the ceiling had been reached.
+     */
+    private int $droppedErrors = 0;
+
+    /**
+     * Number of records an open trial window may hold, null outside one.
+     */
+    private ?int $trialCeiling = null;
 
     /**
      * @param mixed                $rootInput The original JSON payload handed to the mapper
@@ -144,20 +175,38 @@ final class MappingContext
      */
     public function withForcedErrorCollection(callable $callback): mixed
     {
-        return $this->withOverriddenOptions(
-            [
-                self::OPTION_COLLECT_ERRORS => true,
+        // A window may hold the ceiling above where it began. The decision a trial serves reads
+        // whether a candidate added records, so a ceiling that stopped appending at the records
+        // already kept would make a failing candidate look clean, and no ceiling at all would let the
+        // payload decide how much a rejected candidate holds before it is trimmed. A window inside
+        // another shares the outer allowance, so a payload nesting unions cannot stack one allowance
+        // per level, but it always has room for the one record its own decision needs. The records
+        // written here are the caller's to trim when the window closes.
+        $outerCeiling = $this->trialCeiling;
+        $baseline     = count($this->errorRecords);
+        // Summed without leaving the integers: a ceiling of PHP_INT_MAX is a legitimate way to say
+        // "unbounded", and adding it to a non-zero baseline would turn the allowance into a float.
+        $allowance          = $baseline + min($this->getMaxErrors(), PHP_INT_MAX - $baseline);
+        $this->trialCeiling = max($outerCeiling ?? $allowance, $baseline + 1);
 
-                // Strict mode is overridden for the same reason collection is forced on: a
-                // candidate trial is an internal question, not a mapping the caller asked for.
-                // Left on, the first candidate that fails aborts the whole run - so a union whose
-                // LATER member matches perfectly still raised, naming the type that happened to be
-                // tried first. A genuine failure is still raised afterwards, by the caller, once
-                // every candidate has actually been tried.
-                self::OPTION_STRICT_MODE => false,
-            ],
-            $callback,
-        );
+        try {
+            return $this->withOverriddenOptions(
+                [
+                    self::OPTION_COLLECT_ERRORS => true,
+
+                    // Strict mode is overridden for the same reason collection is forced on: a
+                    // candidate trial is an internal question, not a mapping the caller asked for.
+                    // Left on, the first candidate that fails aborts the whole run - so a union
+                    // whose LATER member matches perfectly still raised, naming the type that
+                    // happened to be tried first. A genuine failure is still raised afterwards, by
+                    // the caller, once every candidate has actually been tried.
+                    self::OPTION_STRICT_MODE => false,
+                ],
+                $callback,
+            );
+        } finally {
+            $this->trialCeiling = $outerCeiling;
+        }
     }
 
     /**
@@ -211,6 +260,15 @@ final class MappingContext
     public function addError(string $message, ?MappingException $exception = null): void
     {
         if (!$this->shouldCollectErrors()) {
+            return;
+        }
+
+        if (count($this->errorRecords) >= ($this->trialCeiling ?? $this->getMaxErrors())) {
+            // What a trial refuses is trimmed anyway, so only a refusal outside one is a loss.
+            if ($this->trialCeiling === null) {
+                ++$this->droppedErrors;
+            }
+
             return;
         }
 
@@ -406,6 +464,57 @@ final class MappingContext
     public function getErrorRecords(): array
     {
         return $this->errorRecords;
+    }
+
+    /**
+     * Returns how many failures the context keeps at most.
+     *
+     * @return int Ceiling for the collected failures, never below one
+     */
+    public function getMaxErrors(): int
+    {
+        return self::normaliseMaxErrors($this->options[self::OPTION_MAX_ERRORS] ?? null);
+    }
+
+    /**
+     * Turns a configured ceiling into a usable one.
+     *
+     * Settings arrive as arrays from files and the environment, where a number is often a string.
+     * An integer, or a string of decimal digits without leading zeros that may carry a sign and
+     * surrounding whitespace, of at least one is taken as it is. Anything else, a float, a boolean
+     * and a number too large for an integer included, falls back to the default rather than to zero,
+     * which would keep nothing.
+     *
+     * The parameter is untyped on purpose: the value comes from a configuration array or an option
+     * bag, whose entries have no type until they are looked at. Public only so that
+     * {@see \MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration} can restore through the same
+     * rule, it is not part of the surface to build on.
+     *
+     * @internal
+     *
+     * @param mixed $value Value read from a configuration array or an option bag
+     *
+     * @return int Ceiling of at least one
+     */
+    public static function normaliseMaxErrors(mixed $value): int
+    {
+        if (!is_int($value) && !is_string($value)) {
+            return self::DEFAULT_MAX_ERRORS;
+        }
+
+        $ceiling = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+
+        return ($ceiling === false) ? self::DEFAULT_MAX_ERRORS : $ceiling;
+    }
+
+    /**
+     * Returns how many failures were not kept because the ceiling had been reached.
+     *
+     * @return int Number of dropped failures, zero for a complete record
+     */
+    public function getDroppedErrorCount(): int
+    {
+        return $this->droppedErrors;
     }
 
     /**
