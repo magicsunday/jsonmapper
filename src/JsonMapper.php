@@ -1436,9 +1436,9 @@ final readonly class JsonMapper
 
         if ($context->shouldAbortOnError()) {
             // The first record stays. The plain object path files the failure at the missing
-            // property before it raises, and the catch the exception reaches files it once more at
-            // the property that holds the object. A plain run stops at the first failure, so the
-            // ones the trial collected behind it go. Where nothing is collected, nothing stays.
+            // property before it raises, and the catch the exception reaches knows it already. A
+            // plain run stops at the first failure, so the ones the trial collected behind it go.
+            // Where nothing is collected, nothing stays.
             $context->trimErrors($context->shouldCollectErrors() ? ($recordedBefore + 1) : $recordedBefore);
 
             // An accepted member recorded nothing but missing properties, each with its exception.

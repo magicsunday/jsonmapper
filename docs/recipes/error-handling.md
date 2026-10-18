@@ -298,6 +298,10 @@ $result->getReport()->getErrorCount();    // every strict violation up to the ce
 
 Use `map()` when the first failure should abort. Use `mapWithReport()` when you want the full picture.
 
+A caller that passes its own `MappingContext` to an aborting `map()` can read the records after catching
+the exception. The failure is recorded once, at the path of the value that was rejected, however deeply
+that value sits. The enclosing objects let the exception pass without recording it again.
+
 ## Lenient mode
 
 For tolerant APIs combine `JsonMapperConfiguration::lenient()` with `->withIgnoreUnknownProperties(true)` or `->withTreatNullAsEmptyCollection(true)` to absorb schema drifts.
