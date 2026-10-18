@@ -43,10 +43,8 @@ use function iterator_to_array;
  *           to supply another, so it carries no backwards-compatibility guarantee.
  *
  * @phpstan-type CollectionWrappedType BuiltinType<TypeIdentifier::ARRAY>|BuiltinType<TypeIdentifier::ITERABLE>|ObjectType<class-string>
- *
- * @implements CollectionFactoryInterface<array-key, mixed>
  */
-final readonly class CollectionFactory implements CollectionFactoryInterface
+final readonly class CollectionFactory
 {
     /**
      * @param Closure(Type, mixed, MappingContext): mixed                                $convertValue The single value-conversion entry point, shared with the property path so an element is decided by the same null policy, null guard and union dispatch a property is.
@@ -68,7 +66,9 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
      *
      * @return array<array-key, mixed>|null Normalised collection data, or null when no collection was
      *                                      asked for. A recorded conversion failure yields an empty
-     *                                      array, never null - consumers read null as an absence.
+     *                                      array, never null - consumers read null as an absence and
+     *                                      hand it to a collection constructor, which rejects it
+     *                                      natively.
      *
      * @throws MappingException When the value cannot be mapped.
      */
@@ -196,7 +196,9 @@ final readonly class CollectionFactory implements CollectionFactoryInterface
      * list, so a class that fills or validates through its constructor keeps doing so.
      *
      * Both collection lanes route through here - the property path via {@see fromCollectionType} and
-     * the explicit-collection-class entry point - so the two cannot fill a wrapper differently.
+     * the explicit-collection-class entry point - so the two cannot fill a wrapper differently. A
+     * constructor that cannot receive the element list is refused through the MappingException
+     * hierarchy rather than left to raise a native error that escapes error collection.
      *
      * @param class-string            $className Resolved collection class to build.
      * @param array<array-key, mixed> $elements  Mapped elements to place into the wrapper.

@@ -13,8 +13,9 @@ namespace MagicSunday\JsonMapper\Value\Strategy;
 
 use ArrayAccess;
 use MagicSunday\JsonMapper\Collection\CollectionDocBlockTypeResolver;
-use MagicSunday\JsonMapper\Collection\CollectionFactoryInterface;
+use MagicSunday\JsonMapper\Collection\CollectionFactory;
 use MagicSunday\JsonMapper\Context\MappingContext;
+use MagicSunday\JsonMapper\Exception\MappingException;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\CollectionType;
 use Symfony\Component\TypeInfo\Type\GenericType;
@@ -36,11 +37,11 @@ final readonly class CollectionValueConversionStrategy implements ValueConversio
     /**
      * Creates the strategy with the provided collection factory.
      *
-     * @param CollectionFactoryInterface<array-key, mixed> $collectionFactory    Factory responsible for instantiating collections during conversion.
-     * @param CollectionDocBlockTypeResolver               $docBlockTypeResolver Resolver reading the element type from a collection class annotation.
+     * @param CollectionFactory              $collectionFactory    Factory responsible for instantiating collections during conversion.
+     * @param CollectionDocBlockTypeResolver $docBlockTypeResolver Resolver reading the element type from a collection class annotation.
      */
     public function __construct(
-        private CollectionFactoryInterface $collectionFactory,
+        private CollectionFactory $collectionFactory,
         private CollectionDocBlockTypeResolver $docBlockTypeResolver = new CollectionDocBlockTypeResolver(),
     ) {
     }
@@ -71,6 +72,8 @@ final readonly class CollectionValueConversionStrategy implements ValueConversio
      * @param MappingContext $context Mapping context providing configuration such as strict mode.
      *
      * @return mixed Collection created by the factory based on the type metadata.
+     *
+     * @throws MappingException When the value cannot be mapped.
      */
     public function convert(Type $type, mixed $value, MappingContext $context): mixed
     {

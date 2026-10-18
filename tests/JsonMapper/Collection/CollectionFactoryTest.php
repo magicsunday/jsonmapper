@@ -31,8 +31,8 @@ use Symfony\Component\TypeInfo\Type\ObjectType;
 /**
  * Two answers the factory owns that the mapper never lets it give: every call site guards a null
  * payload before handing it over, and every collection type the resolvers produce names a class.
- * Both are part of the factory's own contract - it is reached through CollectionFactoryInterface -
- * so they are driven here rather than left to a caller to discover.
+ * Both are part of the factory's own contract, so they are driven here rather than left to a
+ * caller to discover.
  *
  * @internal
  */

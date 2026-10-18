@@ -16,7 +16,6 @@ use DomainException;
 use InvalidArgumentException;
 use MagicSunday\JsonMapper\Collection\CollectionDocBlockTypeResolver;
 use MagicSunday\JsonMapper\Collection\CollectionFactory;
-use MagicSunday\JsonMapper\Collection\CollectionFactoryInterface;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Converter\PropertyNameConverterInterface;
@@ -106,10 +105,7 @@ final readonly class JsonMapper
 
     private ValueConverter $valueConverter;
 
-    /**
-     * @var CollectionFactoryInterface<array-key, mixed>
-     */
-    private CollectionFactoryInterface $collectionFactory;
+    private CollectionFactory $collectionFactory;
 
     private CollectionDocBlockTypeResolver $collectionDocBlockTypeResolver;
 
@@ -148,7 +144,7 @@ final readonly class JsonMapper
             // chain that knows none of them. #87.
             fn (Type $type, mixed $value, MappingContext $elementContext): mixed => $this->convertValue($value, $type, $elementContext),
             $this->classResolver,
-            // Fulfils CollectionFactoryInterface's instantiator. Both arms are live: wrapElements()
+            // The instantiator CollectionFactory is built with. Both arms are live: wrapElements()
             // passes null to construct an ArrayAccess wrapper empty before writing it through
             // offsetSet, and passes the mapped elements to build every other wrapper through its
             // constructor.
