@@ -57,7 +57,13 @@ final readonly class CollectionValueConversionStrategy implements ValueConversio
      */
     public function supports(Type $type, mixed $value, MappingContext $context): bool
     {
-        // Deliberately answers on the class shape alone, without resolving the annotation. A
+        // The CollectionType arm is not reached through the mapper, because
+        // JsonMapper::convertValue() decides every CollectionType before the chain runs. It stays
+        // on purpose. Dropping it narrows what the helper below returns, and the factory takes a
+        // CollectionType that PHPStan treats as invariant in its template, so the removal would
+        // need a cast or a widened signature to trade one dead arm for a looser type.
+        //
+        // The other arm answers on the class shape alone, without resolving the annotation. A
         // predicate that raised for a container declaring no element type would decide the
         // question by throwing, and no strategy registered after this one could ever be asked.
         // Whether the container can actually be filled is a conversion concern.
