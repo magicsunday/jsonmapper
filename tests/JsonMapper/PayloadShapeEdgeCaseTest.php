@@ -120,6 +120,54 @@ final class PayloadShapeEdgeCaseTest extends TestCase
         self::assertNull($result->getValue(), 'And no half-answer of the wrong type.');
     }
 
+    /**
+     * @param string $json         Payload that is not a collection
+     * @param string $expectedType Type the record must name
+     */
+    #[Test]
+    #[DataProvider('nonCollectionPayloadProvider')]
+    public function itAnswersAPayloadThatIsNotACollectionTheSameWayWithoutAnElementClass(string $json, string $expectedType): void
+    {
+        // The element type comes from the collection's own annotation here, and a payload that is
+        // no collection at all used to come back as an empty one. Nobody was told, so it could not
+        // be told apart from a legitimate empty list, and the lane that is given an element class
+        // answered the same payload with a refusal.
+        $result = $this->getJsonMapper()->mapWithReport(
+            $this->getJsonAsObject($json),
+            null,
+            BaseCollection::class,
+        );
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors, 'One payload that is not a collection, one record.');
+
+        $exception = $errors[0]->getException();
+
+        self::assertInstanceOf(CollectionMappingException::class, $exception);
+        self::assertSame($expectedType, $exception->getActualType());
+        self::assertSame('$', $exception->getPath(), 'The failure is at the root.');
+        self::assertNull($result->getValue(), 'And no empty collection to pass for a legitimate one.');
+    }
+
+    /**
+     * @param string $json         Payload that is not a collection
+     * @param string $expectedType Type the refusal must name
+     */
+    #[Test]
+    #[DataProvider('nonCollectionPayloadProvider')]
+    public function itRefusesAPayloadThatIsNotACollectionOnTheCallWithoutAnElementClass(string $json, string $expectedType): void
+    {
+        // A lenient map() hands back no report, so the refusal has to be the answer itself.
+        try {
+            $this->getJsonMapper()->map($this->getJsonAsObject($json), null, BaseCollection::class);
+
+            self::fail('A payload that is not a collection has to be refused.');
+        } catch (CollectionMappingException $exception) {
+            self::assertSame($expectedType, $exception->getActualType());
+        }
+    }
+
     #[Test]
     public function itHonoursTheEmptyCollectionOptionForANull(): void
     {

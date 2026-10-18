@@ -589,6 +589,16 @@ final readonly class JsonMapper
                 return null;
             }
 
+            // A scalar can be neither the collection nor an element of it. Answered with an empty
+            // collection it could not be told from a legitimately empty list, in a lenient map()
+            // that records into a context nobody sees, so it is refused the way the lane that is
+            // handed an element class refuses it. Thrown, because there is no partial answer to
+            // hand back, and the catch that receives it records it once. A collection declared on
+            // a property is not on this path, its factory keeps the empty collection it can offer.
+            if (($json !== null) && !is_array($json) && !is_object($json)) {
+                throw new CollectionMappingException($context->getPath(), get_debug_type($json));
+            }
+
             return $this->wrapCollection(
                 $resolvedCollectionClassName,
                 $this->collectionFactory->mapIterable($json, $collectionValueType, $context),
