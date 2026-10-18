@@ -287,6 +287,13 @@ The first type whose types match the payload is used, and what it lacks is repor
 whose properties are set after construction. A type with a required constructor argument is rejected
 for lacking it, like any other type that cannot be built from the payload.
 
+An omitted value is one record, whether the class takes it through a constructor or through a property.
+In strict mode the omission of a required value is reported as a missing property, and the failed
+construction that follows from it is not recorded a second time, because the value is `null` and the
+object was not built. For a nullable or union-typed property the member that cannot be built is
+rejected and its failed construction is the single record. Outside strict mode no missing property is
+reported, so the failed construction is the only record.
+
 ```php
 $strict = JsonMapperConfiguration::strict();
 

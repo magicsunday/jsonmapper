@@ -130,6 +130,16 @@ parameters:
             message: '#^PHPDoc type for property MagicSunday\\Test\\Fixtures\\TypePrecedence\\ScalarWideningConstructorHolder\:\:\$value with type int\|string is not subtype of native type int\.$#'
             path: %currentWorkingDirectory%/tests/Fixtures/TypePrecedence/ScalarWideningConstructorHolder.php
 
+        -
+            identifier: parameter.phpDocType
+            message: '#^PHPDoc tag @param for parameter \$age with type int\|string\|null is not subtype of native type int\|null\.$#'
+            path: %currentWorkingDirectory%/tests/Classes/WidenedArgumentBeforeRequiredArgumentDto.php
+
+        -
+            identifier: property.phpDocType
+            message: '#^PHPDoc type for property MagicSunday\\Test\\Classes\\WidenedArgumentBeforeRequiredArgumentDto\:\:\$age with type int\|string\|null is not subtype of native type int\|null\.$#'
+            path: %currentWorkingDirectory%/tests/Classes/WidenedArgumentBeforeRequiredArgumentDto.php
+
         # The missing type IS the fixture's purpose: a property with no type metadata at all is what
         # lets a value reach a natively typed constructor parameter unchecked. Typing it would delete
         # the test case.
