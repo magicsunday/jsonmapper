@@ -201,7 +201,7 @@ final readonly class JsonMapper
                 // made the write a merge. The context already carries the settings.
                 // echoUnresolvableClass: false - $resolvedClass came from a class-map resolver,
                 // whose input is the payload, so a failure to instantiate it must never reflect it.
-                fn (mixed $value, string $resolvedClass, MappingContext $context): mixed => $this->doMap($value, $resolvedClass, null, $context, null, false),
+                fn (mixed $value, string $resolvedClass, MappingContext $context, string $declaredClass): mixed => $this->doMap($value, $resolvedClass, null, $context, null, false, $declaredClass),
             ),
         );
         $this->valueConverter->addStrategy(new BuiltinValueConversionStrategy());
@@ -358,6 +358,7 @@ final readonly class JsonMapper
      * @param MappingContext|null          $context               Mapping context reused across nested mappings.
      * @param JsonMapperConfiguration|null $configuration         Configuration overriding the defaults.
      * @param bool                         $echoUnresolvableClass Whether $className is caller-supplied and so safe to echo.
+     * @param class-string|null            $declaredClass         The class the property declares, when $className is one a resolver produced.
      *
      * @return mixed The mapped PHP value or collection produced from the given JSON.
      *
@@ -374,6 +375,7 @@ final readonly class JsonMapper
         ?MappingContext $context,
         ?JsonMapperConfiguration $configuration,
         bool $echoUnresolvableClass,
+        ?string $declaredClass = null,
     ): mixed {
         // Two branches, not three. The third rebuilt a configuration from the context for callers
         // that supplied only a context - which is every nested object - and nothing read it once
@@ -417,6 +419,7 @@ final readonly class JsonMapper
             $resolvedCollectionClassName,
             $collectionValueType,
             $context,
+            $collectionClassName,
         );
 
         if ($collectionResult !== null) {
@@ -433,9 +436,13 @@ final readonly class JsonMapper
             // with a native ArgumentCountError, outside the error-collection contract - so the
             // impossible shape has to surface as a mapping error instead.
             if ($this->hasRequiredConstructorArguments($resolvedClassName)) {
+                // The mismatch names the class the caller or the property asked for, never the one
+                // a resolver produced. A resolver's input is the payload, and a consumer may place
+                // the expected type in a response. $className is the caller's own on the public
+                // path and the resolved class on the nested one, which supplies $declaredClass.
                 throw new TypeMismatchException(
                     $context->getPath(),
-                    $resolvedClassName,
+                    $declaredClass ?? $className ?? $resolvedClassName,
                     get_debug_type($json),
                 );
             }
@@ -542,11 +549,12 @@ final readonly class JsonMapper
     /**
      * Maps iterable payloads into the configured collection structure when applicable.
      *
-     * @param mixed             $json                        Source payload that may represent a collection.
-     * @param class-string|null $resolvedClassName           Fully qualified class name resolved for mapped elements.
-     * @param class-string|null $resolvedCollectionClassName Fully qualified collection class wrapping the mapped elements.
-     * @param Type|null         $collectionValueType         Element type derived from the collection definition.
-     * @param MappingContext    $context                     Mapping context forwarded to nested mappings.
+     * @param mixed             $json                         Source payload that may represent a collection.
+     * @param class-string|null $resolvedClassName            Fully qualified class name resolved for mapped elements.
+     * @param class-string|null $resolvedCollectionClassName  Fully qualified collection class wrapping the mapped elements.
+     * @param Type|null         $collectionValueType          Element type derived from the collection definition.
+     * @param MappingContext    $context                      Mapping context forwarded to nested mappings.
+     * @param class-string|null $requestedCollectionClassName The collection class the caller asked for, which is the one to name in a mismatch because a resolver may have produced the resolved one.
      *
      * @return mixed|null Returns the mapped collection when handled, null otherwise.
      *
@@ -559,6 +567,7 @@ final readonly class JsonMapper
         ?string $resolvedCollectionClassName,
         ?Type $collectionValueType,
         MappingContext $context,
+        ?string $requestedCollectionClassName,
     ): mixed {
         $isGenericCollectionMapping = $resolvedClassName === null && $collectionValueType instanceof Type;
 
@@ -582,7 +591,7 @@ final readonly class JsonMapper
             // that treatNullAsEmptyCollection remains observable in the result.
             if (($json === null) && !$context->shouldTreatNullAsEmptyCollection()) {
                 $this->handleMappingException(
-                    new TypeMismatchException($context->getPath(), $resolvedCollectionClassName, 'null'),
+                    new TypeMismatchException($context->getPath(), $requestedCollectionClassName ?? $resolvedCollectionClassName, 'null'),
                     $context,
                 );
 
