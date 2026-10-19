@@ -75,6 +75,38 @@ final class UnmodellableCollectionWrapperTest extends TestCase
         self::assertSame('array', $exception->getActualType());
     }
 
+    /**
+     * @return array<string, array{mixed}>
+     */
+    public static function payloadProvider(): array
+    {
+        return [
+            'a string, which is no collection'      => ['text'],
+            'an integer, which is no collection'    => [5],
+            'a list with an element that is wrong'  => [[1, 'bad']],
+            'a list with an element that is a list' => [[1, [2]]],
+        ];
+    }
+
+    /**
+     * @param mixed $payload Value of the collection property
+     */
+    #[Test]
+    #[DataProvider('payloadProvider')]
+    public function itRecordsAMalformedWrapperOnceWhateverThePayloadLooksLike(mixed $payload): void
+    {
+        // A failure of the payload shape or of an element must not be recorded next to the failure
+        // of the wrapper: one rejected value is one record.
+        $result = $this->getMapperReporting('(\\A&\\B)')
+            ->mapWithReport(['virtual' => $payload], VirtualPropertyHolder::class);
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors);
+        self::assertSame('$.virtual', $errors[0]->getPath());
+        self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
+    }
+
     #[Test]
     public function itStillRaisesForAWrapperNameThatIsWellFormedAndNamesNothing(): void
     {
