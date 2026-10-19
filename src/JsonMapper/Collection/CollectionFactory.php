@@ -17,6 +17,7 @@ use DomainException;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Exception\CollectionMappingException;
 use MagicSunday\JsonMapper\Exception\MappingException;
+use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\JsonMapper\Resolver\ClassResolver;
 use ReflectionClass;
 use Symfony\Component\TypeInfo\Type;
@@ -169,13 +170,26 @@ final readonly class CollectionFactory
      */
     public function fromCollectionType(CollectionType $type, mixed $json, MappingContext $context): array|object|null
     {
-        $collection = $this->mapIterable($json, $type->getCollectionValueType(), $context);
-
         $wrappedType = $type->getWrappedType();
+        $className   = null;
 
         if (($wrappedType instanceof WrappingTypeInterface) && ($wrappedType->getWrappedType() instanceof ObjectType)) {
-            $objectType    = $wrappedType->getWrappedType();
-            $className     = $this->resolveWrappedClass($objectType);
+            $className = $this->resolveWrappedClass($wrappedType->getWrappedType());
+
+            // The wrapper name comes from type metadata, which can hold something that is no class
+            // name, such as the source text of an intersection. That is a payload the declaration
+            // cannot take and is reported at the property, as the object strategy does, unlike a
+            // well formed name that resolves to nothing, which stays a configuration error. It is
+            // judged before the elements are mapped, because a failure of an element or of the
+            // payload shape would otherwise be recorded as well, and one rejected value is one record.
+            if (!ClassResolver::isWellFormedName($className)) {
+                throw new TypeMismatchException($context->getPath(), $className, get_debug_type($json));
+            }
+        }
+
+        $collection = $this->mapIterable($json, $type->getCollectionValueType(), $context);
+
+        if ($className !== null) {
             $resolvedClass = $this->classResolver->resolve($className, $json, $context);
 
             return $this->wrapElements($resolvedClass, $collection ?? [], $context);

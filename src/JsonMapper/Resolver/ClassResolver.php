@@ -25,6 +25,7 @@ use function in_array;
 use function interface_exists;
 use function is_string;
 use function ltrim;
+use function preg_match;
 use function sprintf;
 use function strtolower;
 
@@ -33,6 +34,21 @@ use function strtolower;
  */
 final class ClassResolver
 {
+    /**
+     * One segment of a class name, which may use the bytes above the ASCII set.
+     */
+    private const string NAME_SEGMENT = '[a-zA-Z_\x80-\xff][a-zA-Z0-9_\x80-\xff]*';
+
+    /**
+     * The shape of a class name, optionally with a leading separator.
+     *
+     * The runtime name of an anonymous class is a class name followed by the marker for anonymous
+     * classes, a NUL byte and the place it was declared, and such a class can be instantiated, so
+     * that suffix is let through. The pattern is anchored at the very end, so a name that merely
+     * ends in a line break does not pass for well formed.
+     */
+    private const string CLASS_NAME_PATTERN = '/^\\\\?' . self::NAME_SEGMENT . '(?:\\\\' . self::NAME_SEGMENT . ')*(?:@anonymous\x00.*)?$/sD';
+
     /**
      * @var array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string>
      *
@@ -71,6 +87,24 @@ final class ClassResolver
     public function __construct(array $classMap = [])
     {
         $this->classMap = $this->validateClassMap($classMap);
+    }
+
+    /**
+     * Reports whether a string is shaped like a class name.
+     *
+     * Used by the places that take a class name from type metadata, which can hold something that is
+     * no class name at all, such as the source text of an intersection. Such a name cannot be
+     * resolved and is a payload that does not fit, unlike a well formed name that resolves to
+     * nothing, which is a mistake of the declaration. Nothing is looked up, so a well formed name
+     * passes whether or not a class of that name exists.
+     *
+     * @param string $name Name to check
+     *
+     * @return bool TRUE when the name has the shape of a class name
+     */
+    public static function isWellFormedName(string $name): bool
+    {
+        return preg_match(self::CLASS_NAME_PATTERN, $name) === 1;
     }
 
     /**
