@@ -25,6 +25,7 @@ use MagicSunday\Test\Classes\DepthCollectionB;
 use MagicSunday\Test\Classes\DepthConstructorHolder;
 use MagicSunday\Test\Classes\DepthMutualA;
 use MagicSunday\Test\Classes\DepthMutualB;
+use MagicSunday\Test\Classes\DepthScalarUnionHolder;
 use MagicSunday\Test\Classes\DepthStaleOuter;
 use MagicSunday\Test\Classes\DepthUnionHolder;
 use MagicSunday\Test\TestCase;
@@ -44,6 +45,11 @@ use function memory_reset_peak_usage;
 #[CoversNamespace('MagicSunday\JsonMapper')]
 final class NestingDepthLimitTest extends TestCase
 {
+    /**
+     * Objects built for a payload that fails at the limit, far below what doubling per level reaches.
+     */
+    private const int LINEAR_WORK_BOUND = 200;
+
     /**
      * Builds a payload of nested "child" objects.
      *
@@ -223,6 +229,63 @@ final class NestingDepthLimitTest extends TestCase
     }
 
     #[Test]
+    public function itKeepsTheDepthFailureWhenALaterMemberOnlyMismatches(): void
+    {
+        // The scalar member is tried after the object member hit the limit and fails on its own
+        // account. The property is still refused with the limit.
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::lenient()->withMaxDepth(3))
+            ->mapWithReport(['a' => self::chain(5)], DepthScalarUnionHolder::class);
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors);
+        self::assertInstanceOf(DepthLimitExceededException::class, $errors[0]->getException());
+    }
+
+    #[Test]
+    public function itDoesNotBlameAnEarlierPropertysDepthFailureOnALaterMismatch(): void
+    {
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::lenient()->withMaxDepth(3))
+            ->mapWithReport(['a' => self::chain(5), 'b' => 'zzz'], DepthScalarUnionHolder::class);
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(2, $errors);
+        self::assertInstanceOf(DepthLimitExceededException::class, $errors[0]->getException());
+        self::assertInstanceOf(TypeMismatchException::class, $errors[1]->getException());
+    }
+
+    #[Test]
+    public function itNamesTheOwnPathOfEveryPropertyThatHitTheLimit(): void
+    {
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::lenient()->withMaxDepth(3))
+            ->mapWithReport(['a' => self::chain(5), 'b' => self::chain(6)], DepthScalarUnionHolder::class);
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(2, $errors);
+        self::assertSame('$.a.child.child.name', $errors[0]->getException()?->getPath());
+        self::assertSame('$.b.child.child.name', $errors[1]->getException()?->getPath());
+    }
+
+    #[Test]
+    public function itRefusesAChainOneLevelBeyondTheDefaultLimit(): void
+    {
+        $mapper = $this->getJsonMapper(config: JsonMapperConfiguration::lenient());
+        $limit  = MappingContext::DEFAULT_MAX_DEPTH;
+
+        // n nested objects reach n + 1 levels with the scalar at the end.
+        self::assertSame(
+            0,
+            $mapper->mapWithReport(self::chain($limit - 1), DepthChainLink::class)->getReport()->getErrorCount(),
+        );
+        self::assertSame(
+            1,
+            $mapper->mapWithReport(self::chain($limit), DepthChainLink::class)->getReport()->getErrorCount(),
+        );
+    }
+
+    #[Test]
     public function itDoesNotTryAFurtherObjectMemberAfterADepthFailure(): void
     {
         // Two members that nest in each other would be tried against every level, which doubles the
@@ -234,7 +297,7 @@ final class NestingDepthLimitTest extends TestCase
         $result = $this->getJsonMapper(config: JsonMapperConfiguration::lenient()->withMaxDepth(12))
             ->mapWithReport(self::bareChain(14), DepthMutualA::class);
 
-        self::assertLessThan(200, DepthMutualA::$built + DepthMutualB::$built);
+        self::assertLessThan(self::LINEAR_WORK_BOUND, DepthMutualA::$built + DepthMutualB::$built);
         self::assertInstanceOf(
             DepthLimitExceededException::class,
             $result->getReport()->getErrors()[0]->getException(),
@@ -258,7 +321,7 @@ final class NestingDepthLimitTest extends TestCase
         $result = $this->getJsonMapper(config: JsonMapperConfiguration::lenient()->withMaxDepth(18))
             ->mapWithReport($payload, DepthCollectionA::class);
 
-        self::assertLessThan(200, DepthCollectionA::$built + DepthCollectionB::$built);
+        self::assertLessThan(self::LINEAR_WORK_BOUND, DepthCollectionA::$built + DepthCollectionB::$built);
         self::assertSame(1, $result->getReport()->getErrorCount());
     }
 
@@ -274,7 +337,7 @@ final class NestingDepthLimitTest extends TestCase
             $mapper->map(self::bareChain(14), DepthMutualA::class);
             self::fail('The payload is deeper than the limit.');
         } catch (DepthLimitExceededException) {
-            self::assertLessThan(200, DepthMutualA::$built + DepthMutualB::$built);
+            self::assertLessThan(self::LINEAR_WORK_BOUND, DepthMutualA::$built + DepthMutualB::$built);
         }
     }
 
