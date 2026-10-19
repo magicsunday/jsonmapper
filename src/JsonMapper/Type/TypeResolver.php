@@ -21,6 +21,8 @@ use ReflectionUnionType;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractorInterface;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\BuiltinType;
+use Symfony\Component\TypeInfo\Type\CollectionType;
+use Symfony\Component\TypeInfo\Type\GenericType;
 use Symfony\Component\TypeInfo\Type\NullableType;
 use Symfony\Component\TypeInfo\Type\ObjectType;
 use Symfony\Component\TypeInfo\Type\UnionType;
@@ -134,10 +136,11 @@ final readonly class TypeResolver
     /**
      * Replaces the keyword for the own or the parent class in a type by the name of that class.
      *
-     * Reflection and the docblock reader report such a type as the keyword on some supported versions
-     * and as the class name on others. A keyword left in place is taken for a class name and fails when
-     * it is resolved, so the type is made the same on every version. Only the shapes the mapper reads a
-     * class from are rebuilt, an object, a nullable one and a union of them.
+     * A docblock that names the keyword reports it as the keyword on every supported version, and plain
+     * reflection does so on some of them and reports the class name on others. A keyword left in place is
+     * taken for a class name and fails when it is resolved, so the type is made the same everywhere. Only
+     * the shapes the mapper reads a class from are rebuilt, an object, a nullable one, a union of them and
+     * a collection of them.
      *
      * @param Type            $type    Type as the extractor reported it
      * @param ReflectionClass $context Class that declares the property
@@ -157,6 +160,25 @@ final readonly class TypeResolver
                 fn (Type $member): Type => $this->resolveRelativeNames($member, $context),
                 $type->getTypes(),
             ));
+        }
+
+        if ($type instanceof CollectionType) {
+            $wrapped = $type->getWrappedType();
+
+            if (!$wrapped instanceof GenericType) {
+                return $type;
+            }
+
+            return new CollectionType(
+                new GenericType(
+                    $wrapped->getWrappedType(),
+                    ...array_map(
+                        fn (Type $variable): Type => $this->resolveRelativeNames($variable, $context),
+                        $wrapped->getVariableTypes(),
+                    ),
+                ),
+                $type->isList(),
+            );
         }
 
         if ($type::class !== ObjectType::class) {

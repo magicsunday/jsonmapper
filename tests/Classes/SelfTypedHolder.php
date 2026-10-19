@@ -14,8 +14,8 @@ namespace MagicSunday\Test\Classes;
 /**
  * A class with a property typed by the keyword that names its own class.
  *
- * Reflection spells such a type as the keyword on some supported PHP versions and as the class name
- * on others, and the mapper has to resolve both to the same class.
+ * The constructor docblock names the keyword, which the docblock reader reports as the keyword on every
+ * supported PHP version, and the mapper has to resolve it to the class.
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
