@@ -1395,42 +1395,42 @@ final readonly class JsonMapper
         MappingContext $context,
         ?MappingException &$lastException,
     ): array {
+        $depthFailure = null;
+
         foreach ($this->orderUnionCandidatesByExactMatch($type, $json) as $candidate) {
-            $errorCount     = $context->getErrorCount();
-            $refusedCount   = $context->getTrialRefusedCount();
-            $refusedFailure = $context->getTrialRefusedFailureCount();
+            // A further object member descends the same payload and meets the same limit, so trying
+            // it only repeats the work, and with members that nest in each other the repeats multiply
+            // per level. A member that takes the payload as a collection or a scalar goes on, it may
+            // accept what the object could not reach.
+            if (($depthFailure instanceof DepthLimitExceededException) && ($candidate instanceof ObjectType)) {
+                continue;
+            }
+
+            $errorCount          = $context->getErrorCount();
+            $refusedCount        = $context->getTrialRefusedCount();
+            $refusedFailure      = $context->getTrialRefusedFailureCount();
+            $depthFailuresBefore = $context->getDepthFailureCount();
 
             try {
                 $candidateValue = $this->convertValue($json, $candidate, $context);
             } catch (MappingException $exception) {
                 $context->trimErrors($errorCount);
                 $context->restoreTrialRefusals($refusedCount, $refusedFailure);
-                $lastException = $exception;
 
-                // The depth of the payload says nothing about which member fits, and the next member
-                // would nest just as deep.
-                if ($exception instanceof DepthLimitExceededException) {
-                    break;
-                }
+                // Kept as the failure of the union when a level was refused, however the member
+                // failed afterwards, so the report names the limit and not a type that was never wrong.
+                $depthFailure  = $context->getDepthFailureSince($depthFailuresBefore) ?? $depthFailure;
+                $lastException = $depthFailure ?? $exception;
 
                 continue;
             }
 
             if ($this->recordedMoreThanMissingProperties($context, $errorCount, $refusedFailure)) {
-                $depthFailure = $this->firstDepthLimitFailure($context, $errorCount);
-
                 $context->trimErrors($errorCount);
                 $context->restoreTrialRefusals($refusedCount, $refusedFailure);
 
-                // Raised as it is instead of being relabelled a type mismatch of the member, so the
-                // report names the limit rather than a type that was never wrong.
-                if ($depthFailure instanceof DepthLimitExceededException) {
-                    $lastException = $depthFailure;
-
-                    break;
-                }
-
-                $lastException = new TypeMismatchException(
+                $depthFailure  = $context->getDepthFailureSince($depthFailuresBefore) ?? $depthFailure;
+                $lastException = $depthFailure ?? new TypeMismatchException(
                     $context->getPath(),
                     $this->describeType($candidate),
                     get_debug_type($json),
@@ -1443,27 +1443,6 @@ final readonly class JsonMapper
         }
 
         return [false, null];
-    }
-
-    /**
-     * Returns the first depth failure recorded since the given count.
-     *
-     * @param MappingContext $context    Mapping context the candidate was converted in.
-     * @param int            $recordedAt Number of records present before the conversion.
-     *
-     * @return DepthLimitExceededException|null The failure, or NULL when the candidate hit no limit.
-     */
-    private function firstDepthLimitFailure(MappingContext $context, int $recordedAt): ?DepthLimitExceededException
-    {
-        foreach (array_slice($context->getErrorRecords(), $recordedAt) as $record) {
-            $exception = $record->getException();
-
-            if ($exception instanceof DepthLimitExceededException) {
-                return $exception;
-            }
-        }
-
-        return null;
     }
 
     /**

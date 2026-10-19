@@ -122,6 +122,20 @@ final class MappingContext
     private int $droppedErrors = 0;
 
     /**
+     * Number of levels refused for being deeper than the limit, over the whole run.
+     *
+     * Counted apart from the records because a record can be refused by a full window or taken back
+     * with a rejected union member, while the decision a union trial takes on a depth failure has to
+     * hold whatever became of the record.
+     */
+    private int $depthFailureCount = 0;
+
+    /**
+     * The latest refusal for being deeper than the limit.
+     */
+    private ?DepthLimitExceededException $lastDepthFailure = null;
+
+    /**
      * Number of records an open trial window may hold, null outside one.
      */
     private ?int $trialCeiling = null;
@@ -183,8 +197,13 @@ final class MappingContext
         $this->pathSegments[] = (string) $segment;
 
         try {
-            if (count($this->pathSegments) > $this->getMaxDepth()) {
-                throw new DepthLimitExceededException($this->getPath(), $this->getMaxDepth());
+            $maxDepth = $this->getMaxDepth();
+
+            if (count($this->pathSegments) > $maxDepth) {
+                $this->lastDepthFailure = new DepthLimitExceededException($this->getPath(), $maxDepth);
+                ++$this->depthFailureCount;
+
+                throw $this->lastDepthFailure;
             }
 
             return $callback($this);

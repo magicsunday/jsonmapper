@@ -106,8 +106,10 @@ A level is one step of a path, a property or a collection element, so the scalar
 counts as well. A level beyond the limit is not mapped. It is refused with a `DepthLimitExceededException`,
 which a lenient run files in the report and a strict `map()` raises, and `getLimit()` names the limit.
 Inside a nullable or union-typed object property the failure is not relabelled a type mismatch of that
-property, unlike other failures recorded there. For untrusted input lower the limit and the ceiling, and
-limit the size of the request body before it is decoded. While a
+property, unlike other failures recorded there. The limit does not bound the work of a union whose members
+nest in each other: a payload that no member accepts is tried against every member at every level, which
+multiplies the work per level long before the limit is reached. For untrusted input lower the limit and the
+ceiling, and limit the size of the request body before it is decoded. While a
 member of a union is being tried its records are held up to the ceiling above where the attempt began,
 plus one record for each union nested inside it, so the mapper can briefly hold more than the ceiling
 while a union is tried. They are dropped when the attempt is rejected. When it is accepted, what it
@@ -186,6 +188,7 @@ string parsed:
 | `ReadonlyPropertyException` | `getPropertyName()`, `getClassName()` |
 | `TypeMismatchException` | `getExpectedType()`, `getActualType()` — see the caveat below |
 | `CollectionMappingException` | `getActualType()` |
+| `DepthLimitExceededException` | `getLimit()` |
 
 `getClassName()` is there for logs and for deciding what to say — not for saying it. The same goes
 for `getExpectedType()` whenever the target is an object, an enum or a date type: it returns the
