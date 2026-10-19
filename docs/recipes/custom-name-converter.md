@@ -20,10 +20,10 @@ Conversion is idempotent for any name that can be a PHP property identifier: run
 > A key you rejected or inspected *before* mapping (an exact-key denylist,
 > `unset($payload['role'])`, a validator reading `$payload['amount']`) still does **not** see the
 > other spellings. Run any security-relevant key check on the **converted** name, not on the raw
-> payload key. A check on the raw payload is only sound together with a strict `map()`, because
-> the first spelling in payload order is the one that is applied and a payload can choose that
-> order. A look at the report for an `AmbiguousPropertyException` is not enough on its own, since
-> a report that reached its error ceiling drops later failures (see `isTruncated()`).
+> payload key. Neither a strict `map()` nor a look at the report makes a raw check sound. Both
+> only surface a payload that carries two spellings of one property, never one that carries a
+> single alternate spelling, and a report that reached its error ceiling drops later failures
+> (see `isTruncated()`).
 
 ```php
 <?php
