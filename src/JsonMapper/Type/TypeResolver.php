@@ -31,6 +31,7 @@ use Symfony\Component\TypeInfo\TypeIdentifier;
 use function array_map;
 use function count;
 use function hash;
+use function strtolower;
 
 /**
  * Resolves property types using Symfony's PropertyInfo component.
@@ -102,7 +103,7 @@ final readonly class TypeResolver
         }
 
         if ($type instanceof Type) {
-            $type = $this->resolveRelativeNames($type, $this->declaringClassOf($className, $propertyName));
+            $type = $this->resolveRelativeNames($type, $this->declaringClassOf($className, $propertyName), $className);
         }
 
         // A property without any type metadata must accept null, so the synthetic fallback is
@@ -134,7 +135,7 @@ final readonly class TypeResolver
     }
 
     /**
-     * Replaces the keyword for the own or the parent class in a type by the name of that class.
+     * Replaces the keyword for the own, the parent or the late bound class in a type by the name of that class.
      *
      * A docblock that names the keyword reports it as the keyword on every supported version, and plain
      * reflection does so on some of them and reports the class name on others. A keyword left in place is
@@ -149,15 +150,15 @@ final readonly class TypeResolver
      *
      * @return Type The same type with the keywords replaced
      */
-    private function resolveRelativeNames(Type $type, ReflectionClass $context): Type
+    private function resolveRelativeNames(Type $type, ReflectionClass $context, string $mappedClass): Type
     {
         if ($type instanceof NullableType) {
-            return Type::nullable($this->resolveRelativeNames($type->getWrappedType(), $context));
+            return Type::nullable($this->resolveRelativeNames($type->getWrappedType(), $context, $mappedClass));
         }
 
         if ($type instanceof UnionType) {
             return Type::union(...array_map(
-                fn (Type $member): Type => $this->resolveRelativeNames($member, $context),
+                fn (Type $member): Type => $this->resolveRelativeNames($member, $context, $mappedClass),
                 $type->getTypes(),
             ));
         }
@@ -173,7 +174,7 @@ final readonly class TypeResolver
                 new GenericType(
                     $wrapped->getWrappedType(),
                     ...array_map(
-                        fn (Type $variable): Type => $this->resolveRelativeNames($variable, $context),
+                        fn (Type $variable): Type => $this->resolveRelativeNames($variable, $context, $mappedClass),
                         $wrapped->getVariableTypes(),
                     ),
                 ),
@@ -185,10 +186,15 @@ final readonly class TypeResolver
             return $type;
         }
 
-        $name = $type->getClassName();
+        // PHP keywords are case insensitive and reflection reports the spelling as it was written.
+        $name = strtolower($type->getClassName());
 
         if ($name === 'self') {
             return Type::object($context->getName());
+        }
+
+        if ($name === 'static') {
+            return Type::object($mappedClass);
         }
 
         if ($name === 'parent') {

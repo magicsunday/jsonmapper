@@ -14,6 +14,8 @@ namespace MagicSunday\Test\JsonMapper;
 use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\Test\Classes\ParentTypedHolder;
+use MagicSunday\Test\Classes\RelativeSpellingChild;
+use MagicSunday\Test\Classes\RelativeSpellingHolder;
 use MagicSunday\Test\Classes\SelfTypedCollectionHolder;
 use MagicSunday\Test\Classes\SelfTypedHolder;
 use MagicSunday\Test\Classes\SelfTypedUnionHolder;
@@ -123,5 +125,38 @@ final class RelativeTypeNameTest extends TestCase
         self::assertCount(2, $value->others);
         self::assertInstanceOf(SelfTypedCollectionHolder::class, $value->others[1]);
         self::assertSame('second', $value->others[1]->name);
+    }
+
+    #[Test]
+    public function itTakesTheKeywordInAnySpelling(): void
+    {
+        // Keywords are case insensitive in PHP, and reflection reports the spelling as it was written.
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::lenient())
+            ->mapWithReport(['name' => 'outer', 'other' => ['name' => 'inner']], RelativeSpellingHolder::class);
+
+        self::assertSame(0, $result->getReport()->getErrorCount());
+
+        $value = $result->getValue();
+
+        self::assertInstanceOf(RelativeSpellingHolder::class, $value);
+        self::assertInstanceOf(RelativeSpellingHolder::class, $value->other);
+        self::assertSame('inner', $value->other->name);
+    }
+
+    #[Test]
+    public function itResolvesTheLateBoundKeywordInACollectionToTheClassThatIsMapped(): void
+    {
+        // Mapped through the subclass, the keyword stands for the subclass and not for the class that
+        // declares the property.
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::lenient())
+            ->mapWithReport(['items' => [['name' => 'first']]], RelativeSpellingChild::class);
+
+        self::assertSame(0, $result->getReport()->getErrorCount());
+
+        $value = $result->getValue();
+
+        self::assertInstanceOf(RelativeSpellingChild::class, $value);
+        self::assertCount(1, $value->items);
+        self::assertSame(RelativeSpellingChild::class, $value->items[0]::class);
     }
 }
