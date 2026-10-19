@@ -157,6 +157,19 @@ final class MappingContextTest extends TestCase
     }
 
     #[Test]
+    public function itFallsBackToTheDefaultDepthLimitForAnUnusableOption(): void
+    {
+        foreach ([0, -1, 'many', 1.5, null, true] as $unusable) {
+            self::assertSame(
+                MappingContext::DEFAULT_MAX_DEPTH,
+                (new MappingContext(['root'], [MappingContext::OPTION_MAX_DEPTH => $unusable]))->getMaxDepth(),
+            );
+        }
+
+        self::assertSame(7, (new MappingContext(['root'], [MappingContext::OPTION_MAX_DEPTH => '7']))->getMaxDepth());
+    }
+
+    #[Test]
     public function itReportsADepthFailureOnlyWhenOneHappenedSinceTheCountWasRead(): void
     {
         $context = new MappingContext(['root'], [MappingContext::OPTION_MAX_DEPTH => 1]);

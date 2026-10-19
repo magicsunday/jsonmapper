@@ -26,6 +26,7 @@ use MagicSunday\Test\Classes\DepthConstructorHolder;
 use MagicSunday\Test\Classes\DepthMutualA;
 use MagicSunday\Test\Classes\DepthMutualB;
 use MagicSunday\Test\Classes\DepthProbeOuter;
+use MagicSunday\Test\Classes\DepthRecordingUnionHolder;
 use MagicSunday\Test\Classes\DepthRestoreHolder;
 use MagicSunday\Test\Classes\DepthScalarUnionHolder;
 use MagicSunday\Test\Classes\DepthStaleOuter;
@@ -239,6 +240,21 @@ final class NestingDepthLimitTest extends TestCase
         // account. The property is still refused with the limit.
         $result = $this->getJsonMapper(config: JsonMapperConfiguration::lenient()->withMaxDepth(3))
             ->mapWithReport(['a' => self::chain(5)], DepthScalarUnionHolder::class);
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors);
+        self::assertInstanceOf(DepthLimitExceededException::class, $errors[0]->getException());
+    }
+
+    #[Test]
+    public function itKeepsTheDepthFailureWhenALaterMemberRecordsItsMismatch(): void
+    {
+        // The collection of integers does not descend, so it is tried after the object member hit the
+        // limit, and it records the mismatch of its elements instead of throwing it. The property is
+        // still refused with the limit.
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::lenient()->withMaxDepth(3))
+            ->mapWithReport(['a' => self::chain(5)], DepthRecordingUnionHolder::class);
 
         $errors = $result->getReport()->getErrors();
 
