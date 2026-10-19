@@ -29,6 +29,8 @@ use Symfony\Component\PropertyInfo\Extractor\PhpDocExtractor;
 use Symfony\Component\PropertyInfo\Extractor\ReflectionExtractor;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractor;
 
+use function get_debug_type;
+
 /**
  * A collection wrapper whose name is not shaped like a class name is a failure of the declaration
  * to fit the payload and is reported, like an object type of that kind. A class name the caller
@@ -104,7 +106,11 @@ final class UnmodellableCollectionWrapperTest extends TestCase
 
         self::assertCount(1, $errors);
         self::assertSame('$.virtual', $errors[0]->getPath());
-        self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
+
+        $exception = $errors[0]->getException();
+
+        self::assertInstanceOf(TypeMismatchException::class, $exception);
+        self::assertSame(get_debug_type($payload), $exception->getActualType());
     }
 
     #[Test]

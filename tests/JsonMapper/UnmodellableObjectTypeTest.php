@@ -62,6 +62,7 @@ final class UnmodellableObjectTypeTest extends TestCase
             'contains a space'                                    => ['Some Name'],
             'later segment starts with a digit'                   => ['Some\\1Name'],
             'anonymous marker without the NUL byte'               => ['Foo@anonymous/a.php'],
+            'anonymous marker directly followed by a name'        => ['Foo@anonymousfoo'],
             'character after the lowercase range starts the name' => ['{Foo'],
             'character after the lowercase range ends the name'   => ['Foo{'],
             'character after the uppercase range starts the name' => ['[Foo'],
