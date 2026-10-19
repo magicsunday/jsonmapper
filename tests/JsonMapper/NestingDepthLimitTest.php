@@ -25,6 +25,7 @@ use MagicSunday\Test\Classes\DepthCollectionB;
 use MagicSunday\Test\Classes\DepthConstructorHolder;
 use MagicSunday\Test\Classes\DepthMutualA;
 use MagicSunday\Test\Classes\DepthMutualB;
+use MagicSunday\Test\Classes\DepthProbeOuter;
 use MagicSunday\Test\Classes\DepthRestoreHolder;
 use MagicSunday\Test\Classes\DepthScalarUnionHolder;
 use MagicSunday\Test\Classes\DepthStaleOuter;
@@ -304,6 +305,33 @@ final class NestingDepthLimitTest extends TestCase
 
         self::assertInstanceOf(DepthLimitExceededException::class, $exception);
         self::assertStringStartsWith('$.p.bad.', $exception->getPath());
+    }
+
+    #[Test]
+    public function itKeepsCountingWhenANestedUnionRecoversAndTheMemberMeetsTheLimitAgain(): void
+    {
+        // An earlier property leaves a depth failure behind, a nested union inside the member
+        // recovers from the limit, and a later property of the member meets it again. The member is
+        // refused with the limit, not as a type that was never wrong.
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::lenient()->withMaxDepth(4))
+            ->mapWithReport(
+                ['a' => self::chain(6), 'p' => ['value' => self::chain(6), 'deep' => self::chain(6)]],
+                DepthProbeOuter::class,
+            );
+
+        $refusedPaths = [];
+
+        foreach ($result->getReport()->getErrors() as $error) {
+            $exception = $error->getException();
+
+            self::assertNotInstanceOf(TypeMismatchException::class, $exception);
+
+            if ($exception instanceof DepthLimitExceededException) {
+                $refusedPaths[] = $exception->getPath();
+            }
+        }
+
+        self::assertContains('$.p.deep.child.child.name', $refusedPaths);
     }
 
     #[Test]
