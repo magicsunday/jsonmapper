@@ -142,7 +142,7 @@ final class TypeResolverTest extends TestCase
             1,
             array_filter(
                 $storedKeys,
-                static fn (string $key): bool => str_starts_with($key, 'jsonmapper.pt.v3.'),
+                static fn (string $key): bool => str_starts_with($key, 'jsonmapper.pt.v4.'),
             ),
             'Exactly one of them - the fresh entry - carries the schema-versioned prefix.',
         );
