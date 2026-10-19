@@ -612,13 +612,48 @@ final class MappingContext
      */
     public static function normaliseMaxErrors(mixed $value): int
     {
+        return self::normalisePositiveInteger($value, self::DEFAULT_MAX_ERRORS);
+    }
+
+    /**
+     * Reads a setting that has to be a whole number of at least one.
+     *
+     * @param mixed $value   Value read from a configuration array or an option bag
+     * @param int   $default Value used when the setting is unusable
+     *
+     * @return int The number, or the default
+     */
+    private static function normalisePositiveInteger(mixed $value, int $default): int
+    {
         if (!is_int($value) && !is_string($value)) {
-            return self::DEFAULT_MAX_ERRORS;
+            return $default;
         }
 
-        $ceiling = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $number = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 
-        return ($ceiling === false) ? self::DEFAULT_MAX_ERRORS : $ceiling;
+        return ($number === false) ? $default : $number;
+    }
+
+    /**
+     * Returns the latest depth failure, provided one happened after the given count was read.
+     *
+     * @param int $countBefore Value of {@see getDepthFailureCount()} read before the work in question
+     *
+     * @return DepthLimitExceededException|null The failure, or NULL when no level was refused since
+     */
+    public function getDepthFailureSince(int $countBefore): ?DepthLimitExceededException
+    {
+        return ($this->depthFailureCount > $countBefore) ? $this->lastDepthFailure : null;
+    }
+
+    /**
+     * Returns how many levels were refused for being deeper than the limit so far.
+     *
+     * @return int Number of refusals, which only ever grows during a run
+     */
+    public function getDepthFailureCount(): int
+    {
+        return $this->depthFailureCount;
     }
 
     /**
@@ -646,13 +681,7 @@ final class MappingContext
      */
     public static function normaliseMaxDepth(mixed $value): int
     {
-        if (!is_int($value) && !is_string($value)) {
-            return self::DEFAULT_MAX_DEPTH;
-        }
-
-        $limit = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-
-        return ($limit === false) ? self::DEFAULT_MAX_DEPTH : $limit;
+        return self::normalisePositiveInteger($value, self::DEFAULT_MAX_DEPTH);
     }
 
     /**
