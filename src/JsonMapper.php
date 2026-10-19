@@ -1395,14 +1395,15 @@ final readonly class JsonMapper
         MappingContext $context,
         ?MappingException &$lastException,
     ): array {
-        $depthFailure = null;
+        $depthFailure     = null;
+        $depthCountBefore = $context->getDepthFailureCount();
 
         foreach ($this->orderUnionCandidatesByExactMatch($type, $json) as $candidate) {
-            // A further object member descends the same payload and meets the same limit, so trying
-            // it only repeats the work, and with members that nest in each other the repeats multiply
-            // per level. A member that takes the payload as a collection or a scalar goes on, it may
-            // accept what the object could not reach.
-            if (($depthFailure instanceof DepthLimitExceededException) && ($candidate instanceof ObjectType)) {
+            // A further member that descends the same payload meets the same limit, so trying it only
+            // repeats the work, and with members that nest in each other the repeats multiply per
+            // level. A member that takes the payload as a scalar or as a collection of such goes on,
+            // it may accept what the others could not reach.
+            if (($depthFailure instanceof DepthLimitExceededException) && $this->descendsIntoPayload($candidate)) {
                 continue;
             }
 
@@ -1439,10 +1440,44 @@ final readonly class JsonMapper
                 continue;
             }
 
+            // The levels refused on the way belong to the members that were rejected.
+            $context->forgetDepthFailuresSince($depthCountBefore);
+
             return [true, $candidateValue];
         }
 
         return [false, null];
+    }
+
+    /**
+     * Reports whether a member of a union goes into the payload level by level.
+     *
+     * An object does, a collection does when its values do, and a union does when one of its members
+     * does. A scalar, an untyped array and a collection of such take what they are given as it is.
+     *
+     * @param Type $candidate Member of a union
+     *
+     * @return bool TRUE when converting against it can meet the nesting depth limit
+     */
+    private function descendsIntoPayload(Type $candidate): bool
+    {
+        if ($candidate instanceof ObjectType) {
+            return true;
+        }
+
+        if ($candidate instanceof CollectionType) {
+            return $this->descendsIntoPayload($candidate->getCollectionValueType());
+        }
+
+        if ($candidate instanceof UnionType) {
+            foreach ($candidate->getTypes() as $member) {
+                if ($this->descendsIntoPayload($member)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

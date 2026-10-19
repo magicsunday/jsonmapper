@@ -666,6 +666,22 @@ final class MappingContext
     }
 
     /**
+     * Forgets the depth failures counted after the given count was read.
+     *
+     * A union trial that found a member to use calls this, because the levels refused while it
+     * tried the others belong to members it rejected. Left in the count, an enclosing trial would
+     * blame them for a failure that has another cause.
+     *
+     * @param int $countBefore Value of {@see getDepthFailureCount()} read before the trial began
+     *
+     * @return void
+     */
+    public function forgetDepthFailuresSince(int $countBefore): void
+    {
+        $this->depthFailureCount = min($this->depthFailureCount, $countBefore);
+    }
+
+    /**
      * Returns how many levels were refused for being deeper than the limit so far.
      *
      * @return int Number of refusals, which only ever grows during a run
