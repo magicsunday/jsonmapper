@@ -23,7 +23,6 @@ use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\BuiltinType;
 use Symfony\Component\TypeInfo\Type\CollectionType;
 use Symfony\Component\TypeInfo\Type\GenericType;
-use Symfony\Component\TypeInfo\Type\NullableType;
 use Symfony\Component\TypeInfo\Type\ObjectType;
 use Symfony\Component\TypeInfo\Type\UnionType;
 use Symfony\Component\TypeInfo\TypeIdentifier;
@@ -140,8 +139,8 @@ final readonly class TypeResolver
      * A docblock that names the keyword reports it as the keyword on every supported version, and plain
      * reflection does so on some of them and reports the class name on others. A keyword left in place is
      * taken for a class name and fails when it is resolved, so the type is made the same everywhere. Only
-     * the shapes the mapper reads a class from are rebuilt, an object, a nullable one, a union of them and
-     * a collection of them.
+     * the shapes the mapper reads a class from are rebuilt, an object, a union of them, which covers a nullable
+     * one, and a collection of them.
      *
      * @param Type            $type    Type as the extractor reported it
      * @param ReflectionClass $context Class that declares the property
@@ -152,10 +151,6 @@ final readonly class TypeResolver
      */
     private function resolveRelativeNames(Type $type, ReflectionClass $context, string $mappedClass): Type
     {
-        if ($type instanceof NullableType) {
-            return Type::nullable($this->resolveRelativeNames($type->getWrappedType(), $context, $mappedClass));
-        }
-
         if ($type instanceof UnionType) {
             return Type::union(...array_map(
                 fn (Type $member): Type => $this->resolveRelativeNames($member, $context, $mappedClass),
