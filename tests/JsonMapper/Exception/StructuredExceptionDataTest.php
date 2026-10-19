@@ -92,7 +92,7 @@ final class StructuredExceptionDataTest extends TestCase
         $unknown         = new UnknownPropertyException('$', 'name', Person::class);
         $mismatch        = new TypeMismatchException('$', 'int', 'string');
         $collection      = new CollectionMappingException('$', 'string');
-        $ambiguous       = new AmbiguousPropertyException('$', 'id', Person::class, ['id', 'ID']);
+        $ambiguous       = new AmbiguousPropertyException('$', 'id', Person::class, 'id', 'ID');
 
         return [
             'missing constructor argument' => [

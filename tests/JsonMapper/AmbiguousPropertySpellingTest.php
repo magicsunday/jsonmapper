@@ -105,7 +105,7 @@ final class AmbiguousPropertySpellingTest extends TestCase
     }
 
     #[Test]
-    public function itListsEveryKeySeenSoFarForAThirdSpelling(): void
+    public function itNamesTheAppliedAndTheRejectedKeyForEveryLaterSpelling(): void
     {
         $result = $this->getJsonMapper()
             ->mapWithReport(['id' => 1, 'ID' => 2, 'Id' => 3], AmbiguousSpellingTarget::class);
@@ -119,8 +119,11 @@ final class AmbiguousPropertySpellingTest extends TestCase
 
         self::assertInstanceOf(AmbiguousPropertyException::class, $second);
         self::assertInstanceOf(AmbiguousPropertyException::class, $third);
+
+        // A record never carries the keys of the records before it, so its size does not grow
+        // with the number of colliding spellings.
         self::assertSame(['id', 'ID'], $second->getPayloadKeys());
-        self::assertSame(['id', 'ID', 'Id'], $third->getPayloadKeys());
+        self::assertSame(['id', 'Id'], $third->getPayloadKeys());
 
         $value = $result->getValue();
 

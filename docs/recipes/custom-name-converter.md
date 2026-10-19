@@ -10,14 +10,17 @@ Conversion is idempotent for any name that can be a PHP property identifier: run
 
 > **Several spellings can name one property.** Because case and separators are folded, `id`, `ID`,
 > `Id` and (with the default converter) `user_id`/`userId` all resolve to the same property. Two of
-> them in one payload is reported as an `AmbiguousPropertyException` at the property. The first
-> spelling in payload order is applied and every later one is not, even when the first one's own
-> value is rejected, and in strict mode `map()` raises on it. Inside a nullable or union-typed
-> object property the record surfaces as a type mismatch of that property, like every other
-> failure recorded there. A key you rejected or inspected
-> *before* mapping (an exact-key denylist, `unset($payload['role'])`, a validator reading
-> `$payload['amount']`) still does **not** see the other spellings. Run any security-relevant key
-> check on the **converted** name, not on the raw payload key.
+> them in one payload are reported as an `AmbiguousPropertyException` at the property, which names
+> the applied key and the rejected one. The first spelling in payload order is applied and every
+> later one is not, even when the first one's own value is rejected. A strict `map()` raises on it,
+> `mapWithReport()` lists it, and a lenient `map()` drops the record. Inside a nullable or
+> union-typed object property the record surfaces as a type mismatch of that property, like every
+> other failure recorded there.
+>
+> A key you rejected or inspected *before* mapping (an exact-key denylist,
+> `unset($payload['role'])`, a validator reading `$payload['amount']`) still does **not** see the
+> other spellings. Run any security-relevant key check on the **converted** name, not on the raw
+> payload key.
 
 ```php
 <?php

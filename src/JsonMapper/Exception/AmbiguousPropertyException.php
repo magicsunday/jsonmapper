@@ -23,17 +23,21 @@ use function sprintf;
 final class AmbiguousPropertyException extends MappingException
 {
     /**
+     * Creates the exception for one rejected spelling of a property.
+     *
      * @param string       $path         Path to the property the spellings collide on.
      * @param string       $propertyName Name of the declared property that several payload keys name.
      * @param class-string $className    Fully qualified name of the object that declares the property.
-     * @param list<string> $payloadKeys  The payload keys that name the property, in payload order.
+     * @param string       $appliedKey   The payload key whose value was applied to the property.
+     * @param string       $rejectedKey  The payload key that named the same property later and was not applied.
      */
     public function __construct(
         string $path,
         private readonly string $propertyName,
         /** @var class-string */
         private readonly string $className,
-        private readonly array $payloadKeys,
+        private readonly string $appliedKey,
+        private readonly string $rejectedKey,
     ) {
         parent::__construct(
             sprintf('Ambiguous property %s on %s.', $path, $className),
@@ -65,14 +69,14 @@ final class AmbiguousPropertyException extends MappingException
     }
 
     /**
-     * Returns the payload keys that name the property, in payload order.
+     * Returns the payload key that was applied and the one that was rejected, in that order.
      *
      * They came from the payload, so escape them for whatever sink they reach and bound their length.
      *
-     * @return list<string> Colliding payload keys, the first one is the one that was applied.
+     * @return list<string> The applied key first, then the rejected key.
      */
     public function getPayloadKeys(): array
     {
-        return $this->payloadKeys;
+        return [$this->appliedKey, $this->rejectedKey];
     }
 }
