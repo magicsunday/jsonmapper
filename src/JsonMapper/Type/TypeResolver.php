@@ -142,8 +142,9 @@ final readonly class TypeResolver
      * the shapes the mapper reads a class from are rebuilt, an object, a union of them, which covers a nullable
      * one, and a collection of them.
      *
-     * @param Type            $type    Type as the extractor reported it
-     * @param ReflectionClass $context Class that declares the property
+     * @param Type            $type        Type as the extractor reported it
+     * @param ReflectionClass $context     Class that declares the property, which the keywords for the own and the parent class refer to
+     * @param string          $mappedClass Class the property is read from, which the late bound keyword refers to
      *
      * @phpstan-param ReflectionClass<object> $context
      *

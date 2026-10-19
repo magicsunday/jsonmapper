@@ -12,8 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\Test\Classes;
 
 /**
- * A class that spells the keyword for its own class in capitals and names the late bound class in a
- * collection of its docblock.
+ * A class that names the late bound class in a collection of its docblock.
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
@@ -25,11 +24,6 @@ class RelativeSpellingHolder
      * Name of the holder.
      */
     public string $name = '';
-
-    /**
-     * Holder of the same class, with the keyword in capitals.
-     */
-    public ?self $other = null;
 
     /**
      * Holders of the class that is mapped.

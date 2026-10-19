@@ -18,8 +18,11 @@ use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Type\TypeResolver;
 use MagicSunday\Test\Classes\Ns\Item as NamespacedItem;
 use MagicSunday\Test\Classes\Ns_Item as UnderscoredItem;
+use MagicSunday\Test\Classes\ParentTypedHolder;
+use MagicSunday\Test\Classes\SelfTypedHolder;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\CoversNamespace;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Cache\CacheItemInterface;
@@ -30,6 +33,7 @@ use Symfony\Component\PropertyInfo\PropertyTypeExtractorInterface;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\BuiltinType;
 use Symfony\Component\TypeInfo\Type\NullableType;
+use Symfony\Component\TypeInfo\Type\ObjectType;
 use Symfony\Component\TypeInfo\Type\UnionType;
 use Symfony\Component\TypeInfo\TypeIdentifier;
 
@@ -50,6 +54,58 @@ use function strlen;
 #[CoversNamespace('MagicSunday\JsonMapper')]
 final class TypeResolverTest extends TestCase
 {
+    /**
+     * @return array<string, array{string, class-string, string, class-string}>
+     */
+    public static function keywordSpellingProvider(): array
+    {
+        return [
+            'own class in capitals'         => ['SELF', SelfTypedHolder::class, 'name', SelfTypedHolder::class],
+            'own class in mixed case'       => ['SeLf', SelfTypedHolder::class, 'name', SelfTypedHolder::class],
+            'parent class in capitals'      => ['PARENT', ParentTypedHolder::class, 'ancestor', SelfTypedHolder::class],
+            'late bound class in capitals'  => ['STATIC', ParentTypedHolder::class, 'name', ParentTypedHolder::class],
+            'late bound class in lowercase' => ['static', ParentTypedHolder::class, 'name', ParentTypedHolder::class],
+        ];
+    }
+
+    /**
+     * @param string       $keyword  Spelling of the keyword the extractor reports
+     * @param class-string $mapped   Class the property is read from
+     * @param string       $property Property that is read
+     * @param class-string $expected Class the keyword has to stand for
+     */
+    #[Test]
+    #[DataProvider('keywordSpellingProvider')]
+    public function itResolvesTheKeywordInAnySpelling(string $keyword, string $mapped, string $property, string $expected): void
+    {
+        /** @var class-string $keywordAsName */
+        $keywordAsName = $keyword;
+
+        $resolver = new TypeResolver(
+            new PropertyInfoExtractor([], [new StubPropertyTypeExtractor(Type::object($keywordAsName))]),
+        );
+
+        $type = $resolver->resolve($mapped, $property);
+
+        self::assertInstanceOf(ObjectType::class, $type);
+        self::assertSame($expected, $type->getClassName());
+    }
+
+    #[Test]
+    public function itResolvesTheKeywordOfAPropertyThatIsNotDeclaredAgainstTheMappedClass(): void
+    {
+        // An accessor pair has no declared property to ask for its declaring class, so the class the
+        // property is read from stands in.
+        $resolver = new TypeResolver(
+            new PropertyInfoExtractor([], [new StubPropertyTypeExtractor(Type::object('self'))]),
+        );
+
+        $type = $resolver->resolve(ParentTypedHolder::class, 'accessorOnly');
+
+        self::assertInstanceOf(ObjectType::class, $type);
+        self::assertSame(ParentTypedHolder::class, $type->getClassName());
+    }
+
     #[Test]
     public function itCachesResolvedTypes(): void
     {
