@@ -132,7 +132,7 @@ Use `toOptions()` to feed configuration data into a `MappingContext`, or `toArra
 > (`1700000000.5` → `.500000`), and a timestamp is an absolute instant, so the host's timezone
 > cannot shift it either.
 
-> To **preserve** unmapped keys instead of skipping (`withIgnoreUnknownProperties`) or reporting them (strict mode), mark one property with the `UnknownPropertyCollector` attribute — it receives the unknown keys as a raw `array<string, mixed>`. See [Using mapper attributes](recipes/using-attributes.md).
+> To **preserve** unmapped keys instead of skipping (`withIgnoreUnknownProperties`) or reporting them (strict mode), mark one property with the `UnknownPropertyCollector` attribute — it receives the unknown keys as a raw `array<array-key, mixed>`. See [Using mapper attributes](recipes/using-attributes.md).
 
 ## Property name converters
 `CamelCasePropertyNameConverter` implements `PropertyNameConverterInterface` and is declared `final`. Instantiate it when JSON keys use snake case:

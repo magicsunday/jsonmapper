@@ -765,7 +765,15 @@ final readonly class JsonMapper
                 $collectorProperty,
                 $properties,
             ): void {
+                // A key PHP canonicalises to an integer ("42") names no property, so it is unknown. A
+                // collector takes it under its integer key and the collected map stays a faithful
+                // copy of the payload. Without a collector it is skipped, as a list handed to a
+                // single object always was.
                 if (!is_string($normalizedProperty)) {
+                    if ($collectorProperty !== null) {
+                        $collectedUnknown[$propertyName] = $propertyValue;
+                    }
+
                     return;
                 }
 

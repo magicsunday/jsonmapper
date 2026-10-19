@@ -23,8 +23,8 @@ final class UnknownPropertyCollectorEntity
      * The collector default is a distinguishable sentinel (not an empty array) so a test can tell a
      * preserved constructor default apart from an unwanted empty-collection assignment.
      *
-     * @param string               $name  The known property.
-     * @param array<string, mixed> $extra The sink for unknown source keys, as a raw map of key to value.
+     * @param string                  $name  The known property.
+     * @param array<array-key, mixed> $extra The sink for unknown source keys, as a raw map of key to value.
      */
     public function __construct(
         public readonly string $name = '',
