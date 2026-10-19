@@ -110,6 +110,7 @@ Each `with*` method toggles a single option and returns a clone:
 | `withDefaultTimezone(string $timezone)` | Timezone assumed when the date format carries none. Defaults to `UTC`. |
 | `withScalarToObjectCasting(bool $enabled)` | Allow casting scalar values to object types when possible. |
 | `withMaxErrors(int $maxErrors)` | How many failures a report keeps, at least one. Defaults to `MappingContext::DEFAULT_MAX_ERRORS`. Further failures are counted, see [Bounding the report](recipes/error-handling.md#bounding-the-report). |
+| `withMaxDepth(int $maxDepth)` | How deep a payload may nest, at least one. Defaults to `MappingContext::DEFAULT_MAX_DEPTH`. A level counts for every step of a path, a property or a collection element, the last scalar included. A deeper level is refused with a `DepthLimitExceededException`, see [Bounding the report](recipes/error-handling.md#bounding-the-report). |
 
 Use `toOptions()` to feed configuration data into a `MappingContext`, or `toArray()` to persist settings.
 

@@ -31,7 +31,8 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
 * Be mindful of memory usage when working with collections; avoid blindly materialising huge iterables.
 * All failures raise domain exceptions deriving from `MappingException` (`TypeMismatchException`,
   `MissingPropertyException`, `MissingConstructorArgumentException`, `ReadonlyPropertyException`,
-  `UnknownPropertyException`, `AmbiguousPropertyException`, `CollectionMappingException`); never
+  `UnknownPropertyException`, `AmbiguousPropertyException`, `CollectionMappingException`,
+  `DepthLimitExceededException`); never
   fall back to `trigger_error()` or `var_dump()`, and never let a native error (`TypeError`,
   `ValueError`, `ArgumentCountError`) escape - it bypasses error collection entirely.
 * Transformations must remain pure and stateless. No singletons or global state.
@@ -212,6 +213,15 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
   property metadata, or from a docblock - never from a value the payload supplied. The one place a
   consumer can break that is a class-map resolver, whose input IS the payload, so its documentation
   carries the warning and it accepts an allowlist that enforces what the warning asks for.
+* How deep a payload may nest is the payload's to decide, so the mapper decides it instead. Every
+  step of a path, a property or a collection element and the scalar at the end of a chain included,
+  goes through `MappingContext::withPathSegment()`, which refuses a step beyond the configured limit
+  with a `DepthLimitExceededException`. That is the bound on the cost of a deep payload: a
+  failure builds an exception whose stack trace is as deep as its level, so the failures of a chain
+  of levels cost memory that grows with the square of the depth, whatever ceiling the report has. A
+  new site that descends into the payload without that method escapes the limit. A union trial
+  does not turn the exception into a type mismatch of the member, and does not try a further member
+  after it, because the depth says nothing about which member fits.
 * Never rely on the silence operator, `trigger_error()`, or debugging prints.
 * Partial updates must leave already mapped state consistent when errors occur.
 * Mapping is deterministic: the same payload and configuration produce the same result on every

@@ -94,9 +94,20 @@ that was tried and rejected are not part of the report to begin with.
 The ceiling bounds the finished report. It does not bound the time spent mapping a hostile payload,
 and the memory a kept record holds grows with the nesting depth of the payload, because a record
 keeps the exception it was made from together with its stack trace. Over a chain of nested objects the
-total grows faster than the depth does, so a deep chain stays expensive with few records kept,
-and switching off the arguments in exception traces (`zend.exception_ignore_args`) reduces it. For untrusted input lower the
-ceiling, and limit the size and the nesting depth of the request body before it is decoded. While a
+total grows faster than the depth does, so a deep chain stays expensive with few records kept. What
+bounds it is the depth limit: a payload cannot nest deeper than `MappingContext::DEFAULT_MAX_DEPTH`
+levels unless you set another limit.
+
+```php
+$config = JsonMapperConfiguration::lenient()->withMaxDepth(16);
+```
+
+A level is one step of a path, a property or a collection element, so the scalar at the end of a chain
+counts as well. A level beyond the limit is not mapped. It is refused with a `DepthLimitExceededException`,
+which a lenient run files in the report and a strict `map()` raises, and `getLimit()` names the limit.
+Inside a nullable or union-typed object property the failure is not relabelled a type mismatch of that
+property, unlike other failures recorded there. For untrusted input lower the limit and the ceiling, and
+limit the size of the request body before it is decoded. While a
 member of a union is being tried its records are held up to the ceiling above where the attempt began,
 plus one record for each union nested inside it, so the mapper can briefly hold more than the ceiling
 while a union is tried. They are dropped when the attempt is rejected. When it is accepted, what it
