@@ -102,8 +102,10 @@ levels unless you set another limit.
 $config = JsonMapperConfiguration::lenient()->withMaxDepth(16);
 ```
 
-A level is one step of a path, a property or a collection element, so the scalar at the end of a chain
-counts as well. A level beyond the limit is not mapped. It is refused with a `DepthLimitExceededException`,
+The limit bounds the depth of one chain, not the width of the payload: a wide payload whose elements
+fail keeps as many records as the ceiling allows, each holding a trace as deep as its level, so the
+worst case is the ceiling times the limit. A level is one step of a path, a property or a collection
+element, so the scalar at the end of a chain counts as well. A level beyond the limit is not mapped. It is refused with a `DepthLimitExceededException`,
 which a lenient run files in the report and a strict `map()` raises, and `getLimit()` names the limit.
 Inside a nullable or union-typed object property the failure is not relabelled a type mismatch of that
 property, unlike other failures recorded there. The limit does not bound the work of a union whose members
