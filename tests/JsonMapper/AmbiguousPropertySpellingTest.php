@@ -18,6 +18,7 @@ use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\Test\Classes\AmbiguousSpellingNullableParent;
 use MagicSunday\Test\Classes\AmbiguousSpellingParent;
 use MagicSunday\Test\Classes\AmbiguousSpellingTarget;
+use MagicSunday\Test\Classes\Initialized;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\CoversNamespace;
@@ -169,6 +170,31 @@ final class AmbiguousPropertySpellingTest extends TestCase
 
         self::assertInstanceOf(AmbiguousSpellingParent::class, $value);
         self::assertFalse(isset($value->child), 'The later spelling must not replace the refused first value.');
+    }
+
+    #[Test]
+    public function itDoesNotUseALaterSpellingAsAFallbackForAFirstValueReplacedByItsDefault(): void
+    {
+        // A null that the property replaces with its default takes an early route of its own,
+        // and the first spelling must still block the later one on it.
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['integer' => null, 'Integer' => 99],
+            Initialized::class,
+        );
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors);
+
+        $exception = $errors[0]->getException();
+
+        self::assertInstanceOf(AmbiguousPropertyException::class, $exception);
+        self::assertSame(['integer', 'Integer'], $exception->getPayloadKeys());
+
+        $value = $result->getValue();
+
+        self::assertInstanceOf(Initialized::class, $value);
+        self::assertSame(10, $value->integer, 'The later spelling must not replace the default.');
     }
 
     #[Test]
