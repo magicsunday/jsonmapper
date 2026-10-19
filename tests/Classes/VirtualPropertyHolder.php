@@ -27,13 +27,24 @@ use MagicSunday\Test\Fixtures\PropertyWrite\MarkerB;
  */
 final class VirtualPropertyHolder
 {
+    /**
+     * Backing value of the virtual property, which is only reachable through the accessor pair.
+     */
     private (MarkerA&MarkerB)|null $stored = null;
 
+    /**
+     * Returns the stored value.
+     */
     public function getVirtual(): (MarkerA&MarkerB)|null
     {
         return $this->stored;
     }
 
+    /**
+     * Stores the value.
+     *
+     * @param (MarkerA&MarkerB)|null $virtual Value to store
+     */
     public function setVirtual((MarkerA&MarkerB)|null $virtual): void
     {
         $this->stored = $virtual;

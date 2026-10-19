@@ -28,6 +28,8 @@ use Symfony\Component\TypeInfo\Type;
 final readonly class FixedObjectTypeExtractor implements PropertyTypeExtractorInterface
 {
     /**
+     * Creates the extractor with the name every object type reports.
+     *
      * @param string $className Name the object type reports, whether or not it is a class
      */
     public function __construct(private string $className)
@@ -35,7 +37,11 @@ final readonly class FixedObjectTypeExtractor implements PropertyTypeExtractorIn
     }
 
     /**
-     * @param array<string, mixed> $context
+     * Answers nothing, because the mapper asks for the single type through getType().
+     *
+     * @param string                  $class    Class that declares the property
+     * @param string                  $property Name of the property
+     * @param array<array-key, mixed> $context  Extraction context
      */
     public function getTypes(string $class, string $property, array $context = []): null
     {
@@ -43,7 +49,13 @@ final readonly class FixedObjectTypeExtractor implements PropertyTypeExtractorIn
     }
 
     /**
-     * @param array<string, mixed> $context
+     * Answers a nullable object type that carries the configured name.
+     *
+     * @param string                  $class    Class that declares the property
+     * @param string                  $property Name of the property
+     * @param array<array-key, mixed> $context  Extraction context
+     *
+     * @return Type Nullable object type named after the configured string
      */
     public function getType(string $class, string $property, array $context = []): Type
     {
