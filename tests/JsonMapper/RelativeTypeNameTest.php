@@ -15,6 +15,7 @@ use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\Test\Classes\ParentTypedHolder;
 use MagicSunday\Test\Classes\SelfTypedHolder;
+use MagicSunday\Test\Classes\SelfTypedUnionHolder;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\CoversNamespace;
@@ -60,5 +61,29 @@ final class RelativeTypeNameTest extends TestCase
         self::assertInstanceOf(ParentTypedHolder::class, $value);
         self::assertInstanceOf(SelfTypedHolder::class, $value->ancestor);
         self::assertSame('ancestor', $value->ancestor->name);
+    }
+
+    #[Test]
+    public function itMapsAUnionThatNamesItsOwnClassByTheKeyword(): void
+    {
+        $holder = $this->getJsonMapper(config: JsonMapperConfiguration::lenient())
+            ->mapWithReport(['either' => ['name' => 'inner']], SelfTypedUnionHolder::class);
+
+        self::assertSame(0, $holder->getReport()->getErrorCount());
+
+        $holderValue = $holder->getValue();
+
+        self::assertInstanceOf(SelfTypedUnionHolder::class, $holderValue);
+        self::assertInstanceOf(SelfTypedUnionHolder::class, $holderValue->either);
+
+        $text = $this->getJsonMapper(config: JsonMapperConfiguration::lenient())
+            ->mapWithReport(['either' => 'plain'], SelfTypedUnionHolder::class);
+
+        self::assertSame(0, $text->getReport()->getErrorCount());
+
+        $textValue = $text->getValue();
+
+        self::assertInstanceOf(SelfTypedUnionHolder::class, $textValue);
+        self::assertSame('plain', $textValue->either);
     }
 }
