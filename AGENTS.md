@@ -126,7 +126,7 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
   holds even when the first key's own value is rejected, since a later spelling is never a
   fallback for it. A record names the applied key and its own key only, never the keys of the
   records before it, because a payload that repeats one property would otherwise make the retained
-  records grow quadratically when the error ceiling is raised. The detection keys on the DECLARED
+  records grow quadratically when the `maxErrors` ceiling is raised. The detection keys on the DECLARED
   property, so it covers `id`/`ID` and `user_id`/`userId` alike, and it does not touch the keys an
   `UnknownPropertyCollector` stores, which keep their original spellings. Inside a nullable or
   union-typed object property the union trial judges the member on every recorded failure, so the

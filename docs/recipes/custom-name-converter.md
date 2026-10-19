@@ -20,7 +20,9 @@ Conversion is idempotent for any name that can be a PHP property identifier: run
 > A key you rejected or inspected *before* mapping (an exact-key denylist,
 > `unset($payload['role'])`, a validator reading `$payload['amount']`) still does **not** see the
 > other spellings. Run any security-relevant key check on the **converted** name, not on the raw
-> payload key.
+> payload key. A check on the raw payload is only sound together with a strict `map()` or with a
+> look at the report for an `AmbiguousPropertyException`, because the first spelling in payload
+> order is the one that is applied and a payload can choose that order.
 
 ```php
 <?php

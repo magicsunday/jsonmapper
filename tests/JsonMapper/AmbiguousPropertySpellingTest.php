@@ -26,9 +26,8 @@ use PHPUnit\Framework\Attributes\Test;
 
 /**
  * Case and separators are folded, so several spellings of a key can name one property. A payload
- * that carries two of them used to be written in payload order with the last one winning silently,
- * which let a spelling the caller never inspected overwrite one it did. The collision is now a
- * recorded failure at the property, and the later spelling is not applied.
+ * that carries two of them applies the first one and records every later one as a failure at the
+ * property, because a spelling the caller never inspected must not overwrite one it did.
  *
  * @internal
  */

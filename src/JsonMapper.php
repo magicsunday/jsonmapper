@@ -829,7 +829,7 @@ final readonly class JsonMapper
                 // Several payload keys can fold onto one property. Applying them in payload order
                 // would let a spelling nobody inspected overwrite one that was, so the first one
                 // is kept and every later one is reported and left unapplied. A record names the
-                // applied key and its own key only: carrying every earlier colliding key would make
+                // applied key and its own key only. Carrying every earlier colliding key would make
                 // the retained records grow quadratically when a payload repeats one property.
                 if (array_key_exists($validatedProperty, $appliedKeyByProperty)) {
                     $this->handleMappingException(
