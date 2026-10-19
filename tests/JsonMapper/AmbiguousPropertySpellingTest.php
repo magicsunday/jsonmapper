@@ -150,6 +150,50 @@ final class AmbiguousPropertySpellingTest extends TestCase
     }
 
     #[Test]
+    public function itDoesNotUseALaterSpellingAsAFallbackForAFirstValueThatIsRefused(): void
+    {
+        // A scalar for an object property is refused by the conversion itself, which is a
+        // different route from the one a plain wrong scalar takes, and it must block the later
+        // spelling in the same way.
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['child' => 'scalar', 'Child' => ['id' => 5]],
+            AmbiguousSpellingParent::class,
+        );
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(2, $errors);
+        self::assertInstanceOf(TypeMismatchException::class, $errors[0]->getException());
+        self::assertInstanceOf(AmbiguousPropertyException::class, $errors[1]->getException());
+
+        $value = $result->getValue();
+
+        self::assertInstanceOf(AmbiguousSpellingParent::class, $value);
+        self::assertFalse(isset($value->child), 'The later spelling must not replace the refused first value.');
+    }
+
+    #[Test]
+    public function itKeepsPayloadTextOutOfTheMessage(): void
+    {
+        $result = $this->getJsonMapper()
+            ->mapWithReport(['id' => 1, 'ID' => 2], AmbiguousSpellingTarget::class);
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors);
+
+        // The keys came from the payload and are exposed through the accessor only, so a message
+        // that is forwarded to a log or a response never carries them.
+        $exception = $errors[0]->getException();
+
+        self::assertInstanceOf(AmbiguousPropertyException::class, $exception);
+        self::assertSame(
+            'Ambiguous property $.id on ' . AmbiguousSpellingTarget::class . '.',
+            $exception->getMessage(),
+        );
+    }
+
+    #[Test]
     public function itRaisesInStrictModeWhenMapIsUsed(): void
     {
         $this->expectException(AmbiguousPropertyException::class);
