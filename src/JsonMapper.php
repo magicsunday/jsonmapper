@@ -19,6 +19,7 @@ use MagicSunday\JsonMapper\Collection\CollectionFactory;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Converter\PropertyNameConverterInterface;
+use MagicSunday\JsonMapper\Exception\AmbiguousPropertyException;
 use MagicSunday\JsonMapper\Exception\CollectionMappingException;
 use MagicSunday\JsonMapper\Exception\MappingException;
 use MagicSunday\JsonMapper\Exception\MissingConstructorArgumentException;
@@ -752,12 +753,13 @@ final readonly class JsonMapper
         ClassMetadata $metadata,
         MappingContext $context,
     ): array {
-        $properties         = $metadata->properties;
-        $replacePropertyMap = $metadata->replaceMap;
-        $collectorProperty  = $metadata->collectorProperty;
-        $mappedProperties   = [];
-        $collectedUnknown   = [];
-        $convertedValues    = [];
+        $properties            = $metadata->properties;
+        $replacePropertyMap    = $metadata->replaceMap;
+        $collectorProperty     = $metadata->collectorProperty;
+        $mappedProperties      = [];
+        $collectedUnknown      = [];
+        $convertedValues       = [];
+        $payloadKeysByProperty = [];
 
         foreach ($source as $propertyName => $propertyValue) {
             $normalizedProperty = $this->normalizePropertyName($propertyName, $replacePropertyMap);
@@ -771,6 +773,7 @@ final readonly class JsonMapper
                 &$mappedProperties,
                 &$convertedValues,
                 &$collectedUnknown,
+                &$payloadKeysByProperty,
                 $collectorProperty,
                 $properties,
             ): void {
@@ -823,7 +826,27 @@ final readonly class JsonMapper
                     return;
                 }
 
-                $mappedProperties[] = $validatedProperty;
+                // Several payload keys can fold onto one property. Applying them in payload order
+                // would let a spelling nobody inspected overwrite one that was, so the first one
+                // is kept and every later one is reported and left unapplied.
+                if (array_key_exists($validatedProperty, $payloadKeysByProperty)) {
+                    $payloadKeysByProperty[$validatedProperty][] = (string) $propertyName;
+
+                    $this->handleMappingException(
+                        new AmbiguousPropertyException(
+                            $propertyContext->getPath(),
+                            $validatedProperty,
+                            $resolvedClassName,
+                            $payloadKeysByProperty[$validatedProperty],
+                        ),
+                        $propertyContext,
+                    );
+
+                    return;
+                }
+
+                $payloadKeysByProperty[$validatedProperty] = [(string) $propertyName];
+                $mappedProperties[]                        = $validatedProperty;
 
                 $preparedValue = $this->normalizeEmptyStringToNull($propertyValue, $propertyContext);
 

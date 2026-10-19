@@ -34,8 +34,9 @@ use Attribute;
  * a promoted constructor property, which is reflected as one. The marked property must be
  * array-typed, and a class declares at most one (a second raises an error). A source key that
  * matches the collector property's name is mapped as that declared property, not collected. Two
- * source keys that normalize to the same DECLARED property collide and the last one wins; two
- * COLLECTED keys cannot collide, because they keep their distinct original spellings.
+ * source keys that normalize to the same DECLARED property collide. The first is applied and the
+ * later one is reported. Two COLLECTED keys cannot collide, because they keep their distinct
+ * original spellings.
  */
 #[Attribute(Attribute::TARGET_PROPERTY)]
 final class UnknownPropertyCollector

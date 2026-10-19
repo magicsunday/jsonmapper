@@ -31,9 +31,9 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
 * Be mindful of memory usage when working with collections; avoid blindly materialising huge iterables.
 * All failures raise domain exceptions deriving from `MappingException` (`TypeMismatchException`,
   `MissingPropertyException`, `MissingConstructorArgumentException`, `ReadonlyPropertyException`,
-  `UnknownPropertyException`, `CollectionMappingException`); never fall back to `trigger_error()`
-  or `var_dump()`, and never let a native error (`TypeError`, `ValueError`, `ArgumentCountError`)
-  escape - it bypasses error collection entirely.
+  `UnknownPropertyException`, `AmbiguousPropertyException`, `CollectionMappingException`); never
+  fall back to `trigger_error()` or `var_dump()`, and never let a native error (`TypeError`,
+  `ValueError`, `ArgumentCountError`) escape - it bypasses error collection entirely.
 * Transformations must remain pure and stateless. No singletons or global state.
 
 ---
@@ -119,6 +119,16 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
 * A rejected value is recorded exactly once. Recording it and then continuing produces either a
   duplicate record further up or a native crash - throw instead, and let the single catch site
   record it.
+* Several payload keys can fold onto one declared property, because the name converter folds case
+  and separators and a `ReplaceProperty` alias adds more spellings. The first key in payload order
+  is applied and every later one is recorded as an `AmbiguousPropertyException` and left
+  unapplied, in every mode, so a spelling nobody inspected cannot overwrite one that was. That
+  holds even when the first key's own value is rejected, since a later spelling is never a
+  fallback for it. The detection keys on the DECLARED property, so it covers `id`/`ID` and
+  `user_id`/`userId` alike, and it does not touch the keys an `UnknownPropertyCollector` stores,
+  which keep their original spellings. Inside a nullable or union-typed object property the union
+  trial judges the member on every recorded failure, so the record surfaces as a type mismatch of
+  that property, like every other failure recorded there.
 * The write can fail after the conversion pipeline accepted the value, and it is guarded for that
   reason. Conversion runs against the type the resolver could DERIVE, which is not always the type
   the target declares: an intersection is modelled by neither PropertyInfo nor the reflection
