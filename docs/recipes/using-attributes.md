@@ -57,7 +57,7 @@ should not send more than one alias for the same target.
 Test coverage: `tests/Attribute/ReplacePropertyTest.php::replaceProperty`.
 
 ## `UnknownPropertyCollector`
-Mark one property as the sink for every source key that matches no declared property. Instead of being ignored (lenient mode) or reported (strict mode), the unknown keys are collected into an associative `array<string, mixed>` — the original payload key mapped to its raw, unconverted value — and assigned to the marked property as-is. This preserves unmodelled input rather than losing it.
+Mark one property as the sink for every source key that matches no declared property. Instead of being ignored (lenient mode) or reported (strict mode), the unknown keys are collected into an associative `array<array-key, mixed>` — the original payload key mapped to its raw, unconverted value — and assigned to the marked property as-is. This preserves unmodelled input rather than losing it.
 
 ```php
 <?php
@@ -87,7 +87,7 @@ Mapping `{ "name": "Ada", "age": "36", "city": "London" }` yields `$name = 'Ada'
 * The property is only assigned when at least one unknown key is present, so it otherwise keeps its constructor default.
 * The marked property must be array-typed. Declare at most one collector per class (a second raises an error). A source key that matches the collector property's name is mapped as that declared property, not collected.
 * Key and value are both stored verbatim. A name converter (or a `ReplaceProperty` alias) decides *whether* a key is unknown — `full_name` that camelises onto a declared `fullName` is mapped, not collected — but neither rewrites a key that is unknown: `favourite_colour` is collected as `favourite_colour`, not `favouriteColour`.
-* One shape is not collected: a payload key PHP canonicalises to an integer (`"42"`, `"0"`) is skipped rather than collected, so the map is not a byte-for-byte round trip of a payload carrying such keys.
+* A payload key PHP canonicalises to an integer (`"42"`, `"0"`) is collected under that integer key, so the map is a faithful copy of the unmapped part of the payload and its keys are `array-key`, not only strings. A class without a collector still skips such a key, like a list handed to a single object. A collector written through a variadic setter receives the map spread into its arguments, so there an integer key becomes a position and loses its number.
 * Two source keys that normalize to the same **declared** property collide, and the last one wins. Two **collected** keys cannot collide — they keep their distinct original spellings, so a converter that would once have merged them no longer loses either.
 
 Test coverage: `tests/Attribute/UnknownPropertyCollectorTest.php`.

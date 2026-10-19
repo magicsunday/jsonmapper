@@ -24,10 +24,15 @@ use MagicSunday\Test\Classes\UnknownPropertyCollectorParent;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorStaticEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorTypedEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorUnionEntity;
+use MagicSunday\Test\Classes\UnknownPropertyCollectorVariadicEntity;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\Test;
+
+use function json_decode;
+
+use const JSON_THROW_ON_ERROR;
 
 /**
  * Tests the {@see JsonMapper\Attribute\UnknownPropertyCollector} attribute: a property
@@ -147,6 +152,70 @@ final class UnknownPropertyCollectorTest extends TestCase
 
         self::assertInstanceOf(UnknownPropertyCollectorEntity::class, $mapped);
         self::assertSame(['age' => '36', 'city' => 'London'], $mapped->extra);
+    }
+
+    /**
+     * A payload key PHP canonicalises to an integer ("42", "0", "-1") is still an unknown key, so it
+     * is collected under that integer key, which makes the collected map a faithful copy of the
+     * unmapped part of the payload. Dropping it silently was the gap this pins shut.
+     */
+    #[Test]
+    public function collectsAnIntegerLikeKeyUnderItsIntegerKey(): void
+    {
+        $result = $this->getJsonMapper()->map(
+            ['name' => 'Ada', '42' => 'x', 'city' => 'London', '0' => 'zero', '-1' => 'minus', '7' => ['a' => 1], '8' => 5],
+            UnknownPropertyCollectorEntity::class,
+        );
+
+        self::assertInstanceOf(UnknownPropertyCollectorEntity::class, $result);
+        self::assertSame(
+            [42 => 'x', 'city' => 'London', 0 => 'zero', -1 => 'minus', 7 => ['a' => 1], 8 => 5],
+            $result->extra,
+            'The value stays the raw payload value, whatever its type.',
+        );
+    }
+
+    /**
+     * The same holds for a payload decoded from JSON, which is how an integer-like key reaches the
+     * mapper in practice.
+     */
+    #[Test]
+    public function collectsAnIntegerLikeKeyOfADecodedJsonPayload(): void
+    {
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
+            json_decode('{"name":"Ada","42":"x"}', true, flags: JSON_THROW_ON_ERROR),
+            UnknownPropertyCollectorEntity::class,
+        );
+
+        self::assertFalse($result->getReport()->hasErrors(), 'Collected is not unknown.');
+
+        $mapped = $result->getValue();
+
+        self::assertInstanceOf(UnknownPropertyCollectorEntity::class, $mapped);
+        self::assertSame([42 => 'x'], $mapped->extra);
+    }
+
+    /**
+     * A collector written through a variadic setter receives the collected map spread into its
+     * arguments, where a positional argument may not follow a named one. A payload that mixes a
+     * string key and an integer-like key must therefore reach the setter with the positional values
+     * first, instead of raising a native error that no report can hold. The integer key becomes a
+     * position, which is all a variadic parameter can express.
+     */
+    #[Test]
+    public function passesAMixedCollectedMapToAVariadicSetterWithoutANativeError(): void
+    {
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['city' => 'London', 42 => 'x'],
+            UnknownPropertyCollectorVariadicEntity::class,
+        );
+
+        self::assertFalse($result->getReport()->hasErrors());
+
+        $mapped = $result->getValue();
+
+        self::assertInstanceOf(UnknownPropertyCollectorVariadicEntity::class, $mapped);
+        self::assertSame([0 => 'x', 'city' => 'London'], $mapped->extra);
     }
 
     /**

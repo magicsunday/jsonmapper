@@ -765,7 +765,15 @@ final readonly class JsonMapper
                 $collectorProperty,
                 $properties,
             ): void {
+                // A key PHP canonicalises to an integer ("42") names no property, so it is unknown. A
+                // collector takes it under its integer key and the collected map stays a faithful
+                // copy of the payload. Without a collector it is skipped, as a list handed to a
+                // single object always was.
                 if (!is_string($normalizedProperty)) {
+                    if ($collectorProperty !== null) {
+                        $collectedUnknown[$propertyName] = $propertyValue;
+                    }
+
                     return;
                 }
 
@@ -2013,7 +2021,21 @@ final readonly class JsonMapper
                     $callable = [$entity, $methodName];
 
                     if (is_callable($callable)) {
-                        call_user_func_array($callable, $value);
+                        // A positional argument may not follow a named one, so the integer keys of a
+                        // collected map go first. In a variadic parameter a key can only be a
+                        // position or a name, which is all the spread can carry.
+                        $positional = [];
+                        $named      = [];
+
+                        foreach ($value as $variadicKey => $variadicValue) {
+                            if (is_int($variadicKey)) {
+                                $positional[] = $variadicValue;
+                            } else {
+                                $named[$variadicKey] = $variadicValue;
+                            }
+                        }
+
+                        call_user_func_array($callable, [...$positional, ...$named]);
                     }
 
                     return;

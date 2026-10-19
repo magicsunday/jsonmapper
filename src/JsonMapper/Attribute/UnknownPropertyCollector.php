@@ -17,7 +17,7 @@ use Attribute;
  * Attribute marking a property as the sink for unknown input keys.
  *
  * Each source key that matches no declared property is collected, under its ORIGINAL payload
- * spelling and with its raw, unconverted input value, into an associative `array<string, mixed>`
+ * spelling and with its raw, unconverted input value, into an associative `array<array-key, mixed>`
  * and assigned to the marked property as-is, instead of being ignored or reported. Key and value
  * are both stored verbatim: a name converter or a `ReplaceProperty` alias decides whether a key is
  * unknown, but neither rewrites one that is - `favourite_colour` stays `favourite_colour` rather
@@ -26,9 +26,9 @@ use Attribute;
  * value is only assigned when at least one unknown key is present, so the property otherwise keeps
  * its constructor default.
  *
- * One shape is not collected: a payload key PHP canonicalises to an integer (`"42"`, `"0"`) is
- * skipped rather than collected, so the map is not a byte-for-byte round trip of a payload that
- * carries such keys.
+ * A payload key PHP canonicalises to an integer (`"42"`, `"0"`) is collected under that integer key,
+ * so the map is a faithful copy of the unmapped part of the payload. The marked property's array
+ * therefore has the key type `array-key`, not only `string`.
  *
  * The attribute is consumed through property reflection, so it must annotate a property — including
  * a promoted constructor property, which is reflected as one. The marked property must be
