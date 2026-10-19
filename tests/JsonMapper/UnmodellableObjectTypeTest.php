@@ -249,6 +249,8 @@ final class UnmodellableObjectTypeTest extends TestCase
         self::assertCount(0, $result->getReport()->getErrors());
         self::assertIsArray($value);
         self::assertCount(1, $value);
+        self::assertInstanceOf($dto::class, $value[0]);
+        self::assertSame(1, $value[0]->id);
     }
 
     #[Test]
