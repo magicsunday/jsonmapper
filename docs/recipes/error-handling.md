@@ -177,7 +177,13 @@ string parsed:
 
 `getClassName()` is there for logs and for deciding what to say — not for saying it. The same goes
 for `getExpectedType()` whenever the target is an object, an enum or a date type: it returns the
-fully qualified class name then, and only for builtin targets is it a safe token like `int`.
+fully qualified class name then, and only for builtin targets is it a safe token like `int`. When a
+scalar is given for an object property or at the entry point, or a null payload for a collection
+class, it is the class that was asked for, the property's declared class or the one the caller
+passed, and never a class that a class-map resolver produced, because a resolver may derive its
+answer from the payload. Elements of a list mapped with an element class are typed with the class
+the resolver produced, and other exceptions can still carry a resolved class too. That is one more
+reason to keep them out of a response.
 
 The rule covers **every** exception the mapper raises, not only the `MappingException` hierarchy. A
 configuration defect — an unresolvable collection element type, a class-map resolver returning

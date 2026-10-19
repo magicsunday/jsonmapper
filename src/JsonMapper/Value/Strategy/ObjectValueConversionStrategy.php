@@ -34,8 +34,8 @@ final readonly class ObjectValueConversionStrategy implements ValueConversionStr
     /**
      * Creates the strategy with the class resolver and mapper callback.
      *
-     * @param ClassResolver                                      $classResolver Resolver used to select the concrete class to instantiate.
-     * @param Closure(mixed, class-string, MappingContext):mixed $mapper        Callback responsible for mapping values into objects.
+     * @param ClassResolver                                                    $classResolver Resolver used to select the concrete class to instantiate.
+     * @param Closure(mixed, class-string, MappingContext, class-string):mixed $mapper        Callback responsible for mapping values into objects. It receives the resolved class and, last, the declared one.
      */
     public function __construct(
         private ClassResolver $classResolver,
@@ -89,12 +89,15 @@ final readonly class ObjectValueConversionStrategy implements ValueConversionStr
             // alone. Recording and then continuing would hand the scalar to the mapper, which
             // either builds a meaningless empty instance or - for a class with required
             // constructor arguments - rejects it and records the same mismatch a second time.
-            throw new TypeMismatchException($context->getPath(), $resolvedClass, get_debug_type($value));
+            //
+            // The mismatch names the declared class, which is metadata. The resolved class may have
+            // been derived from the payload, and a consumer may place the expected type in a response.
+            throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
         }
 
         $mapper = $this->mapper;
 
-        return $mapper($value, $resolvedClass, $context);
+        return $mapper($value, $resolvedClass, $context, $className);
     }
 
     /**
