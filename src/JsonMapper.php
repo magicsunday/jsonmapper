@@ -2021,7 +2021,21 @@ final readonly class JsonMapper
                     $callable = [$entity, $methodName];
 
                     if (is_callable($callable)) {
-                        call_user_func_array($callable, $value);
+                        // A positional argument may not follow a named one, so the integer keys of a
+                        // collected map go first. In a variadic parameter a key can only be a
+                        // position or a name, which is all the spread can carry.
+                        $positional = [];
+                        $named      = [];
+
+                        foreach ($value as $variadicKey => $variadicValue) {
+                            if (is_int($variadicKey)) {
+                                $positional[] = $variadicValue;
+                            } else {
+                                $named[$variadicKey] = $variadicValue;
+                            }
+                        }
+
+                        call_user_func_array($callable, [...$positional, ...$named]);
                     }
 
                     return;

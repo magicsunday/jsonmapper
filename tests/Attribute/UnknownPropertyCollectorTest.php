@@ -24,6 +24,7 @@ use MagicSunday\Test\Classes\UnknownPropertyCollectorParent;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorStaticEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorTypedEntity;
 use MagicSunday\Test\Classes\UnknownPropertyCollectorUnionEntity;
+use MagicSunday\Test\Classes\UnknownPropertyCollectorVariadicEntity;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\CoversNamespace;
@@ -192,6 +193,29 @@ final class UnknownPropertyCollectorTest extends TestCase
 
         self::assertInstanceOf(UnknownPropertyCollectorEntity::class, $mapped);
         self::assertSame([42 => 'x'], $mapped->extra);
+    }
+
+    /**
+     * A collector written through a variadic setter receives the collected map spread into its
+     * arguments, where a positional argument may not follow a named one. A payload that mixes a
+     * string key and an integer-like key must therefore reach the setter with the positional values
+     * first, instead of raising a native error that no report can hold. The integer key becomes a
+     * position, which is all a variadic parameter can express.
+     */
+    #[Test]
+    public function passesAMixedCollectedMapToAVariadicSetterWithoutANativeError(): void
+    {
+        $result = $this->getJsonMapper()->mapWithReport(
+            ['city' => 'London', 42 => 'x'],
+            UnknownPropertyCollectorVariadicEntity::class,
+        );
+
+        self::assertFalse($result->getReport()->hasErrors());
+
+        $mapped = $result->getValue();
+
+        self::assertInstanceOf(UnknownPropertyCollectorVariadicEntity::class, $mapped);
+        self::assertSame([0 => 'x', 'city' => 'London'], $mapped->extra);
     }
 
     /**
