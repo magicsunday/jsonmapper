@@ -122,7 +122,8 @@ final class MappingContext
     private int $droppedErrors = 0;
 
     /**
-     * Number of levels refused for being deeper than the limit, over the whole run.
+     * Number of levels refused for being deeper than the limit that no matched union trial has
+     * taken back, see {@see forgetDepthFailuresSince()}.
      *
      * Counted apart from the records because a record can be refused by a full window or taken back
      * with a rejected union member, while the decision a union trial takes on a depth failure has to
@@ -666,25 +667,41 @@ final class MappingContext
     }
 
     /**
-     * Forgets the depth failures counted after the given count was read.
+     * Takes back the depth failures counted after the given state was read.
      *
      * A union trial that found a member to use calls this, because the levels refused while it
-     * tried the others belong to members it rejected. Left in the count, an enclosing trial would
-     * blame them for a failure that has another cause.
+     * tried the others belong to members it rejected. Left in place, an enclosing trial would blame
+     * them for a failure that has another cause. The count and the failure kept for it go back
+     * together: a count alone would leave the failure of a taken-back trial to be returned for one
+     * that came before it.
      *
-     * @param int $countBefore Value of {@see getDepthFailureCount()} read before the trial began
+     * @param int                              $countBefore Value of {@see getDepthFailureCount()} read before the trial began
+     * @param DepthLimitExceededException|null $lastBefore  Value of {@see getLastDepthFailure()} read at the same time
      *
      * @return void
      */
-    public function forgetDepthFailuresSince(int $countBefore): void
+    public function forgetDepthFailuresSince(int $countBefore, ?DepthLimitExceededException $lastBefore): void
     {
-        $this->depthFailureCount = min($this->depthFailureCount, $countBefore);
+        if ($this->depthFailureCount > $countBefore) {
+            $this->depthFailureCount = $countBefore;
+            $this->lastDepthFailure  = $lastBefore;
+        }
+    }
+
+    /**
+     * Returns the latest depth failure that no matched union trial has taken back.
+     *
+     * @return DepthLimitExceededException|null The failure, or NULL when no level was refused
+     */
+    public function getLastDepthFailure(): ?DepthLimitExceededException
+    {
+        return $this->lastDepthFailure;
     }
 
     /**
      * Returns how many levels were refused for being deeper than the limit so far.
      *
-     * @return int Number of refusals, which only ever grows during a run
+     * @return int Number of refusals not taken back yet, to be compared only with a value read earlier in the same trial
      */
     public function getDepthFailureCount(): int
     {

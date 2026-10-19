@@ -25,8 +25,11 @@ use MagicSunday\Test\Classes\DepthCollectionB;
 use MagicSunday\Test\Classes\DepthConstructorHolder;
 use MagicSunday\Test\Classes\DepthMutualA;
 use MagicSunday\Test\Classes\DepthMutualB;
+use MagicSunday\Test\Classes\DepthRestoreHolder;
 use MagicSunday\Test\Classes\DepthScalarUnionHolder;
 use MagicSunday\Test\Classes\DepthStaleOuter;
+use MagicSunday\Test\Classes\DepthUnionCollectionA;
+use MagicSunday\Test\Classes\DepthUnionCollectionB;
 use MagicSunday\Test\Classes\DepthUnionHolder;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -286,6 +289,24 @@ final class NestingDepthLimitTest extends TestCase
     }
 
     #[Test]
+    public function itNamesTheLevelThatFailedAndNotOneThatARecoveredUnionSaw(): void
+    {
+        // "bad" is refused for its depth, then "good" meets the limit as an object and is taken as
+        // an array. The failure of the enclosing member is the one of "bad".
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::lenient()->withMaxDepth(4))
+            ->mapWithReport(['p' => ['bad' => self::chain(5), 'good' => self::chain(5)]], DepthRestoreHolder::class);
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors);
+
+        $exception = $errors[0]->getException();
+
+        self::assertInstanceOf(DepthLimitExceededException::class, $exception);
+        self::assertStringStartsWith('$.p.bad.', $exception->getPath());
+    }
+
+    #[Test]
     public function itDoesNotTryAFurtherObjectMemberAfterADepthFailure(): void
     {
         // Two members that nest in each other would be tried against every level, which doubles the
@@ -323,6 +344,26 @@ final class NestingDepthLimitTest extends TestCase
 
         self::assertLessThan(self::LINEAR_WORK_BOUND, DepthCollectionA::$built + DepthCollectionB::$built);
         self::assertSame(1, $result->getReport()->getErrorCount());
+    }
+
+    #[Test]
+    public function itDoesNotTryAFurtherCollectionOfAUnionAfterADepthFailure(): void
+    {
+        // The values of both collection members are a union of the two classes, which descends
+        // as an object does and has to be left out in the same way.
+        DepthUnionCollectionA::$built = 0;
+        DepthUnionCollectionB::$built = 0;
+
+        $payload = ['child' => null];
+
+        for ($level = 0; $level < 20; ++$level) {
+            $payload = ['child' => [$payload]];
+        }
+
+        $this->getJsonMapper(config: JsonMapperConfiguration::lenient()->withMaxDepth(18))
+            ->mapWithReport($payload, DepthUnionCollectionA::class);
+
+        self::assertLessThan(self::LINEAR_WORK_BOUND, DepthUnionCollectionA::$built + DepthUnionCollectionB::$built);
     }
 
     #[Test]

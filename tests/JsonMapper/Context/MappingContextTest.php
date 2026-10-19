@@ -192,7 +192,7 @@ final class MappingContextTest extends TestCase
         } catch (DepthLimitExceededException) {
         }
 
-        $context->forgetDepthFailuresSince(0);
+        $context->forgetDepthFailuresSince(0, null);
 
         self::assertSame(0, $context->getDepthFailureCount());
         self::assertNotInstanceOf(DepthLimitExceededException::class, $context->getDepthFailureSince(0));

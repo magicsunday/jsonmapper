@@ -1397,6 +1397,7 @@ final readonly class JsonMapper
     ): array {
         $depthFailure     = null;
         $depthCountBefore = $context->getDepthFailureCount();
+        $depthLastBefore  = $context->getLastDepthFailure();
 
         foreach ($this->orderUnionCandidatesByExactMatch($type, $json) as $candidate) {
             // A further member that descends the same payload meets the same limit, so trying it only
@@ -1441,7 +1442,7 @@ final readonly class JsonMapper
             }
 
             // The levels refused on the way belong to the members that were rejected.
-            $context->forgetDepthFailuresSince($depthCountBefore);
+            $context->forgetDepthFailuresSince($depthCountBefore, $depthLastBefore);
 
             return [true, $candidateValue];
         }

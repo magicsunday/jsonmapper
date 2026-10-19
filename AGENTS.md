@@ -222,10 +222,11 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
   ceiling the report has. A new site that descends into the payload without that method escapes the
   limit. It does not bound the work a union does when its members nest in each other. A union trial
   keeps a depth failure as the failure of the union, however the other members fail, and does not
-  relabel it a type mismatch of a member. After a depth failure it leaves out the object members
-  that follow, which would descend the same payload, and still tries the others. That trades an
-  alternative object that would have taken the payload within the limit against work that doubles
-  per level for members nested in each other. The context counts refusals itself for that, because
+  relabel it a type mismatch of a member. After a depth failure it leaves out the members that
+  follow and go into the payload level by level, which are an object, a collection whose values do
+  and a union with such a member, and still tries a scalar or an untyped array. That trades an
+  alternative that would have taken the payload within the limit against work that doubles per
+  level for members nested in each other. The context counts refusals itself for that, because
   the record of one can be refused by a full trial window or taken back with a rejected member. A
   trial that matches forgets the refusals it saw, since they belong to members it rejected and must
   not be blamed on a failure of the union around it.
