@@ -271,8 +271,10 @@ reported as **missing** in strict mode, because no absent value satisfies it.
 The same holds when the type metadata of a property, such as one exposed through an accessor pair,
 names something that is not a class name at all, the source text of an intersection for example. The
 value cannot fit a type the mapper does not model, so it is reported as a `TypeMismatchException` at
-the property path. A well-formed class name that resolves to nothing is a different case, a mistake
-of your declarations, and still escapes as a `DomainException`.
+the property path. That holds for the class of an object type and for the wrapper class of a
+collection type alike. A well-formed class name that resolves to nothing is a different case, a
+mistake of your declarations, and still escapes as a `DomainException`. So does any class name you
+pass to `map()` or `mapWithReport()` yourself, malformed or not, since no payload can choose it.
 
 A `TypeError` raised **inside your own setter body** (the setter passes the value on to another
 strict-typed call) is deliberately *not* caught and re-labelled. It is a bug in the setter rather

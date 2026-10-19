@@ -17,6 +17,7 @@ use DomainException;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Exception\CollectionMappingException;
 use MagicSunday\JsonMapper\Exception\MappingException;
+use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\JsonMapper\Resolver\ClassResolver;
 use ReflectionClass;
 use Symfony\Component\TypeInfo\Type;
@@ -174,8 +175,17 @@ final readonly class CollectionFactory
         $wrappedType = $type->getWrappedType();
 
         if (($wrappedType instanceof WrappingTypeInterface) && ($wrappedType->getWrappedType() instanceof ObjectType)) {
-            $objectType    = $wrappedType->getWrappedType();
-            $className     = $this->resolveWrappedClass($objectType);
+            $objectType = $wrappedType->getWrappedType();
+            $className  = $this->resolveWrappedClass($objectType);
+
+            // The wrapper name comes from type metadata, which can hold something that is no class
+            // name, such as the source text of an intersection. That is a payload the declaration
+            // cannot take and is reported at the property, as the object strategy does, unlike a
+            // well formed name that resolves to nothing, which stays a configuration error.
+            if (!ClassResolver::isWellFormedName($className)) {
+                throw new TypeMismatchException($context->getPath(), $className, get_debug_type($json));
+            }
+
             $resolvedClass = $this->classResolver->resolve($className, $json, $context);
 
             return $this->wrapElements($resolvedClass, $collection ?? [], $context);

@@ -22,7 +22,6 @@ use Symfony\Component\TypeInfo\Type\ObjectType;
 use function get_debug_type;
 use function is_array;
 use function is_object;
-use function preg_match;
 
 /**
  * Converts object values by delegating to the mapper callback.
@@ -32,21 +31,6 @@ use function preg_match;
  */
 final readonly class ObjectValueConversionStrategy implements ValueConversionStrategyInterface
 {
-    /**
-     * One segment of a class name, which may use the bytes above the ASCII set.
-     */
-    private const string NAME_SEGMENT = '[a-zA-Z_\x80-\xff][a-zA-Z0-9_\x80-\xff]*';
-
-    /**
-     * The shape of a class name, optionally with a leading separator.
-     *
-     * The runtime name of an anonymous class is a class name followed by the marker for anonymous
-     * classes, a NUL byte and the place it was declared, and such a class can be instantiated, so
-     * that suffix is let through. The pattern is anchored at the very end, so a name that merely
-     * ends in a line break does not pass for well formed.
-     */
-    private const string CLASS_NAME_PATTERN = '/^\\\\?' . self::NAME_SEGMENT . '(?:\\\\' . self::NAME_SEGMENT . ')*(?:@anonymous\x00.*)?$/sD';
-
     /**
      * Creates the strategy with the class resolver and mapper callback.
      *
@@ -96,7 +80,7 @@ final readonly class ObjectValueConversionStrategy implements ValueConversionStr
         // A name that is no class name at all (for example the source text of an intersection)
         // cannot be resolved. It is a payload that does not fit and is reported at the property,
         // unlike a well-formed name that resolves to nothing, which stays a configuration error.
-        if (preg_match(self::CLASS_NAME_PATTERN, $className) !== 1) {
+        if (!ClassResolver::isWellFormedName($className)) {
             throw new TypeMismatchException($context->getPath(), $className, get_debug_type($value));
         }
 
