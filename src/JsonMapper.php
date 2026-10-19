@@ -21,6 +21,7 @@ use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Converter\PropertyNameConverterInterface;
 use MagicSunday\JsonMapper\Exception\AmbiguousPropertyException;
 use MagicSunday\JsonMapper\Exception\CollectionMappingException;
+use MagicSunday\JsonMapper\Exception\DepthLimitExceededException;
 use MagicSunday\JsonMapper\Exception\MappingException;
 use MagicSunday\JsonMapper\Exception\MissingConstructorArgumentException;
 use MagicSunday\JsonMapper\Exception\MissingPropertyException;
@@ -703,6 +704,7 @@ final readonly class JsonMapper
      *
      * @return object Instantiated and populated object that represents the mapped payload.
      *
+     * @throws DepthLimitExceededException         When the nesting depth limit is exceeded.
      * @throws MissingConstructorArgumentException When a required, non-nullable argument has no value and no default.
      * @throws TypeMismatchException               When the value does not match the declared type.
      */
@@ -746,6 +748,8 @@ final readonly class JsonMapper
      *
      * @return array{0: array<string, mixed>, 1: list<string>} Converted values by property, and the
      *                                                         names actually mapped.
+     *
+     * @throws DepthLimitExceededException When the nesting depth limit is exceeded.
      */
     private function collectConvertedValues(
         array $source,
@@ -919,6 +923,8 @@ final readonly class JsonMapper
      * @param MappingContext $context           Active mapping context.
      *
      * @return void
+     *
+     * @throws DepthLimitExceededException When the nesting depth limit is exceeded.
      */
     private function reportMissingProperties(
         string $resolvedClassName,
@@ -954,6 +960,7 @@ final readonly class JsonMapper
      *
      * @return object The built and populated object.
      *
+     * @throws DepthLimitExceededException         When the nesting depth limit is exceeded.
      * @throws MissingConstructorArgumentException When a required, non-nullable argument has no value and no default.
      * @throws TypeMismatchException               When the value does not match the declared type.
      */
@@ -1400,12 +1407,28 @@ final readonly class JsonMapper
                 $context->restoreTrialRefusals($refusedCount, $refusedFailure);
                 $lastException = $exception;
 
+                // The depth of the payload says nothing about which member fits, and the next member
+                // would nest just as deep.
+                if ($exception instanceof DepthLimitExceededException) {
+                    break;
+                }
+
                 continue;
             }
 
             if ($this->recordedMoreThanMissingProperties($context, $errorCount, $refusedFailure)) {
+                $depthFailure = $this->firstDepthLimitFailure($context, $errorCount);
+
                 $context->trimErrors($errorCount);
                 $context->restoreTrialRefusals($refusedCount, $refusedFailure);
+
+                // Raised as it is instead of being relabelled a type mismatch of the member, so the
+                // report names the limit rather than a type that was never wrong.
+                if ($depthFailure instanceof DepthLimitExceededException) {
+                    $lastException = $depthFailure;
+
+                    break;
+                }
 
                 $lastException = new TypeMismatchException(
                     $context->getPath(),
@@ -1420,6 +1443,27 @@ final readonly class JsonMapper
         }
 
         return [false, null];
+    }
+
+    /**
+     * Returns the first depth failure recorded since the given count.
+     *
+     * @param MappingContext $context    Mapping context the candidate was converted in.
+     * @param int            $recordedAt Number of records present before the conversion.
+     *
+     * @return DepthLimitExceededException|null The failure, or NULL when the candidate hit no limit.
+     */
+    private function firstDepthLimitFailure(MappingContext $context, int $recordedAt): ?DepthLimitExceededException
+    {
+        foreach (array_slice($context->getErrorRecords(), $recordedAt) as $record) {
+            $exception = $record->getException();
+
+            if ($exception instanceof DepthLimitExceededException) {
+                return $exception;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -1684,6 +1728,7 @@ final readonly class JsonMapper
      *
      * @return array{0: object, 1: array<string, true>} The constructed object and the consumed argument names.
      *
+     * @throws DepthLimitExceededException         When the nesting depth limit is exceeded.
      * @throws MissingConstructorArgumentException When a required, non-nullable argument has no value and no default.
      * @throws TypeMismatchException               When an argument violates its parameter declaration and the run aborts on the first failure.
      */
@@ -1776,7 +1821,8 @@ final readonly class JsonMapper
      *
      * @return bool TRUE when the value was refused and recorded, so the caller must not pass it on
      *
-     * @throws TypeMismatchException When the run aborts on the first failure.
+     * @throws DepthLimitExceededException When the nesting depth limit is exceeded.
+     * @throws TypeMismatchException       When the run aborts on the first failure.
      */
     private function refusedArgument(
         ReflectionParameter $parameter,

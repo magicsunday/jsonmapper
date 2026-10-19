@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\JsonMapper\Context;
 
 use DateTimeInterface;
+use MagicSunday\JsonMapper\Exception\DepthLimitExceededException;
 use MagicSunday\JsonMapper\Exception\MappingException;
 use MagicSunday\JsonMapper\Exception\MissingConstructorArgumentException;
 use MagicSunday\JsonMapper\Exception\MissingPropertyException;
@@ -83,6 +84,21 @@ final class MappingContext
      * Number of failures kept when the option names none.
      */
     public const int DEFAULT_MAX_ERRORS = 1000;
+
+    /**
+     * How deep a payload may nest.
+     *
+     * A failure builds an exception whose stack trace is as deep as the level it was raised at, and
+     * a kept record holds that exception, so a chain of failing levels costs memory that grows with
+     * the square of the depth. The limit is what the payload cannot decide: a level beyond it is
+     * refused with a failure of its own instead of being mapped.
+     */
+    public const string OPTION_MAX_DEPTH = 'max_depth';
+
+    /**
+     * Nesting depth accepted when the option names none.
+     */
+    public const int DEFAULT_MAX_DEPTH = 64;
 
     /**
      * Timezone assumed for a zoneless date format. UTC rather than the host default, so that the
@@ -159,12 +175,18 @@ final class MappingContext
      * @param callable(self):mixed $callback Callback executed while the segment is in place
      *
      * @return mixed Result produced by the callback
+     *
+     * @throws DepthLimitExceededException When the segment makes the path deeper than the limit
      */
     public function withPathSegment(string|int $segment, callable $callback): mixed
     {
         $this->pathSegments[] = (string) $segment;
 
         try {
+            if (count($this->pathSegments) > $this->getMaxDepth()) {
+                throw new DepthLimitExceededException($this->getPath(), $this->getMaxDepth());
+            }
+
             return $callback($this);
         } finally {
             array_pop($this->pathSegments);
@@ -597,6 +619,40 @@ final class MappingContext
         $ceiling = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 
         return ($ceiling === false) ? self::DEFAULT_MAX_ERRORS : $ceiling;
+    }
+
+    /**
+     * Returns how deep a payload may nest.
+     *
+     * @return int Number of path levels accepted, never below one
+     */
+    public function getMaxDepth(): int
+    {
+        return self::normaliseMaxDepth($this->options[self::OPTION_MAX_DEPTH] ?? null);
+    }
+
+    /**
+     * Turns a configured depth limit into a usable one.
+     *
+     * Read by the same rule as {@see normaliseMaxErrors()}: an integer, or a string of decimal
+     * digits, of at least one is taken as it is, anything else falls back to the default rather
+     * than to zero, which would refuse every level.
+     *
+     * @internal
+     *
+     * @param mixed $value Value read from a configuration array or an option bag
+     *
+     * @return int Limit of at least one
+     */
+    public static function normaliseMaxDepth(mixed $value): int
+    {
+        if (!is_int($value) && !is_string($value)) {
+            return self::DEFAULT_MAX_DEPTH;
+        }
+
+        $limit = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+
+        return ($limit === false) ? self::DEFAULT_MAX_DEPTH : $limit;
     }
 
     /**
