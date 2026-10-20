@@ -22,6 +22,7 @@ use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\JsonMapper\Report\MappingResult;
 use MagicSunday\Test\Classes\ConstructorArgumentAndRequiredPropertyDto;
 use MagicSunday\Test\Classes\NullableTwoRequiredPropertiesHolder;
+use MagicSunday\Test\Classes\RenamedConstructorParameterDto;
 use MagicSunday\Test\Classes\RequiredConstructorArgumentDto;
 use MagicSunday\Test\Classes\RequiredConstructorArgumentDtoHolder;
 use MagicSunday\Test\Classes\TwoRequiredConstructorArgumentsDto;
@@ -255,6 +256,44 @@ final class RootLevelErrorHandlingTest extends TestCase
     }
 
     #[Test]
+    public function itRecordsTheOmittedPropertyAndTheUnbuildableObjectWhenTheParameterIsNamedDifferently(): void
+    {
+        // Strict validation names the property and the failed construction names the parameter, so
+        // the two are two facts about two names, and both stay on record.
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
+            [],
+            RenamedConstructorParameterDto::class,
+        );
+
+        self::assertSame(
+            [
+                '$.title ' . MissingPropertyException::class,
+                '$ ' . MissingConstructorArgumentException::class,
+            ],
+            $this->pathsAndKinds($result),
+        );
+    }
+
+    #[Test]
+    public function itRecordsTheRefusedValueAndTheUnbuildableObjectAsTwoFacts(): void
+    {
+        // The value was supplied and refused where it was converted. The object that lacks it is
+        // a second fact, which the caller cannot read from the first record.
+        $result = $this->getJsonMapper(config: JsonMapperConfiguration::strict())->mapWithReport(
+            ['count' => ['deep' => 'array'], 'label' => 'x'],
+            ConstructorArgumentAndRequiredPropertyDto::class,
+        );
+
+        self::assertSame(
+            [
+                '$.count ' . TypeMismatchException::class,
+                '$ ' . MissingConstructorArgumentException::class,
+            ],
+            $this->pathsAndKinds($result),
+        );
+    }
+
+    #[Test]
     public function itRecordsAScalarPayloadOnTheRootObject(): void
     {
         // The counterpart from the scalar-payload guard: it used to escape here as well.
@@ -432,6 +471,21 @@ final class RootLevelErrorHandlingTest extends TestCase
         self::assertFalse($result->getReport()->hasErrors(), 'A lenient run reports no missing property.');
         self::assertInstanceOf(NullableTwoRequiredPropertiesHolder::class, $holder);
         self::assertInstanceOf(TwoRequiredPropertiesDto::class, $holder->dto);
+    }
+
+    /**
+     * Returns the path and the kind of exception of every recorded error, in record order.
+     *
+     * @param MappingResult $result Result whose report is inspected
+     *
+     * @return list<string> Path and exception class of each record
+     */
+    private function pathsAndKinds(MappingResult $result): array
+    {
+        return array_map(
+            static fn (MappingError $error): string => $error->getPath() . ' ' . get_debug_type($error->getException()),
+            $result->getReport()->getErrors(),
+        );
     }
 
     /**
