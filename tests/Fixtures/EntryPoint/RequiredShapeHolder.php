@@ -11,8 +11,6 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\Fixtures\EntryPoint;
 
-namespace MagicSunday\Test\Fixtures\EntryPoint;
-
 /**
  * A property typed by the shape interface that cannot be null, so a failure inside the object a
  * class map built for it is reported on its own instead of being folded into a mismatch of the

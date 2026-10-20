@@ -199,8 +199,8 @@ final class ResolverOutputIsNotEchoedTest extends TestCase
     }
 
     /**
-     * Behind a nullable property the same failure surfaces as a mismatch of the declared class, so
-     * a class-mapped property that can be null never exposes what the resolver chose.
+     * Behind a nullable property a refused value surfaces as a mismatch of the declared class, so
+     * what the resolver chose is not exposed by that failure.
      */
     #[Test]
     public function aFailureBehindANullablePropertyNamesTheDeclaredClass(): void
@@ -217,5 +217,52 @@ final class ResolverOutputIsNotEchoedTest extends TestCase
 
         self::assertInstanceOf(TypeMismatchException::class, $exception);
         self::assertSame(Shape::class, $exception->getExpectedType());
+    }
+
+    /**
+     * An unknown key behind a nullable property is folded into a mismatch of the declared class too.
+     */
+    #[Test]
+    public function anUnknownKeyBehindANullablePropertyNamesTheDeclaredClass(): void
+    {
+        $result = $this->getJsonMapper(
+            [Shape::class => static fn (): string => Circle::class],
+            JsonMapperConfiguration::strict(),
+        )->mapWithReport(['shape' => ['radius' => 1, 'extra' => 2]], ShapeHolder::class);
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors);
+
+        $exception = $errors[0]->getException();
+
+        self::assertInstanceOf(TypeMismatchException::class, $exception);
+        self::assertSame(Shape::class, $exception->getExpectedType());
+    }
+
+    /**
+     * A missing constructor argument is the exception to that. It is raised by the constructor call
+     * itself and reaches the report unchanged, so it names the resolved class even behind a
+     * nullable property.
+     */
+    #[Test]
+    public function aMissingConstructorArgumentBehindANullablePropertyStillNamesTheResolvedClass(): void
+    {
+        $result = $this->getJsonMapper([
+            Shape::class => static fn (): string => CustomConstructor::class,
+        ])->mapWithReport(['shape' => ['other' => 1]], ShapeHolder::class);
+
+        $missing = [];
+
+        foreach ($result->getReport()->getErrors() as $error) {
+            $exception = $error->getException();
+
+            if ($exception instanceof MissingConstructorArgumentException) {
+                $missing[] = $exception;
+            }
+        }
+
+        self::assertCount(1, $missing);
+        self::assertSame(CustomConstructor::class, $missing[0]->getClassName());
     }
 }
