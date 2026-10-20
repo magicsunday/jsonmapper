@@ -113,8 +113,8 @@ in a response body:
   reflects an attacker-supplied value back verbatim. Rendered unescaped, that is a cross-site
   scripting vector in the consumer's UI, not in the mapper.
 
-The payload's *values* are never included — only `get_debug_type()` of them, or `object` for any
-object — so a mapping message cannot leak the data itself. That is the one thing it is safe about.
+The payload's *values* are never included — only `get_debug_type()` of them — so a mapping message
+cannot leak the data itself. That is the one thing it is safe about.
 
 Build client-facing text from the structured accessors instead, and escape what you emit:
 
@@ -184,14 +184,15 @@ passed, and never a class that a class-map resolver produced, because a resolver
 answer from the payload. For the same reason, when a property write or a constructor argument
 refuses an object, the mismatch reports the actual type as `object` and never as the class it was
 built from. A setter with a variadic parameter is the exception, because it is called directly and
-a refused element escapes as a native error that names the class. A failure raised while a resolved
-object is built or filled is about that object and names it, for example a missing constructor
-argument or an unknown key. A value refused by one of its properties is typed by that property.
-Behind a nullable property an unknown key or a refused value surfaces as a mismatch of the declared
-class instead, while a missing constructor argument still names the resolved class. Elements of a
-list mapped with an element class are typed with the class the resolver produced for the whole list.
-So do not forward an exception that was raised below a class-mapped property into a response, and
-keep the others out of it too.
+a refused element escapes as a native error that names the class. Every other mismatch reports the
+debug type of the payload value, so an object that the payload itself carries is named by its class.
+A failure raised while a resolved object is built or filled is about that object and names it, for
+example a missing constructor argument or an unknown key. A value refused by one of its properties
+is typed by that property. Behind a nullable property an unknown key or a refused value surfaces as
+a mismatch of the declared class instead, while a missing constructor argument still names the
+resolved class. Elements of a list mapped with an element class are typed with the class the
+resolver produced for the whole list. So do not forward an exception that was raised below a
+class-mapped property into a response, and keep the others out of it too.
 
 The rule covers **every** exception the mapper raises, not only the `MappingException` hierarchy. A
 configuration defect — an unresolvable collection element type, a class-map resolver returning

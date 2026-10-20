@@ -54,8 +54,8 @@ final class TypeMismatchException extends MappingException
     /**
      * Returns the actual type the mapper observed for the refused value.
      *
-     * That is the debug type of a payload value, and the token "object" for any object, whatever
-     * its class.
+     * That is the debug type of the refused value. Only when a property write or a constructor
+     * argument refuses an object is it the token "object", whatever the class of the object.
      *
      * Consumers can combine the value with {@see getExpectedType()} to explain
      * why the assignment failed.

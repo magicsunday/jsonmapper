@@ -1535,12 +1535,12 @@ final readonly class JsonMapper
     }
 
     /**
-     * Names the type of a value a mapping failure refuses.
+     * Names the type of a value that the property write or the constructor argument guard refuses.
      *
-     * An object that reaches a refusal is either one the mapper built, from a class a class-map
-     * resolver may have chosen from the payload, or one the payload itself carried. Naming its class
-     * could disclose which classes exist, so every object is reported by the token "object".
-     * Anything else keeps its debug type.
+     * An object that reaches one of these refusals is either one the mapper built, from a class a
+     * class-map resolver may have chosen from the payload, or one the payload itself carried. Naming
+     * its class could disclose which classes exist, so these two guards report every object by the
+     * token "object". Anything else keeps its debug type.
      */
     private static function describeActualType(mixed $value): string
     {
