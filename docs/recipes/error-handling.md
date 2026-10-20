@@ -334,6 +334,12 @@ object was not built. For a nullable or union-typed property the member that can
 rejected and its failed construction is the single record. Outside strict mode no missing property is
 reported, so the failed construction is the only record.
 
+Two cases stay two records, because they are two facts. A constructor parameter that is named
+differently from the property it feeds is reported as a missing property, and the failed construction
+names the parameter, so the two records are about two names. A value that was supplied and refused is
+recorded where it was converted, and the object that then lacks its argument is recorded as one that
+could not be built, which the first record does not tell the caller.
+
 ```php
 $strict = JsonMapperConfiguration::strict();
 
