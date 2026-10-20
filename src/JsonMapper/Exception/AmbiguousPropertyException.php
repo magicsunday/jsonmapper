@@ -28,7 +28,7 @@ final class AmbiguousPropertyException extends MappingException
      * @param string       $path         Path to the property the spellings collide on.
      * @param string       $propertyName Name of the declared property that several payload keys name.
      * @param class-string $className    Fully qualified name of the object that declares the property.
-     * @param string       $appliedKey   The payload key whose value was applied to the property.
+     * @param string       $appliedKey   The payload key that came first for the property and was selected for it.
      * @param string       $rejectedKey  The payload key that named the same property later and was not applied.
      */
     public function __construct(
@@ -69,11 +69,11 @@ final class AmbiguousPropertyException extends MappingException
     }
 
     /**
-     * Returns the payload key that was applied and the one that was rejected, in that order.
+     * Returns the payload key selected for the property and the one that was rejected, in that order.
      *
      * They came from the payload, so escape them for whatever sink they reach and bound their length.
      *
-     * @return list<string> The applied key first, then the rejected key.
+     * @return list<string> The selected key first, then the rejected key.
      */
     public function getPayloadKeys(): array
     {
