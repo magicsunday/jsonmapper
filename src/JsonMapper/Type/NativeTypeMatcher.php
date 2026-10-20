@@ -27,6 +27,7 @@ use function is_int;
 use function is_iterable;
 use function is_object;
 use function is_string;
+use function strtolower;
 
 /**
  * Answers whether a value would survive a native parameter declaration.
@@ -119,11 +120,14 @@ final class NativeTypeMatcher
      */
     private static function resolveScope(string $name, string $scope): string
     {
-        if (($name === 'self') || ($name === 'static')) {
+        // Reflection reports the keyword as written on some runtimes, and a keyword is case insensitive.
+        $keyword = strtolower($name);
+
+        if (($keyword === 'self') || ($keyword === 'static')) {
             return $scope;
         }
 
-        if ($name === 'parent') {
+        if ($keyword === 'parent') {
             // A `parent` type is undeclarable on a class without a parent, so reflection guarantees
             // one; the scope itself is a defensive fallback that never runs.
             $parent = get_parent_class($scope);

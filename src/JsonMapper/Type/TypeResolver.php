@@ -13,6 +13,7 @@ namespace MagicSunday\JsonMapper\Type;
 
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Cache\InvalidArgumentException as CacheInvalidArgumentException;
+use ReflectionClass;
 use ReflectionException;
 use ReflectionNamedType;
 use ReflectionProperty;
@@ -20,11 +21,16 @@ use ReflectionUnionType;
 use Symfony\Component\PropertyInfo\PropertyInfoExtractorInterface;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\BuiltinType;
+use Symfony\Component\TypeInfo\Type\CollectionType;
+use Symfony\Component\TypeInfo\Type\GenericType;
+use Symfony\Component\TypeInfo\Type\ObjectType;
 use Symfony\Component\TypeInfo\Type\UnionType;
 use Symfony\Component\TypeInfo\TypeIdentifier;
 
+use function array_map;
 use function count;
 use function hash;
+use function strtolower;
 
 /**
  * Resolves property types using Symfony's PropertyInfo component.
@@ -36,7 +42,7 @@ final readonly class TypeResolver
      * so a persistent pool warmed by an earlier release stops serving entries that were resolved
      * under the old rules instead of silently withholding the new behaviour.
      */
-    private const string CACHE_SCHEMA_VERSION = 'v3';
+    private const string CACHE_SCHEMA_VERSION = 'v4';
 
     /**
      * Leading segment of every cache key, ending in a separating dot. The full key appends a hash
@@ -95,6 +101,10 @@ final readonly class TypeResolver
             $type = $this->resolveFromReflection($className, $propertyName);
         }
 
+        if ($type instanceof Type) {
+            $type = $this->resolveRelativeNames($type, $this->declaringClassOf($className, $propertyName), $className);
+        }
+
         // A property without any type metadata must accept null, so the synthetic fallback is
         // nullable. A non-nullable fallback would fabricate type-mismatch errors for null values
         // on properties that never declared a type.
@@ -103,6 +113,93 @@ final readonly class TypeResolver
         $this->storeCachedType($className, $propertyName, $resolved);
 
         return $resolved;
+    }
+
+    /**
+     * Returns the class that declares the property, which the keywords for the own and the parent class
+     * refer to.
+     *
+     * @param class-string $className    Class the property is read from
+     * @param string       $propertyName Name of the property
+     *
+     * @return ReflectionClass<object> Declaring class, or the class itself when the property is not declared
+     */
+    private function declaringClassOf(string $className, string $propertyName): ReflectionClass
+    {
+        try {
+            return (new ReflectionProperty($className, $propertyName))->getDeclaringClass();
+        } catch (ReflectionException) {
+            return new ReflectionClass($className);
+        }
+    }
+
+    /**
+     * Replaces the keyword for the own, the parent or the late bound class in a type by the name of that class.
+     *
+     * A docblock that names the keyword reports it as the keyword on every supported version, and plain
+     * reflection does so on some of them and reports the class name on others. A keyword left in place is
+     * taken for a class name and fails when it is resolved, so the type is made the same everywhere. Only
+     * the shapes the mapper reads a class from are rebuilt, an object, a union of them, which covers a nullable
+     * one, and a collection of them.
+     *
+     * @param Type            $type        Type as the extractor reported it
+     * @param ReflectionClass $context     Class that declares the property, which the keywords for the own and the parent class refer to
+     * @param string          $mappedClass Class the property is read from, which the late bound keyword refers to
+     *
+     * @phpstan-param ReflectionClass<object> $context
+     *
+     * @return Type The same type with the keywords replaced
+     */
+    private function resolveRelativeNames(Type $type, ReflectionClass $context, string $mappedClass): Type
+    {
+        if ($type instanceof UnionType) {
+            return Type::union(...array_map(
+                fn (Type $member): Type => $this->resolveRelativeNames($member, $context, $mappedClass),
+                $type->getTypes(),
+            ));
+        }
+
+        if ($type instanceof CollectionType) {
+            $wrapped = $type->getWrappedType();
+
+            if (!$wrapped instanceof GenericType) {
+                return $type;
+            }
+
+            return new CollectionType(
+                new GenericType(
+                    $wrapped->getWrappedType(),
+                    ...array_map(
+                        fn (Type $variable): Type => $this->resolveRelativeNames($variable, $context, $mappedClass),
+                        $wrapped->getVariableTypes(),
+                    ),
+                ),
+                $type->isList(),
+            );
+        }
+
+        if ($type::class !== ObjectType::class) {
+            return $type;
+        }
+
+        // PHP keywords are case insensitive and reflection reports the spelling as it was written.
+        $name = strtolower($type->getClassName());
+
+        if ($name === 'self') {
+            return Type::object($context->getName());
+        }
+
+        if ($name === 'static') {
+            return Type::object($mappedClass);
+        }
+
+        if ($name === 'parent') {
+            $parent = $context->getParentClass();
+
+            return ($parent instanceof ReflectionClass) ? Type::object($parent->getName()) : $type;
+        }
+
+        return $type;
     }
 
     /**

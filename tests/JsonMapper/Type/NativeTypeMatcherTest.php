@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\Test\JsonMapper\Type;
 
 use ArrayAccess;
+use ArrayObject;
 use Closure;
 use Countable;
 use MagicSunday\JsonMapper;
@@ -240,5 +241,53 @@ final class NativeTypeMatcherTest extends TestCase
         }
 
         return $type;
+    }
+
+    /**
+     * @return array<string, array{string, class-string}>
+     */
+    public static function keywordSpellingProvider(): array
+    {
+        return [
+            'own class in capitals'   => ['SELF', self::class],
+            'own class in mixed case' => ['SeLf', self::class],
+            'late bound in capitals'  => ['STATIC', self::class],
+            'parent in capitals'      => ['PARENT', TestCase::class],
+        ];
+    }
+
+    /**
+     * @param class-string $expectedClass Class the keyword stands for
+     */
+    #[Test]
+    #[DataProvider('keywordSpellingProvider')]
+    public function itTakesARelativeKeywordInAnySpelling(string $keyword, string $expectedClass): void
+    {
+        // A fixture would be normalised by the code style fixer, so the spelling comes from a stub.
+        $type = new class($keyword) extends ReflectionNamedType {
+            public function __construct(private readonly string $spelling)
+            {
+            }
+
+            public function getName(): string
+            {
+                return $this->spelling;
+            }
+
+            public function isBuiltin(): bool
+            {
+                return false;
+            }
+
+            public function allowsNull(): bool
+            {
+                return false;
+            }
+        };
+
+        // This test case is an instance of its own class and of the parent the provider names.
+        self::assertInstanceOf($expectedClass, $this);
+        self::assertTrue(NativeTypeMatcher::accepts($type, $this, self::class));
+        self::assertFalse(NativeTypeMatcher::accepts($type, new ArrayObject(), self::class));
     }
 }
