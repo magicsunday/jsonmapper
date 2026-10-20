@@ -113,8 +113,8 @@ in a response body:
   reflects an attacker-supplied value back verbatim. Rendered unescaped, that is a cross-site
   scripting vector in the consumer's UI, not in the mapper.
 
-The payload's *values* are never included — only `get_debug_type()` of them — so a mapping message
-cannot leak the data itself. That is the one thing it is safe about.
+The payload's *values* are never included — only `get_debug_type()` of them, or `object` for any
+object — so a mapping message cannot leak the data itself. That is the one thing it is safe about.
 
 Build client-facing text from the structured accessors instead, and escape what you emit:
 
