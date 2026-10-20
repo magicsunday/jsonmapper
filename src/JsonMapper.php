@@ -1535,6 +1535,19 @@ final readonly class JsonMapper
     }
 
     /**
+     * Names the type of a value that the property write or the constructor argument guard refuses.
+     *
+     * An object that reaches one of these refusals is either one the mapper built, from a class a
+     * class-map resolver may have chosen from the payload, or one the payload itself carried. Naming
+     * its class could disclose which classes exist, so these two guards report every object by the
+     * token "object". Anything else keeps its debug type.
+     */
+    private static function describeActualType(mixed $value): string
+    {
+        return is_object($value) ? 'object' : get_debug_type($value);
+    }
+
+    /**
      * Returns a string representation of the provided type.
      */
     private function describeType(Type $type): string
@@ -1768,7 +1781,7 @@ final readonly class JsonMapper
                         new TypeMismatchException(
                             $valueContext->getPath(),
                             NativeTypeMatcher::describe($declaredType, $scope),
-                            get_debug_type($value),
+                            self::describeActualType($value),
                         )
                     );
                 };
@@ -2068,7 +2081,7 @@ final readonly class JsonMapper
         try {
             $this->accessor->setValue($entity, $name, $value);
         } catch (InvalidTypeException $exception) {
-            throw new TypeMismatchException($context->getPath(), $exception->expectedType, get_debug_type($value));
+            throw new TypeMismatchException($context->getPath(), $exception->expectedType, self::describeActualType($value));
         }
     }
 }
