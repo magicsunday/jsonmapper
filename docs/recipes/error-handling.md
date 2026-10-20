@@ -181,9 +181,12 @@ fully qualified class name then, and only for builtin targets is it a safe token
 scalar is given for an object property or at the entry point, or a null payload for a collection
 class, it is the class that was asked for, the property's declared class or the one the caller
 passed, and never a class that a class-map resolver produced, because a resolver may derive its
-answer from the payload. Elements of a list mapped with an element class are typed with the class
-the resolver produced, and other exceptions can still carry a resolved class too. That is one more
-reason to keep them out of a response.
+answer from the payload. A failure raised while a resolved object is built or filled is about that
+object and names it: a missing constructor argument, an unknown key, or a value refused by one of
+its properties, which is typed by that property. Behind a nullable property such a failure surfaces
+as a mismatch of the declared class instead. Elements of a list mapped with an element class are
+typed with the class the resolver produced for the whole list. So do not forward an exception that
+was raised below a class-mapped property into a response, and keep the others out of it too.
 
 The rule covers **every** exception the mapper raises, not only the `MappingException` hierarchy. A
 configuration defect — an unresolvable collection element type, a class-map resolver returning
