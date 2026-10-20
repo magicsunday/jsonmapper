@@ -20,6 +20,7 @@ use MagicSunday\JsonMapper\Exception\UnknownPropertyException;
 use MagicSunday\Test\Classes\CustomConstructor;
 use MagicSunday\Test\Fixtures\EntryPoint\AbstractShapeCollection;
 use MagicSunday\Test\Fixtures\EntryPoint\Circle;
+use MagicSunday\Test\Fixtures\EntryPoint\ConstructedShapeHolder;
 use MagicSunday\Test\Fixtures\EntryPoint\RequiredShapeHolder;
 use MagicSunday\Test\Fixtures\EntryPoint\Shape;
 use MagicSunday\Test\Fixtures\EntryPoint\ShapeCollection;
@@ -264,5 +265,57 @@ final class ResolverOutputIsNotEchoedTest extends TestCase
 
         self::assertCount(1, $missing);
         self::assertSame(CustomConstructor::class, $missing[0]->getClassName());
+    }
+
+    /**
+     * A resolver may answer with a class that does not fit the declared type. The refused write then
+     * holds an object of that class, and the mismatch must not name it as the actual type, because
+     * it is the class the payload chose and its existence would be disclosed.
+     */
+    #[Test]
+    public function aResolvedObjectThatTheWriteRefusesIsReportedAsAnObject(): void
+    {
+        $result = $this->getJsonMapper([
+            Shape::class => static fn (): string => ArrayObject::class,
+        ])->mapWithReport(['shape' => ['payload' => 'chosen']], RequiredShapeHolder::class);
+
+        $mismatches = [];
+
+        foreach ($result->getReport()->getErrors() as $error) {
+            $exception = $error->getException();
+
+            if ($exception instanceof TypeMismatchException) {
+                $mismatches[] = $exception;
+            }
+        }
+
+        self::assertCount(1, $mismatches);
+        self::assertSame(Shape::class, $mismatches[0]->getExpectedType());
+        self::assertSame('object', $mismatches[0]->getActualType());
+    }
+
+    /**
+     * The same holds when the refusal comes from the constructor guard of the holding class.
+     */
+    #[Test]
+    public function aResolvedObjectThatTheConstructorGuardRefusesIsReportedAsAnObject(): void
+    {
+        $result = $this->getJsonMapper([
+            Shape::class => static fn (): string => ArrayObject::class,
+        ])->mapWithReport(['shape' => ['payload' => 'chosen']], ConstructedShapeHolder::class);
+
+        $mismatches = [];
+
+        foreach ($result->getReport()->getErrors() as $error) {
+            $exception = $error->getException();
+
+            if ($exception instanceof TypeMismatchException) {
+                $mismatches[] = $exception;
+            }
+        }
+
+        self::assertCount(1, $mismatches);
+        self::assertSame(Shape::class, $mismatches[0]->getExpectedType());
+        self::assertSame('object', $mismatches[0]->getActualType());
     }
 }
