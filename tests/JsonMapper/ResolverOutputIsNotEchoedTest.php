@@ -14,9 +14,13 @@ namespace MagicSunday\Test\JsonMapper;
 use ArrayObject;
 use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
+use MagicSunday\JsonMapper\Exception\MissingConstructorArgumentException;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
+use MagicSunday\JsonMapper\Exception\UnknownPropertyException;
 use MagicSunday\Test\Classes\CustomConstructor;
 use MagicSunday\Test\Fixtures\EntryPoint\AbstractShapeCollection;
+use MagicSunday\Test\Fixtures\EntryPoint\Circle;
+use MagicSunday\Test\Fixtures\EntryPoint\RequiredShapeHolder;
 use MagicSunday\Test\Fixtures\EntryPoint\Shape;
 use MagicSunday\Test\Fixtures\EntryPoint\ShapeCollection;
 use MagicSunday\Test\Fixtures\EntryPoint\ShapeHolder;
@@ -123,5 +127,95 @@ final class ResolverOutputIsNotEchoedTest extends TestCase
 
         self::assertInstanceOf(TypeMismatchException::class, $exception);
         self::assertSame(AbstractShapeCollection::class, $exception->getExpectedType());
+    }
+
+    /**
+     * A failure raised while the resolved object is built or filled is about that object, and an
+     * unknown key can only be reported against the class that lacks it. The name is therefore the
+     * resolved class here, which is why the guidance is to keep every exception below a class-mapped
+     * property out of a response.
+     */
+    #[Test]
+    public function aFailureInsideTheResolvedObjectNamesTheClassThatWasBuilt(): void
+    {
+        $result = $this->getJsonMapper(
+            [Shape::class => static fn (): string => Circle::class],
+            JsonMapperConfiguration::strict(),
+        )->mapWithReport(['shape' => ['radius' => 1, 'extra' => 2]], RequiredShapeHolder::class);
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors);
+
+        $exception = $errors[0]->getException();
+
+        self::assertInstanceOf(UnknownPropertyException::class, $exception);
+        self::assertSame(Circle::class, $exception->getClassName());
+    }
+
+    /**
+     * The same holds for a constructor argument the resolved class needs and the payload lacks.
+     */
+    #[Test]
+    public function aMissingConstructorArgumentNamesTheResolvedClass(): void
+    {
+        $result = $this->getJsonMapper([
+            Shape::class => static fn (): string => CustomConstructor::class,
+        ])->mapWithReport(['shape' => ['other' => 1]], RequiredShapeHolder::class);
+
+        $missing = [];
+
+        foreach ($result->getReport()->getErrors() as $error) {
+            $exception = $error->getException();
+
+            if ($exception instanceof MissingConstructorArgumentException) {
+                $missing[] = $exception;
+            }
+        }
+
+        self::assertCount(1, $missing);
+        self::assertSame(CustomConstructor::class, $missing[0]->getClassName());
+    }
+
+    /**
+     * A value refused by a property of the resolved class is typed by that property, so the expected
+     * type is the property's own declared type and not a class the resolver produced.
+     */
+    #[Test]
+    public function aValueRefusedByAPropertyOfTheResolvedClassNamesThePropertyType(): void
+    {
+        $result = $this->getJsonMapper([
+            Shape::class => static fn (): string => Circle::class,
+        ])->mapWithReport(['shape' => ['radius' => 'not a number']], RequiredShapeHolder::class);
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors);
+
+        $exception = $errors[0]->getException();
+
+        self::assertInstanceOf(TypeMismatchException::class, $exception);
+        self::assertSame('int', $exception->getExpectedType());
+    }
+
+    /**
+     * Behind a nullable property the same failure surfaces as a mismatch of the declared class, so
+     * a class-mapped property that can be null never exposes what the resolver chose.
+     */
+    #[Test]
+    public function aFailureBehindANullablePropertyNamesTheDeclaredClass(): void
+    {
+        $result = $this->getJsonMapper([
+            Shape::class => static fn (): string => Circle::class,
+        ])->mapWithReport(['shape' => ['radius' => 'not a number']], ShapeHolder::class);
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors);
+
+        $exception = $errors[0]->getException();
+
+        self::assertInstanceOf(TypeMismatchException::class, $exception);
+        self::assertSame(Shape::class, $exception->getExpectedType());
     }
 }
