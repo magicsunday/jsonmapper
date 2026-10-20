@@ -11,8 +11,6 @@ declare(strict_types=1);
 
 namespace MagicSunday\Test\Fixtures\EntryPoint;
 
-namespace MagicSunday\Test\Fixtures\EntryPoint;
-
 /**
  * A shape that arrives through the constructor, so the object a class map built for it meets the
  * constructor guard and not the property write.

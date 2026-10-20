@@ -32,8 +32,10 @@ use PHPUnit\Framework\Attributes\Test;
 
 /**
  * A class-map resolver may derive its answer from the payload, and a consumer may place the
- * expected type of a recorded mismatch in a response. A mismatch therefore names the class the
- * property declares, which is metadata, and never the class the resolver produced.
+ * expected type of a recorded mismatch in a response. A mismatch for a value given to a property
+ * therefore names the class the property declares, which is metadata, and never the class the
+ * resolver produced. A failure raised inside the resolved object is about that object and names it,
+ * and the tests below state which failure names which class.
  *
  * @author  Rico Sonntag <mail@ricosonntag.de>
  * @license https://opensource.org/licenses/MIT
