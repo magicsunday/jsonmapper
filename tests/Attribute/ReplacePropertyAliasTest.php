@@ -13,12 +13,15 @@ namespace MagicSunday\Test\Attribute;
 
 use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Configuration\JsonMapperConfiguration;
+use MagicSunday\JsonMapper\Exception\AmbiguousPropertyException;
 use MagicSunday\Test\Fixtures\Shapes\TwoAliasHolder;
 use MagicSunday\Test\TestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\CoversNamespace;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+
+use function array_keys;
 
 /**
  * ReplaceProperty is repeatable, so one property can be reached by several legacy names - which is
@@ -77,30 +80,38 @@ final class ReplacePropertyAliasTest extends TestCase
     public static function collidingSpellingProvider(): array
     {
         return [
-            // Both orders, each expecting the value that came LAST in the PAYLOAD. The two aliases
+            // Both orders, each expecting the value that came FIRST in the PAYLOAD. The two aliases
             // are declared on TwoAliasHolder in a fixed order, so testing only one payload order
             // would pass equally for a mapper driven by declaration order - which is a different
             // rule. Feeding both orders makes the payload-order rule the only one that satisfies
             // both rows.
-            'legacy then ancient' => [['legacy_label' => 'first', 'ancient-label' => 'second'], 'second'],
-            'ancient then legacy' => [['ancient-label' => 'first', 'legacy_label' => 'second'], 'second'],
+            'legacy then ancient' => [['legacy_label' => 'first', 'ancient-label' => 'second'], 'first'],
+            'ancient then legacy' => [['ancient-label' => 'first', 'legacy_label' => 'second'], 'first'],
         ];
     }
 
     /**
      * @param array<string, string> $payload  Two spellings of the one property, in a given order
-     * @param string                $expected The value that came last in the payload
+     * @param string                $expected The value that came first in the payload
      */
     #[Test]
     #[DataProvider('collidingSpellingProvider')]
-    public function itLetsTheLastSpellingInThePayloadWin(array $payload, string $expected): void
+    public function itKeepsTheFirstSpellingInThePayloadAndReportsTheLaterOne(array $payload, string $expected): void
     {
         // Two spellings of one property in a single payload is a caller mistake rather than a
-        // shape to merge, and the mapper resolves it the way PHP resolves a repeated array key:
-        // the later one in the PAYLOAD wins, whatever order the aliases were declared in.
-        $result = $this->getJsonMapper()->map($payload, TwoAliasHolder::class);
+        // shape to merge. The earlier one in the PAYLOAD is applied whatever order the aliases
+        // were declared in, and the later one is reported instead of silently overwriting it.
+        $result = $this->getJsonMapper()->mapWithReport($payload, TwoAliasHolder::class);
 
-        self::assertInstanceOf(TwoAliasHolder::class, $result);
-        self::assertSame($expected, $result->label);
+        $value = $result->getValue();
+
+        self::assertInstanceOf(TwoAliasHolder::class, $value);
+        self::assertSame($expected, $value->label);
+
+        $errors = $result->getReport()->getErrors();
+
+        self::assertCount(1, $errors);
+        self::assertInstanceOf(AmbiguousPropertyException::class, $errors[0]->getException());
+        self::assertSame(array_keys($payload), $errors[0]->getException()->getPayloadKeys());
     }
 }

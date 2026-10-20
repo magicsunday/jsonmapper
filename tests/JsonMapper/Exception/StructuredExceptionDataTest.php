@@ -13,6 +13,7 @@ namespace MagicSunday\Test\JsonMapper\Exception;
 
 use FilesystemIterator;
 use MagicSunday\JsonMapper;
+use MagicSunday\JsonMapper\Exception\AmbiguousPropertyException;
 use MagicSunday\JsonMapper\Exception\CollectionMappingException;
 use MagicSunday\JsonMapper\Exception\MappingException;
 use MagicSunday\JsonMapper\Exception\MissingConstructorArgumentException;
@@ -91,6 +92,7 @@ final class StructuredExceptionDataTest extends TestCase
         $unknown         = new UnknownPropertyException('$', 'name', Person::class);
         $mismatch        = new TypeMismatchException('$', 'int', 'string');
         $collection      = new CollectionMappingException('$', 'string');
+        $ambiguous       = new AmbiguousPropertyException('$', 'id', Person::class, 'id', 'ID');
 
         return [
             'missing constructor argument' => [
@@ -131,6 +133,14 @@ final class StructuredExceptionDataTest extends TestCase
                     'getPath'         => $mismatch->getPath(...),
                     'getExpectedType' => $mismatch->getExpectedType(...),
                     'getActualType'   => $mismatch->getActualType(...),
+                ],
+            ],
+            'ambiguous property' => [
+                $ambiguous,
+                [
+                    'getPath'         => $ambiguous->getPath(...),
+                    'getPropertyName' => $ambiguous->getPropertyName(...),
+                    'getClassName'    => $ambiguous->getClassName(...),
                 ],
             ],
             'collection mapping' => [

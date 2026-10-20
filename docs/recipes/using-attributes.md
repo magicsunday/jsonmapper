@@ -51,8 +51,8 @@ Both `first_name` and `name` keys populate the `$fullName` property. Declare one
 The attributes are collected into a map keyed by the alias, so their declaration order carries no
 meaning: distinct aliases never compete. Two attributes declaring the *same* alias are a
 redeclaration - the last one wins. If a single payload carries several aliases for one property,
-the last key the payload happens to supply is the one that ends up in the property, so a payload
-should not send more than one alias for the same target.
+the first key the payload supplies is applied and every later one is reported as an
+`AmbiguousPropertyException`, so a payload should not send more than one alias for the same target.
 
 Test coverage: `tests/Attribute/ReplacePropertyTest.php::replaceProperty`.
 
@@ -88,7 +88,7 @@ Mapping `{ "name": "Ada", "age": "36", "city": "London" }` yields `$name = 'Ada'
 * The marked property must be array-typed. Declare at most one collector per class (a second raises an error). A source key that matches the collector property's name is mapped as that declared property, not collected.
 * Key and value are both stored verbatim. A name converter (or a `ReplaceProperty` alias) decides *whether* a key is unknown — `full_name` that camelises onto a declared `fullName` is mapped, not collected — but neither rewrites a key that is unknown: `favourite_colour` is collected as `favourite_colour`, not `favouriteColour`.
 * A payload key PHP canonicalises to an integer (`"42"`, `"0"`) is collected under that integer key, so the map is a faithful copy of the unmapped part of the payload and its keys are `array-key`, not only strings. A class without a collector still skips such a key, like a list handed to a single object. A collector written through a variadic setter receives the map spread into its arguments, so there an integer key becomes a position and loses its number.
-* Two source keys that normalize to the same **declared** property collide, and the last one wins. Two **collected** keys cannot collide — they keep their distinct original spellings, so a converter that would once have merged them no longer loses either.
+* Two source keys that normalize to the same **declared** property collide. The first one is applied and the later one is reported as an `AmbiguousPropertyException`. Two **collected** keys cannot collide. They keep their distinct original spellings, so a converter that would once have merged them no longer loses either.
 
 Test coverage: `tests/Attribute/UnknownPropertyCollectorTest.php`.
 

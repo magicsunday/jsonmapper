@@ -169,6 +169,7 @@ string parsed:
 | Exception | Accessors beyond `getPath()` |
 |-----------|------------------------------|
 | `UnknownPropertyException` | `getPropertyName()`, `getClassName()` |
+| `AmbiguousPropertyException` | `getPropertyName()`, `getClassName()`, `getPayloadKeys()` |
 | `MissingPropertyException` | `getPropertyName()`, `getClassName()` |
 | `MissingConstructorArgumentException` | `getArgumentName()`, `getClassName()` |
 | `ReadonlyPropertyException` | `getPropertyName()`, `getClassName()` |

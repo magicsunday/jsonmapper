@@ -10,10 +10,20 @@ Conversion is idempotent for any name that can be a PHP property identifier: run
 
 > **Several spellings can name one property.** Because case and separators are folded, `id`, `ID`,
 > `Id` and (with the default converter) `user_id`/`userId` all resolve to the same property. Two of
-> them in one payload is a last-one-wins overwrite in payload order, and a key you rejected or
-> inspected *before* mapping — an exact-key denylist, `unset($payload['role'])`, a validator reading
-> `$payload['amount']` — does **not** see the other spellings. Run any security-relevant key check on
-> the **converted** name, not on the raw payload key.
+> them in one payload are reported as an `AmbiguousPropertyException` at the property, which names
+> the applied key and the rejected one. The first spelling in payload order is applied and every
+> later one is not, even when the first one's own value is rejected. A strict `map()` raises on it,
+> `mapWithReport()` lists it, and a lenient `map()` drops the record. Inside a nullable or
+> union-typed object property the record surfaces as a type mismatch of that property, like every
+> other failure recorded there.
+>
+> A key you rejected or inspected *before* mapping (an exact-key denylist,
+> `unset($payload['role'])`, a validator reading `$payload['amount']`) still does **not** see the
+> other spellings. Run any security-relevant key check on the **converted** name, not on the raw
+> payload key. Neither a strict `map()` nor a look at the report makes a raw check sound. Both
+> only surface a payload that carries two spellings of one property, never one that carries a
+> single alternate spelling, and a report that reached its error ceiling drops later failures
+> (see `isTruncated()`).
 
 ```php
 <?php
