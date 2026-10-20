@@ -31,7 +31,8 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
 * Be mindful of memory usage when working with collections; avoid blindly materialising huge iterables.
 * All failures raise domain exceptions deriving from `MappingException` (`TypeMismatchException`,
   `MissingPropertyException`, `MissingConstructorArgumentException`, `ReadonlyPropertyException`,
-  `UnknownPropertyException`, `AmbiguousPropertyException`, `CollectionMappingException`); never
+  `UnknownPropertyException`, `AmbiguousPropertyException`, `CollectionMappingException`,
+  `DepthLimitExceededException`); never
   fall back to `trigger_error()` or `var_dump()`, and never let a native error (`TypeError`,
   `ValueError`, `ArgumentCountError`) escape - it bypasses error collection entirely.
 * Transformations must remain pure and stateless. No singletons or global state.
@@ -212,6 +213,23 @@ Guide for LLM-based assistants (Codex/Copilot/ChatGPT, etc.) working in this rep
   property metadata, or from a docblock - never from a value the payload supplied. The one place a
   consumer can break that is a class-map resolver, whose input IS the payload, so its documentation
   carries the warning and it accepts an allowlist that enforces what the warning asks for.
+* How deep a payload may nest is the payload's to decide, so the mapper decides it instead. Every
+  step of a path, a property or a collection element and the scalar at the end of a chain included,
+  goes through `MappingContext::withPathSegment()`, which refuses a step beyond the configured limit
+  with a `DepthLimitExceededException`. That is the bound on how the cost of a failing chain grows
+  with its depth: a failure builds an exception whose stack trace is as deep as its level, so the
+  failures of a chain of levels cost memory that grows with the square of the depth, whatever
+  ceiling the report has. A new site that descends into the payload without that method escapes the
+  limit. It does not bound the work a union does when its members nest in each other. A union trial
+  keeps a depth failure as the failure of the union, however the other members fail, and does not
+  relabel it a type mismatch of a member. After a depth failure it leaves out the members that
+  follow and go into the payload level by level, which are an object, a collection whose values do
+  and a union with such a member, and still tries a scalar or an untyped array. That trades an
+  alternative that would have taken the payload within the limit against work that doubles per
+  level for members nested in each other. The context counts refusals itself for that, because
+  the record of one can be refused by a full trial window or taken back with a rejected member. A
+  trial that matches forgets the refusals it saw, since they belong to members it rejected and must
+  not be blamed on a failure of the union around it.
 * Never rely on the silence operator, `trigger_error()`, or debugging prints.
 * Partial updates must leave already mapped state consistent when errors occur.
 * Mapping is deterministic: the same payload and configuration produce the same result on every

@@ -43,6 +43,7 @@ final class JsonMapperConfiguration
      * @param bool   $allowScalarToObjectCasting Whether scalars can be coerced into objects when supported
      * @param string $defaultTimezone            Timezone applied to date formats that carry none of their own
      * @param int    $maxErrors                  How many failures a report keeps before it starts counting what it drops
+     * @param int    $maxDepth                   How deep a payload may nest before a level is refused
      */
     public function __construct(
         private bool $strictMode = false,
@@ -54,10 +55,17 @@ final class JsonMapperConfiguration
         private bool $allowScalarToObjectCasting = false,
         private string $defaultTimezone = self::DEFAULT_TIMEZONE,
         private int $maxErrors = MappingContext::DEFAULT_MAX_ERRORS,
+        private int $maxDepth = MappingContext::DEFAULT_MAX_DEPTH,
     ) {
         if ($maxErrors < 1) {
             throw new InvalidArgumentException(
                 sprintf('The ceiling for collected errors must be at least 1, %d given.', $maxErrors),
+            );
+        }
+
+        if ($maxDepth < 1) {
+            throw new InvalidArgumentException(
+                sprintf('The limit for the nesting depth must be at least 1, %d given.', $maxDepth),
             );
         }
     }
@@ -128,6 +136,7 @@ final class JsonMapperConfiguration
         }
 
         $maxErrors = MappingContext::normaliseMaxErrors($data['maxErrors'] ?? null);
+        $maxDepth  = MappingContext::normaliseMaxDepth($data['maxDepth'] ?? null);
 
         return new self(
             (bool) ($data['strictMode'] ?? false),
@@ -139,6 +148,7 @@ final class JsonMapperConfiguration
             (bool) ($data['allowScalarToObjectCasting'] ?? false),
             $defaultTimezone,
             $maxErrors,
+            $maxDepth,
         );
     }
 
@@ -168,6 +178,7 @@ final class JsonMapperConfiguration
             $context->shouldAllowScalarToObjectCasting(),
             $context->getDefaultTimezone(),
             $context->getMaxErrors(),
+            $context->getMaxDepth(),
         );
     }
 
@@ -188,6 +199,7 @@ final class JsonMapperConfiguration
             'allowScalarToObjectCasting' => $this->allowScalarToObjectCasting,
             'defaultTimezone'            => $this->defaultTimezone,
             'maxErrors'                  => $this->maxErrors,
+            'maxDepth'                   => $this->maxDepth,
         ];
     }
 
@@ -208,6 +220,7 @@ final class JsonMapperConfiguration
             MappingContext::OPTION_ALLOW_SCALAR_TO_OBJECT_CASTING => $this->allowScalarToObjectCasting,
             MappingContext::OPTION_DEFAULT_TIMEZONE               => $this->defaultTimezone,
             MappingContext::OPTION_MAX_ERRORS                     => $this->maxErrors,
+            MappingContext::OPTION_MAX_DEPTH                      => $this->maxDepth,
         ];
     }
 
@@ -412,6 +425,7 @@ final class JsonMapperConfiguration
             $this->allowScalarToObjectCasting,
             $this->defaultTimezone,
             $maxErrors,
+            $this->maxDepth,
         );
     }
 
@@ -423,6 +437,47 @@ final class JsonMapperConfiguration
     public function getMaxErrors(): int
     {
         return $this->maxErrors;
+    }
+
+    /**
+     * Returns a copy with a different limit for the nesting depth of a payload.
+     *
+     * A level is one step of the path, a property or a collection element. A level beyond the limit
+     * is not mapped but refused with a {@see \MagicSunday\JsonMapper\Exception\DepthLimitExceededException}.
+     * The limit bounds what a payload can make a mapping run cost, because the cost of the failures
+     * of a deeply nested payload grows faster than its depth.
+     *
+     * @param int $maxDepth Number of levels to accept, at least one
+     *
+     * @return self Cloned configuration using the provided limit
+     *
+     * @throws InvalidArgumentException When the limit is below one
+     */
+    public function withMaxDepth(int $maxDepth): self
+    {
+        // Built through the constructor for the same reason as withMaxErrors().
+        return new self(
+            $this->strictMode,
+            $this->collectErrors,
+            $this->emptyStringIsNull,
+            $this->ignoreUnknownProperties,
+            $this->treatNullAsEmptyCollection,
+            $this->defaultDateFormat,
+            $this->allowScalarToObjectCasting,
+            $this->defaultTimezone,
+            $this->maxErrors,
+            $maxDepth,
+        );
+    }
+
+    /**
+     * Returns the nesting depth a payload may reach.
+     *
+     * @return int Limit for the levels of a payload
+     */
+    public function getMaxDepth(): int
+    {
+        return $this->maxDepth;
     }
 
     /**

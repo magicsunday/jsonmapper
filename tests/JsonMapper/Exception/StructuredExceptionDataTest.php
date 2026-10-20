@@ -15,6 +15,7 @@ use FilesystemIterator;
 use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Exception\AmbiguousPropertyException;
 use MagicSunday\JsonMapper\Exception\CollectionMappingException;
+use MagicSunday\JsonMapper\Exception\DepthLimitExceededException;
 use MagicSunday\JsonMapper\Exception\MappingException;
 use MagicSunday\JsonMapper\Exception\MissingConstructorArgumentException;
 use MagicSunday\JsonMapper\Exception\MissingPropertyException;
@@ -82,7 +83,7 @@ final class StructuredExceptionDataTest extends TestCase
      * Each accessor is given as a named closure rather than a method name: calling it is what
      * proves a consumer can reach the value, and it keeps the call statically checkable.
      *
-     * @return array<string, array{MappingException, array<string, callable(): string>}>
+     * @return array<string, array{MappingException, array<string, callable(): (int|string)>}>
      */
     public static function structuredAccessorProvider(): array
     {
@@ -93,6 +94,7 @@ final class StructuredExceptionDataTest extends TestCase
         $mismatch        = new TypeMismatchException('$', 'int', 'string');
         $collection      = new CollectionMappingException('$', 'string');
         $ambiguous       = new AmbiguousPropertyException('$', 'id', Person::class, 'id', 'ID');
+        $depth           = new DepthLimitExceededException('$.a.b', 1);
 
         return [
             'missing constructor argument' => [
@@ -150,12 +152,19 @@ final class StructuredExceptionDataTest extends TestCase
                     'getActualType' => $collection->getActualType(...),
                 ],
             ],
+            'depth limit' => [
+                $depth,
+                [
+                    'getPath'  => $depth->getPath(...),
+                    'getLimit' => $depth->getLimit(...),
+                ],
+            ],
         ];
     }
 
     /**
-     * @param MappingException                  $exception Exception under inspection
-     * @param array<string, callable(): string> $accessors Accessors a consumer must be able to use
+     * @param MappingException                        $exception Exception under inspection
+     * @param array<string, callable(): (int|string)> $accessors Accessors a consumer must be able to use
      */
     #[Test]
     #[DataProvider('structuredAccessorProvider')]

@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace MagicSunday\JsonMapper\Context;
 
 use DateTimeInterface;
+use MagicSunday\JsonMapper\Exception\DepthLimitExceededException;
 use MagicSunday\JsonMapper\Exception\MappingException;
 use MagicSunday\JsonMapper\Exception\MissingConstructorArgumentException;
 use MagicSunday\JsonMapper\Exception\MissingPropertyException;
@@ -85,6 +86,21 @@ final class MappingContext
     public const int DEFAULT_MAX_ERRORS = 1000;
 
     /**
+     * How deep a payload may nest.
+     *
+     * A failure builds an exception whose stack trace is as deep as the level it was raised at, and
+     * a kept record holds that exception, so a chain of failing levels costs memory that grows with
+     * the square of the depth. The limit is what the payload cannot decide: a level beyond it is
+     * refused with a failure of its own instead of being mapped.
+     */
+    public const string OPTION_MAX_DEPTH = 'max_depth';
+
+    /**
+     * Nesting depth accepted when the option names none.
+     */
+    public const int DEFAULT_MAX_DEPTH = 64;
+
+    /**
      * Timezone assumed for a zoneless date format. UTC rather than the host default, so that the
      * same payload yields the same instant wherever it is mapped.
      */
@@ -104,6 +120,21 @@ final class MappingContext
      * Number of failures that were not kept because the ceiling had been reached.
      */
     private int $droppedErrors = 0;
+
+    /**
+     * Number of levels refused for being deeper than the limit that no matched union trial has
+     * taken back, see {@see forgetDepthFailuresSince()}.
+     *
+     * Counted apart from the records because a record can be refused by a full window or taken back
+     * with a rejected union member, while the decision a union trial takes on a depth failure has to
+     * hold whatever became of the record.
+     */
+    private int $depthFailureCount = 0;
+
+    /**
+     * The latest refusal for being deeper than the limit.
+     */
+    private ?DepthLimitExceededException $lastDepthFailure = null;
 
     /**
      * Number of records an open trial window may hold, null outside one.
@@ -159,12 +190,23 @@ final class MappingContext
      * @param callable(self):mixed $callback Callback executed while the segment is in place
      *
      * @return mixed Result produced by the callback
+     *
+     * @throws DepthLimitExceededException When the segment makes the path deeper than the limit
      */
     public function withPathSegment(string|int $segment, callable $callback): mixed
     {
         $this->pathSegments[] = (string) $segment;
 
         try {
+            $maxDepth = $this->getMaxDepth();
+
+            if (count($this->pathSegments) > $maxDepth) {
+                $this->lastDepthFailure = new DepthLimitExceededException($this->getPath(), $maxDepth);
+                ++$this->depthFailureCount;
+
+                throw $this->lastDepthFailure;
+            }
+
             return $callback($this);
         } finally {
             array_pop($this->pathSegments);
@@ -590,13 +632,108 @@ final class MappingContext
      */
     public static function normaliseMaxErrors(mixed $value): int
     {
+        return self::normalisePositiveInteger($value, self::DEFAULT_MAX_ERRORS);
+    }
+
+    /**
+     * Reads a setting that has to be a whole number of at least one.
+     *
+     * @param mixed $value   Value read from a configuration array or an option bag
+     * @param int   $default Value used when the setting is unusable
+     *
+     * @return int The number, or the default
+     */
+    private static function normalisePositiveInteger(mixed $value, int $default): int
+    {
         if (!is_int($value) && !is_string($value)) {
-            return self::DEFAULT_MAX_ERRORS;
+            return $default;
         }
 
-        $ceiling = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $number = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 
-        return ($ceiling === false) ? self::DEFAULT_MAX_ERRORS : $ceiling;
+        return ($number === false) ? $default : $number;
+    }
+
+    /**
+     * Returns the latest depth failure, provided one happened after the given count was read.
+     *
+     * @param int $countBefore Value of {@see getDepthFailureCount()} read before the work in question
+     *
+     * @return DepthLimitExceededException|null The failure, or NULL when no level was refused since
+     */
+    public function getDepthFailureSince(int $countBefore): ?DepthLimitExceededException
+    {
+        return ($this->depthFailureCount > $countBefore) ? $this->lastDepthFailure : null;
+    }
+
+    /**
+     * Takes back the depth failures counted after the given state was read.
+     *
+     * A union trial that found a member to use calls this, because the levels refused while it
+     * tried the others belong to members it rejected. Left in place, an enclosing trial would blame
+     * them for a failure that has another cause. The count and the failure kept for it go back
+     * together: a count alone would leave the failure of a taken-back trial to be returned for one
+     * that came before it.
+     *
+     * @param int                              $countBefore Value of {@see getDepthFailureCount()} read before the trial began
+     * @param DepthLimitExceededException|null $lastBefore  Value of {@see getLastDepthFailure()} read at the same time
+     *
+     * @return void
+     */
+    public function forgetDepthFailuresSince(int $countBefore, ?DepthLimitExceededException $lastBefore): void
+    {
+        if ($this->depthFailureCount > $countBefore) {
+            $this->depthFailureCount = $countBefore;
+            $this->lastDepthFailure  = $lastBefore;
+        }
+    }
+
+    /**
+     * Returns the latest depth failure that no matched union trial has taken back.
+     *
+     * @return DepthLimitExceededException|null The failure, or NULL when no level was refused
+     */
+    public function getLastDepthFailure(): ?DepthLimitExceededException
+    {
+        return $this->lastDepthFailure;
+    }
+
+    /**
+     * Returns how many levels were refused for being deeper than the limit so far.
+     *
+     * @return int Number of refusals not taken back yet, to be compared only with a value read earlier in the same trial
+     */
+    public function getDepthFailureCount(): int
+    {
+        return $this->depthFailureCount;
+    }
+
+    /**
+     * Returns how deep a payload may nest.
+     *
+     * @return int Number of path levels accepted, never below one
+     */
+    public function getMaxDepth(): int
+    {
+        return self::normaliseMaxDepth($this->options[self::OPTION_MAX_DEPTH] ?? null);
+    }
+
+    /**
+     * Turns a configured depth limit into a usable one.
+     *
+     * Read by the same rule as {@see normaliseMaxErrors()}: an integer, or a string of decimal
+     * digits, of at least one is taken as it is, anything else falls back to the default rather
+     * than to zero, which would refuse every level.
+     *
+     * @internal
+     *
+     * @param mixed $value Value read from a configuration array or an option bag
+     *
+     * @return int Limit of at least one
+     */
+    public static function normaliseMaxDepth(mixed $value): int
+    {
+        return self::normalisePositiveInteger($value, self::DEFAULT_MAX_DEPTH);
     }
 
     /**

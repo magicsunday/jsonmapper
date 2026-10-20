@@ -170,6 +170,8 @@ final class DocsApiReferenceTest extends TestCase
             JsonMapperConfiguration::class . '::withErrorCollection',
             JsonMapperConfiguration::class . '::lenient',
             JsonMapperConfiguration::class . '::withMaxErrors',
+            JsonMapperConfiguration::class . '::lenient',
+            JsonMapperConfiguration::class . '::withMaxDepth',
             JsonMapperConfiguration::class . '::strict',
             JsonMapperConfiguration::class . '::lenient',
         ],

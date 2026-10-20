@@ -14,6 +14,7 @@ namespace MagicSunday\Test\JsonMapper\Context;
 use MagicSunday\JsonMapper;
 use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Context\MappingError;
+use MagicSunday\JsonMapper\Exception\DepthLimitExceededException;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\CoversNamespace;
@@ -153,6 +154,61 @@ final class MappingContextTest extends TestCase
         $this->expectException(TypeMismatchException::class);
 
         $context->throwOrRecord(new TypeMismatchException('$.value', 'int', 'string'));
+    }
+
+    #[Test]
+    public function itFallsBackToTheDefaultDepthLimitForAnUnusableOption(): void
+    {
+        foreach ([0, -1, 'many', 1.5, null, true] as $unusable) {
+            self::assertSame(
+                MappingContext::DEFAULT_MAX_DEPTH,
+                (new MappingContext(['root'], [MappingContext::OPTION_MAX_DEPTH => $unusable]))->getMaxDepth(),
+            );
+        }
+
+        self::assertSame(7, (new MappingContext(['root'], [MappingContext::OPTION_MAX_DEPTH => '7']))->getMaxDepth());
+    }
+
+    #[Test]
+    public function itReportsADepthFailureOnlyWhenOneHappenedSinceTheCountWasRead(): void
+    {
+        $context = new MappingContext(['root'], [MappingContext::OPTION_MAX_DEPTH => 1]);
+
+        try {
+            $context->withPathSegment('a', static function (MappingContext $inner): void {
+                $inner->withPathSegment('b', static function (): void {
+                });
+            });
+        } catch (DepthLimitExceededException $refused) {
+            $countAfterRefusal = $context->getDepthFailureCount();
+
+            self::assertSame(1, $countAfterRefusal);
+            self::assertSame($refused, $context->getDepthFailureSince(0));
+            self::assertNotInstanceOf(
+                DepthLimitExceededException::class,
+                $context->getDepthFailureSince($countAfterRefusal),
+                'A refusal from before the count was read is not one that happened since.',
+            );
+        }
+    }
+
+    #[Test]
+    public function itForgetsTheDepthFailuresOfAFinishedTrial(): void
+    {
+        $context = new MappingContext(['root'], [MappingContext::OPTION_MAX_DEPTH => 1]);
+
+        try {
+            $context->withPathSegment('a', static function (MappingContext $inner): void {
+                $inner->withPathSegment('b', static function (): void {
+                });
+            });
+        } catch (DepthLimitExceededException) {
+        }
+
+        $context->forgetDepthFailuresSince(0, null);
+
+        self::assertSame(0, $context->getDepthFailureCount());
+        self::assertNotInstanceOf(DepthLimitExceededException::class, $context->getDepthFailureSince(0));
     }
 
     #[Test]

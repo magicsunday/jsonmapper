@@ -21,6 +21,7 @@ use MagicSunday\JsonMapper\Context\MappingContext;
 use MagicSunday\JsonMapper\Converter\PropertyNameConverterInterface;
 use MagicSunday\JsonMapper\Exception\AmbiguousPropertyException;
 use MagicSunday\JsonMapper\Exception\CollectionMappingException;
+use MagicSunday\JsonMapper\Exception\DepthLimitExceededException;
 use MagicSunday\JsonMapper\Exception\MappingException;
 use MagicSunday\JsonMapper\Exception\MissingConstructorArgumentException;
 use MagicSunday\JsonMapper\Exception\MissingPropertyException;
@@ -703,6 +704,7 @@ final readonly class JsonMapper
      *
      * @return object Instantiated and populated object that represents the mapped payload.
      *
+     * @throws DepthLimitExceededException         When the nesting depth limit is exceeded.
      * @throws MissingConstructorArgumentException When a required, non-nullable argument has no value and no default.
      * @throws TypeMismatchException               When the value does not match the declared type.
      */
@@ -746,6 +748,8 @@ final readonly class JsonMapper
      *
      * @return array{0: array<string, mixed>, 1: list<string>} Converted values by property, and the
      *                                                         names actually mapped.
+     *
+     * @throws DepthLimitExceededException When the nesting depth limit is exceeded.
      */
     private function collectConvertedValues(
         array $source,
@@ -919,6 +923,8 @@ final readonly class JsonMapper
      * @param MappingContext $context           Active mapping context.
      *
      * @return void
+     *
+     * @throws DepthLimitExceededException When the nesting depth limit is exceeded.
      */
     private function reportMissingProperties(
         string $resolvedClassName,
@@ -954,6 +960,7 @@ final readonly class JsonMapper
      *
      * @return object The built and populated object.
      *
+     * @throws DepthLimitExceededException         When the nesting depth limit is exceeded.
      * @throws MissingConstructorArgumentException When a required, non-nullable argument has no value and no default.
      * @throws TypeMismatchException               When the value does not match the declared type.
      */
@@ -1388,17 +1395,34 @@ final readonly class JsonMapper
         MappingContext $context,
         ?MappingException &$lastException,
     ): array {
+        $depthFailure     = null;
+        $depthCountBefore = $context->getDepthFailureCount();
+        $depthLastBefore  = $context->getLastDepthFailure();
+
         foreach ($this->orderUnionCandidatesByExactMatch($type, $json) as $candidate) {
-            $errorCount     = $context->getErrorCount();
-            $refusedCount   = $context->getTrialRefusedCount();
-            $refusedFailure = $context->getTrialRefusedFailureCount();
+            // A further member that descends the same payload meets the same limit, so trying it only
+            // repeats the work, and with members that nest in each other the repeats multiply per
+            // level. A member that takes the payload as a scalar or as a collection of such goes on,
+            // it may accept what the others could not reach.
+            if (($depthFailure instanceof DepthLimitExceededException) && $this->descendsIntoPayload($candidate)) {
+                continue;
+            }
+
+            $errorCount          = $context->getErrorCount();
+            $refusedCount        = $context->getTrialRefusedCount();
+            $refusedFailure      = $context->getTrialRefusedFailureCount();
+            $depthFailuresBefore = $context->getDepthFailureCount();
 
             try {
                 $candidateValue = $this->convertValue($json, $candidate, $context);
             } catch (MappingException $exception) {
                 $context->trimErrors($errorCount);
                 $context->restoreTrialRefusals($refusedCount, $refusedFailure);
-                $lastException = $exception;
+
+                // Kept as the failure of the union when a level was refused, however the member
+                // failed afterwards, so the report names the limit and not a type that was never wrong.
+                $depthFailure  = $context->getDepthFailureSince($depthFailuresBefore) ?? $depthFailure;
+                $lastException = $depthFailure ?? $exception;
 
                 continue;
             }
@@ -1407,7 +1431,8 @@ final readonly class JsonMapper
                 $context->trimErrors($errorCount);
                 $context->restoreTrialRefusals($refusedCount, $refusedFailure);
 
-                $lastException = new TypeMismatchException(
+                $depthFailure  = $context->getDepthFailureSince($depthFailuresBefore) ?? $depthFailure;
+                $lastException = $depthFailure ?? new TypeMismatchException(
                     $context->getPath(),
                     $this->describeType($candidate),
                     get_debug_type($json),
@@ -1416,10 +1441,44 @@ final readonly class JsonMapper
                 continue;
             }
 
+            // The levels refused on the way belong to the members that were rejected.
+            $context->forgetDepthFailuresSince($depthCountBefore, $depthLastBefore);
+
             return [true, $candidateValue];
         }
 
         return [false, null];
+    }
+
+    /**
+     * Reports whether a member of a union goes into the payload level by level.
+     *
+     * An object does, a collection does when its values do, and a union does when one of its members
+     * does. A scalar, an untyped array and a collection of such take what they are given as it is.
+     *
+     * @param Type $candidate Member of a union
+     *
+     * @return bool TRUE when converting against it can meet the nesting depth limit
+     */
+    private function descendsIntoPayload(Type $candidate): bool
+    {
+        if ($candidate instanceof ObjectType) {
+            return true;
+        }
+
+        if ($candidate instanceof CollectionType) {
+            return $this->descendsIntoPayload($candidate->getCollectionValueType());
+        }
+
+        if ($candidate instanceof UnionType) {
+            foreach ($candidate->getTypes() as $member) {
+                if ($this->descendsIntoPayload($member)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1684,6 +1743,7 @@ final readonly class JsonMapper
      *
      * @return array{0: object, 1: array<string, true>} The constructed object and the consumed argument names.
      *
+     * @throws DepthLimitExceededException         When the nesting depth limit is exceeded.
      * @throws MissingConstructorArgumentException When a required, non-nullable argument has no value and no default.
      * @throws TypeMismatchException               When an argument violates its parameter declaration and the run aborts on the first failure.
      */
@@ -1776,7 +1836,8 @@ final readonly class JsonMapper
      *
      * @return bool TRUE when the value was refused and recorded, so the caller must not pass it on
      *
-     * @throws TypeMismatchException When the run aborts on the first failure.
+     * @throws DepthLimitExceededException When the nesting depth limit is exceeded.
+     * @throws TypeMismatchException       When the run aborts on the first failure.
      */
     private function refusedArgument(
         ReflectionParameter $parameter,

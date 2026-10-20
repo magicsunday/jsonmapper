@@ -128,11 +128,13 @@ final class JsonMapperConfigurationTest extends TestCase
             MappingContext::OPTION_ALLOW_SCALAR_TO_OBJECT_CASTING => true,
             MappingContext::OPTION_DEFAULT_TIMEZONE               => 'Asia/Tokyo',
             MappingContext::OPTION_MAX_ERRORS                     => 25,
+            MappingContext::OPTION_MAX_DEPTH                      => 12,
         ]);
 
         $configuration = JsonMapperConfiguration::fromContext($context);
 
         self::assertSame(25, $configuration->getMaxErrors());
+        self::assertSame(12, $configuration->getMaxDepth());
 
         self::assertTrue($configuration->isStrictMode());
         self::assertFalse($configuration->shouldCollectErrors());
@@ -152,6 +154,7 @@ final class JsonMapperConfigurationTest extends TestCase
             MappingContext::OPTION_ALLOW_SCALAR_TO_OBJECT_CASTING => true,
             MappingContext::OPTION_DEFAULT_TIMEZONE               => 'Asia/Tokyo',
             MappingContext::OPTION_MAX_ERRORS                     => 25,
+            MappingContext::OPTION_MAX_DEPTH                      => 12,
         ], $configuration->toOptions());
     }
 
