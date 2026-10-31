@@ -107,7 +107,21 @@ final class CoverageGateTest extends TestCase
     #[DataProvider('thresholdArgumentProvider')]
     public function gateExitCodeFollowsThreshold(array $thresholdArguments, int $expectedExitCode): void
     {
-        self::assertSame($expectedExitCode, $this->runGate([$this->cloverPath, ...$thresholdArguments]));
+        self::assertSame($expectedExitCode, $this->runGate([$this->cloverPath, ...$thresholdArguments])['exitCode']);
+    }
+
+    /**
+     * A missing threshold ends with the usage message on stderr and nothing else, so no PHP
+     * warning or notice about an absent argument reaches the output of the gate.
+     */
+    #[Test]
+    public function gateReportsMissingThresholdWithCleanOutput(): void
+    {
+        $result = $this->runGate([$this->cloverPath]);
+
+        self::assertSame(2, $result['exitCode']);
+        self::assertSame('', $result['stdout']);
+        self::assertSame("Coverage threshold must be numeric, got: <missing argument>\n", $result['stderr']);
     }
 
     /**
@@ -116,17 +130,17 @@ final class CoverageGateTest extends TestCase
     #[Test]
     public function gateRejectsMissingReport(): void
     {
-        self::assertSame(2, $this->runGate([$this->cloverPath . '.missing', '90']));
+        self::assertSame(2, $this->runGate([$this->cloverPath . '.missing', '90'])['exitCode']);
     }
 
     /**
-     * Runs the gate script in a separate PHP process and returns its exit code.
+     * Runs the gate script in a separate PHP process and returns its exit code and both output streams.
      *
      * @param list<string> $arguments Arguments to pass to the gate script
      *
-     * @return int
+     * @return array{exitCode: int, stdout: string, stderr: string}
      */
-    private function runGate(array $arguments): int
+    private function runGate(array $arguments): array
     {
         $process = proc_open(
             [PHP_BINARY, dirname(__DIR__) . '/.github/scripts/coverage-gate.php', ...$arguments],
@@ -136,9 +150,16 @@ final class CoverageGateTest extends TestCase
 
         self::assertTrue(is_resource($process));
 
-        stream_get_contents($pipes[1]);
-        stream_get_contents($pipes[2]);
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
 
-        return proc_close($process);
+        self::assertIsString($stdout);
+        self::assertIsString($stderr);
+
+        return [
+            'exitCode' => proc_close($process),
+            'stdout'   => $stdout,
+            'stderr'   => $stderr,
+        ];
     }
 }
