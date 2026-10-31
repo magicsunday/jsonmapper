@@ -52,6 +52,7 @@ use ReflectionException;
 use ReflectionMethod;
 use ReflectionParameter;
 use ReflectionProperty;
+use ReflectionType;
 use Symfony\Component\PropertyAccess\Exception\InvalidTypeException;
 use Symfony\Component\PropertyAccess\PropertyAccess;
 use Symfony\Component\PropertyAccess\PropertyAccessorInterface;
@@ -296,12 +297,9 @@ final readonly class JsonMapper
      * $allowedTargets drops the list the earlier registration carried, since a list written for one
      * closure must not outlive it. Registration order therefore decides what is enforced.
      *
-     * @param class-string                                                                         $className      Fully qualified class name that should be resolved dynamically.
-     * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string|class-string $closure        Closure returning the concrete class for the value, or a plain class-string to map to unconditionally.
-     * @param list<string>|null                                                                    $allowedTargets Classes the closure may return; null leaves it unrestricted. Only meaningful for a closure - a static class-string target has no payload-derived choice to constrain.
-     *
-     * @phpstan-param class-string $className
-     * @phpstan-param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string|class-string $closure
+     * @param list<string>|null                                                                      $allowedTargets Classes the closure may return; null leaves it unrestricted. Only meaningful for a closure - a static class-string target has no payload-derived choice to constrain.
+     * @param class-string                                                                           $className      Fully qualified class name that should be resolved dynamically.
+     * @param Closure(mixed): class-string|Closure(mixed, MappingContext): class-string|class-string $closure        Closure returning the concrete class for the value, or a plain class-string to map to unconditionally.
      *
      * @return JsonMapper Returns the mapper instance for fluent configuration.
      *
@@ -1136,7 +1134,7 @@ final readonly class JsonMapper
     ): void {
         $constructor = (new ReflectionClass($className))->getConstructor();
 
-        if ($constructor === null) {
+        if (!$constructor instanceof ReflectionMethod) {
             return;
         }
 
@@ -1850,7 +1848,7 @@ final readonly class JsonMapper
 
         // An undeclared parameter constrains nothing, and saying so here rather than leaning on the
         // matcher's own answer is what lets the report below name a type unconditionally.
-        if ($declaredType === null) {
+        if (!$declaredType instanceof ReflectionType) {
             return false;
         }
 
