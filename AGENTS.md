@@ -361,7 +361,7 @@ the fix and watching the test fail is the way to show it.
 ## 8) Definition of Done (DoD)
 
 * ✅ PHPUnit green (positive & negative cases covered).
-* ✅ **Coverage guardrail holds** — machine-enforced in CI by the `coverage` job via
+* ✅ **Coverage guardrail holds**, machine-enforced in CI by the `coverage` job via
   `composer ci:test:php:coverage:gate`, which runs `ci:test:php:unit:coverage` and fails the build
   when line coverage drops below the value in `.github/coverage-threshold`. The value is a
   guardrail against a large unnoticed loss, not a target. It sits clearly below the measured

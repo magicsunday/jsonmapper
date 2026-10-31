@@ -39,8 +39,14 @@ use const PHP_BINARY;
 #[CoversNothing]
 final class CoverageGateTest extends TestCase
 {
+    /**
+     * Path of the temporary clover report that every test case feeds to the gate.
+     */
     private string $cloverPath = '';
 
+    /**
+     * Writes a clover report with a fixed covered-statement ratio for the gate to read.
+     */
     protected function setUp(): void
     {
         parent::setUp();
@@ -57,6 +63,9 @@ final class CoverageGateTest extends TestCase
         );
     }
 
+    /**
+     * Removes the temporary clover report.
+     */
     protected function tearDown(): void
     {
         if (is_file($this->cloverPath)) {
@@ -67,27 +76,32 @@ final class CoverageGateTest extends TestCase
     }
 
     /**
+     * Provides the threshold arguments to hand to the gate together with the exit code it must end with.
+     *
      * @return array<string, array{0: list<string>, 1: int}>
      */
     public static function thresholdArgumentProvider(): array
     {
         return [
-            'threshold missing'           => [[], 2],
-            'threshold empty'             => [[''], 2],
-            'threshold not numeric'       => [['abc'], 2],
-            'threshold above one hundred' => [['100.5'], 2],
-            'threshold below zero'        => [['-1'], 2],
-            'ratio below threshold'       => [['97'], 1],
-            'ratio at threshold'          => [['96'], 0],
-            'ratio above threshold'       => [['90'], 0],
+            'threshold missing'             => [[], 2],
+            'threshold empty'               => [[''], 2],
+            'threshold not numeric'         => [['abc'], 2],
+            'threshold above one hundred'   => [['100.5'], 2],
+            'threshold exactly one hundred' => [['100'], 1],
+            'threshold exactly zero'        => [['0'], 0],
+            'threshold below zero'          => [['-1'], 2],
+            'ratio below threshold'         => [['97'], 1],
+            'ratio at threshold'            => [['96'], 0],
+            'ratio above threshold'         => [['90'], 0],
         ];
     }
 
     /**
      * A missing, empty, non-numeric or out-of-range threshold is a usage error and never an
-     * always-pass, while a valid one is compared with the ratio of the report (96 percent).
+     * always-pass, while a valid one is compared with the ratio of the report fixture.
      *
-     * @param list<string> $thresholdArguments
+     * @param list<string> $thresholdArguments Arguments that follow the report path on the command line
+     * @param int          $expectedExitCode   Exit code the gate must end with
      */
     #[Test]
     #[DataProvider('thresholdArgumentProvider')]
@@ -106,7 +120,11 @@ final class CoverageGateTest extends TestCase
     }
 
     /**
-     * @param list<string> $arguments
+     * Runs the gate script in a separate PHP process and returns its exit code.
+     *
+     * @param list<string> $arguments Arguments to pass to the gate script
+     *
+     * @return int
      */
     private function runGate(array $arguments): int
     {
