@@ -24,7 +24,7 @@ declare(strict_types=1);
 $cloverPath = $argv[1] ?? '';
 
 // A non-numeric threshold argument would coerce to 0.0 and silently turn the gate into an
-// always-pass, defeating its purpose without any signal. Reject it - and anything outside 0-100 -
+// always-pass, defeating its purpose without any signal. Reject it, and anything outside 0-100,
 // as a usage error rather than let a misconfiguration disable the gate.
 if (!isset($argv[2]) || !is_numeric($argv[2])) {
     fwrite(\STDERR, sprintf("Coverage threshold must be numeric, got: %s\n", $argv[2] ?? '<missing argument>'));
