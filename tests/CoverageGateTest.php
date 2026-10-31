@@ -1,0 +1,165 @@
+<?php
+
+/**
+ * This file is part of the package magicsunday/jsonmapper.
+ *
+ * For the full copyright and license information, please read the
+ * LICENSE file that was distributed with this source code.
+ */
+
+declare(strict_types=1);
+
+namespace MagicSunday\Test;
+
+use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Test;
+
+use function dirname;
+use function file_put_contents;
+use function is_file;
+use function is_resource;
+use function proc_close;
+use function proc_open;
+use function stream_get_contents;
+use function sys_get_temp_dir;
+use function tempnam;
+use function unlink;
+
+use const PHP_BINARY;
+
+/**
+ * Tests that the coverage gate script cannot be disabled by a missing or malformed threshold, and
+ * that it still compares the measured ratio with the threshold it is given.
+ *
+ * @author  Rico Sonntag <mail@ricosonntag.de>
+ * @license https://opensource.org/licenses/MIT
+ * @link    https://github.com/magicsunday/jsonmapper/
+ */
+#[CoversNothing]
+final class CoverageGateTest extends TestCase
+{
+    /**
+     * Path of the temporary clover report that every test case feeds to the gate.
+     */
+    private string $cloverPath = '';
+
+    /**
+     * Writes a clover report with a fixed covered-statement ratio for the gate to read.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $path = tempnam(sys_get_temp_dir(), 'clover');
+
+        self::assertNotFalse($path);
+
+        $this->cloverPath = $path;
+
+        file_put_contents(
+            $this->cloverPath,
+            '<?xml version="1.0"?><coverage><project><metrics statements="100" coveredstatements="96"/></project></coverage>',
+        );
+    }
+
+    /**
+     * Removes the temporary clover report.
+     */
+    protected function tearDown(): void
+    {
+        if (is_file($this->cloverPath)) {
+            unlink($this->cloverPath);
+        }
+
+        parent::tearDown();
+    }
+
+    /**
+     * Provides the threshold arguments to hand to the gate together with the exit code it must end with.
+     *
+     * @return array<string, array{0: list<string>, 1: int}>
+     */
+    public static function thresholdArgumentProvider(): array
+    {
+        return [
+            'threshold missing'             => [[], 2],
+            'threshold empty'               => [[''], 2],
+            'threshold not numeric'         => [['abc'], 2],
+            'threshold above one hundred'   => [['100.5'], 2],
+            'threshold exactly one hundred' => [['100'], 1],
+            'threshold exactly zero'        => [['0'], 0],
+            'threshold below zero'          => [['-1'], 2],
+            'ratio below threshold'         => [['97'], 1],
+            'ratio at threshold'            => [['96'], 0],
+            'ratio above threshold'         => [['90'], 0],
+        ];
+    }
+
+    /**
+     * A missing, empty, non-numeric or out-of-range threshold is a usage error and never an
+     * always-pass, while a valid one is compared with the ratio of the report fixture.
+     *
+     * @param list<string> $thresholdArguments Arguments that follow the report path on the command line
+     * @param int          $expectedExitCode   Exit code the gate must end with
+     */
+    #[Test]
+    #[DataProvider('thresholdArgumentProvider')]
+    public function gateExitCodeFollowsThreshold(array $thresholdArguments, int $expectedExitCode): void
+    {
+        self::assertSame($expectedExitCode, $this->runGate([$this->cloverPath, ...$thresholdArguments])['exitCode']);
+    }
+
+    /**
+     * A missing threshold ends with the usage message on stderr and nothing else, so no PHP
+     * warning or notice about an absent argument reaches the output of the gate.
+     */
+    #[Test]
+    public function gateReportsMissingThresholdWithCleanOutput(): void
+    {
+        $result = $this->runGate([$this->cloverPath]);
+
+        self::assertSame(2, $result['exitCode']);
+        self::assertSame('', $result['stdout']);
+        self::assertSame("Coverage threshold must be numeric, got: <missing argument>\n", $result['stderr']);
+    }
+
+    /**
+     * A missing report file is a usage error too, so a broken report path cannot pass the gate.
+     */
+    #[Test]
+    public function gateRejectsMissingReport(): void
+    {
+        self::assertSame(2, $this->runGate([$this->cloverPath . '.missing', '90'])['exitCode']);
+    }
+
+    /**
+     * Runs the gate script in a separate PHP process and returns its exit code and both output streams.
+     *
+     * @param list<string> $arguments Arguments to pass to the gate script
+     *
+     * @return array{exitCode: int, stdout: string, stderr: string}
+     */
+    private function runGate(array $arguments): array
+    {
+        $process = proc_open(
+            [PHP_BINARY, dirname(__DIR__) . '/.github/scripts/coverage-gate.php', ...$arguments],
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+        );
+
+        self::assertTrue(is_resource($process));
+
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+
+        self::assertIsString($stdout);
+        self::assertIsString($stderr);
+
+        return [
+            'exitCode' => proc_close($process),
+            'stdout'   => $stdout,
+            'stderr'   => $stderr,
+        ];
+    }
+}

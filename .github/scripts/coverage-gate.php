@@ -12,29 +12,30 @@ declare(strict_types=1);
 /*
  * Fails when line coverage falls below a threshold.
  *
- * PHPUnit produces a Clover report but does not itself enforce a minimum, so the "coverage >= 90 %"
- * definition of done in AGENTS.md was never machine-checked. This script reads the Clover report's
- * project-level metrics and exits non-zero when the covered-statement ratio is under the threshold,
- * turning the documented target into a gate.
+ * PHPUnit produces a Clover report but does not itself enforce a minimum. This script reads the
+ * Clover report's project-level metrics and exits non-zero when the covered-statement ratio is
+ * under the threshold. The threshold is a guardrail against a large unnoticed loss of coverage,
+ * not a target to reach. It has no default, so a missing value cannot silently weaken the gate.
+ * The composer script passes the value from .github/coverage-threshold, the one place to change it.
  *
- * Usage: php coverage-gate.php <clover.xml> [threshold-percent]
+ * Usage: php coverage-gate.php <clover.xml> <threshold-percent>
  */
 
 $cloverPath = $argv[1] ?? '';
 
 // A non-numeric threshold argument would coerce to 0.0 and silently turn the gate into an
-// always-pass, defeating its purpose without any signal. Reject it - and anything outside 0-100 -
+// always-pass, defeating its purpose without any signal. Reject it, and anything outside 0-100,
 // as a usage error rather than let a misconfiguration disable the gate.
-if (isset($argv[2]) && !is_numeric($argv[2])) {
-    fwrite(\STDERR, sprintf("Coverage threshold must be numeric, got: %s\n", $argv[2]));
+if (!isset($argv[2]) || !is_numeric($argv[2])) {
+    fwrite(\STDERR, sprintf("Coverage threshold must be numeric, got: %s\n", $argv[2] ?? '<missing argument>'));
 
     exit(2);
 }
 
-$threshold = isset($argv[2]) ? (float) $argv[2] : 90.0;
+$threshold = (float) $argv[2];
 
 if (($threshold < 0.0) || ($threshold > 100.0)) {
-    fwrite(\STDERR, sprintf("Coverage threshold must be between 0 and 100, got: %s\n", $argv[2] ?? ''));
+    fwrite(\STDERR, sprintf("Coverage threshold must be between 0 and 100, got: %s\n", $argv[2]));
 
     exit(2);
 }
