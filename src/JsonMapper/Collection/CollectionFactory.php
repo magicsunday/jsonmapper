@@ -20,6 +20,7 @@ use MagicSunday\JsonMapper\Exception\MappingException;
 use MagicSunday\JsonMapper\Exception\TypeMismatchException;
 use MagicSunday\JsonMapper\Resolver\ClassResolver;
 use ReflectionClass;
+use ReflectionMethod;
 use Symfony\Component\TypeInfo\Type;
 use Symfony\Component\TypeInfo\Type\BuiltinType;
 use Symfony\Component\TypeInfo\Type\CollectionType;
@@ -261,7 +262,7 @@ final readonly class CollectionFactory
     {
         $constructor = (new ReflectionClass($className))->getConstructor();
 
-        return ($constructor === null) || ($constructor->getNumberOfParameters() === 0);
+        return (!$constructor instanceof ReflectionMethod) || ($constructor->getNumberOfParameters() === 0);
     }
 
     /**

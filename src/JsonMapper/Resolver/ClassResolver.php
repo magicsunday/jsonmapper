@@ -50,9 +50,7 @@ final class ClassResolver
     private const string CLASS_NAME_PATTERN = '/^\\\\?' . self::NAME_SEGMENT . '(?:\\\\' . self::NAME_SEGMENT . ')*(?:@anonymous\x00.*)?$/sD';
 
     /**
-     * @var array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string>
-     *
-     * @phpstan-var array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string>
+     * @var array<class-string, class-string|Closure(mixed): class-string|Closure(mixed, MappingContext): class-string>
      */
     private array $classMap;
 
@@ -80,9 +78,7 @@ final class ClassResolver
     private array $instantiable = [];
 
     /**
-     * @param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap Map of base class names to explicit targets or resolver callbacks.
-     *
-     * @phpstan-param array<class-string, class-string|Closure(mixed):class-string|Closure(mixed, MappingContext):class-string> $classMap
+     * @param array<class-string, class-string|Closure(mixed): class-string|Closure(mixed, MappingContext): class-string> $classMap Map of base class names to explicit targets or resolver callbacks.
      */
     public function __construct(array $classMap = [])
     {
@@ -115,17 +111,14 @@ final class ClassResolver
      * construction but not at runtime without wrapping it in a trivial closure. resolve() already
      * handles both.
      *
-     * @param class-string                                                                         $className      Base class or interface the resolver handles.
-     * @param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string|class-string $resolver       Resolver closure, or a concrete class-string to map to unconditionally.
-     * @param list<string>|null                                                                    $allowedTargets Classes the resolver may return. Null leaves it
-     *                                                                                                             unrestricted, which is the default for backwards
-     *                                                                                                             compatibility - see the note below. Only
-     *                                                                                                             meaningful for a closure: a static string target
-     *                                                                                                             is returned directly, with no payload choice to
-     *                                                                                                             constrain, so a list beside one is inert.
-     *
-     * @phpstan-param class-string $className
-     * @phpstan-param Closure(mixed):class-string|Closure(mixed, MappingContext):class-string|class-string $resolver
+     * @param list<string>|null                                                                      $allowedTargets Classes the resolver may return. Null leaves it
+     *                                                                                                               unrestricted, which is the default for backwards
+     *                                                                                                               compatibility - see the note below. Only
+     *                                                                                                               meaningful for a closure: a static string target
+     *                                                                                                               is returned directly, with no payload choice to
+     *                                                                                                               constrain, so a list beside one is inert.
+     * @param class-string                                                                           $className      Base class or interface the resolver handles.
+     * @param Closure(mixed): class-string|Closure(mixed, MappingContext): class-string|class-string $resolver       Resolver closure, or a concrete class-string to map to unconditionally.
      *
      * @throws DomainException When the base class, the target, or a listed target does not exist.
      */
