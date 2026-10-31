@@ -153,8 +153,8 @@ jobs:
               run: |
                   composer install --prefer-dist --no-interaction --no-progress
 
-            # Runs the coverage suite and fails when line coverage drops below the target the
-            # definition of done in AGENTS.md documents.
-            - name: Enforce the coverage target
+            # Runs the coverage suite and fails when line coverage drops below the guardrail
+            # stored in .github/coverage-threshold.
+            - name: Enforce the coverage guardrail
               run: |
                   composer ci:test:php:coverage:gate

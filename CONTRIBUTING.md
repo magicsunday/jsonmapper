@@ -21,8 +21,10 @@ composer ci:test
 ```
 
 `ci:test` is the whole gate — PHPUnit, PHPStan (max level), Rector and PHP-CS-Fixer (dry-run),
-`phplint`, Deptrac, the coding-standard template check, and copy/paste detection. It must be green before every commit. Coverage is enforced in
-CI at ≥ 90 %; run it locally with `composer ci:test:php:coverage:gate`.
+`phplint`, Deptrac, the coding-standard template check, and copy/paste detection. It must be green before every commit. A coverage guardrail
+(`.github/coverage-threshold`) is enforced in CI against a large unnoticed loss. It is not a target,
+so add a test for behavior and never to restore a percentage. Run the guardrail locally with
+`composer ci:test:php:coverage:gate`.
 
 ## Commits and pull requests
 

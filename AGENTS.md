@@ -361,9 +361,15 @@ the fix and watching the test fail is the way to show it.
 ## 8) Definition of Done (DoD)
 
 * ✅ PHPUnit green (positive & negative cases covered).
-* ✅ **Coverage ≥ 90 %** — machine-enforced in CI by the `coverage` job via
+* ✅ **Coverage guardrail holds** — machine-enforced in CI by the `coverage` job via
   `composer ci:test:php:coverage:gate`, which runs `ci:test:php:unit:coverage` and fails the build
-  when line coverage drops below the threshold.
+  when line coverage drops below the value in `.github/coverage-threshold`. The value is a
+  guardrail against a large unnoticed loss, not a target. It sits clearly below the measured
+  coverage, is raised only when the measured value has risen on its own, and is never lowered to
+  admit a regression. A test is added for behavior and never to restore a percentage. What matters
+  for this library: malformed and hostile input, null and type-mismatch handling, boundary values,
+  attribute handling and error propagation. A property-style test is welcome where one invariant
+  replaces many example rows.
 * ✅ PHPStan passes (at least all modified files).
 * ✅ Rector & CS fixer clean; commit formatting changes.
 * ✅ **CPD** detects no relevant duplicates.
@@ -404,7 +410,7 @@ the fix and watching the test fail is the way to show it.
 
 * [ ] Only authorised files changed.
 * [ ] Public API untouched or documented and communicated.
-* [ ] Tests (including negative cases) added/updated; coverage ≥ 90 %.
+* [ ] Tests (including negative cases) added/updated for behavior, not to restore a percentage.
 * [ ] `composer ci:cgl` & `composer ci:rector` executed; changes committed.
 * [ ] `composer ci:test:php:lint`
 * [ ] `composer ci:test:php:phpstan`
@@ -413,7 +419,7 @@ the fix and watching the test fail is the way to show it.
 * [ ] `composer ci:test:php:templates`
 * [ ] `composer ci:test:php:cpd`
 * [ ] `composer ci:test:php:unit`
-* [ ] `composer ci:test:php:coverage:gate` (coverage ≥ 90 %, enforced in CI)
+* [ ] `composer ci:test:php:coverage:gate` (coverage guardrail, enforced in CI)
 * [ ] No `mixed`, `empty()`, or nested ternaries.
 * [ ] Classes/tests mirror namespaces; descriptive names; inline comments only when logic is complex.
 * [ ] Value objects/enums instead of magic strings.

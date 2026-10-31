@@ -84,7 +84,7 @@
         ],
         "ci:test:php:coverage:gate": [
             "@ci:test:php:unit:coverage",
-            "php .github/scripts/coverage-gate.php .build/coverage/clover.xml 90"
+            "php .github/scripts/coverage-gate.php .build/coverage/clover.xml \"$(cat .github/coverage-threshold)\""
         ],
         "ci:test": [
             "@ci:test:php:lint",
