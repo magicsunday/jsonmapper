@@ -98,7 +98,7 @@ final class DateTimeValueConversionStrategy implements ValueConversionStrategyIn
         return $this->convertObjectValue(
             $type,
             $value,
-            static function (string $className, mixed $value) use ($context) {
+            static function (string $className, mixed $value) use ($context): object {
                 // Resolved once per value and guarded: DateTimeZone raises
                 // DateInvalidTimeZoneException for an identifier it does not know, and that is no
                 // MappingException - it would escape a run that promised a report. The

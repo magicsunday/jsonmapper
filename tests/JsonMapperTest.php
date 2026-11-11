@@ -372,7 +372,7 @@ JSON
                         || (
                             ($value instanceof stdClass)
                             && property_exists($value, 'is_vip')
-                            && $value->is_vip
+                            && (bool) $value->is_vip
                         )
                     ) {
                         return VipPerson::class;
