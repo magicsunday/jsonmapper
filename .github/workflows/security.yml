@@ -6,6 +6,7 @@ on:
     pull_request:
     schedule:
         - cron: '27 3 * * 1'
+    workflow_dispatch:
 
 permissions:
     contents: read
@@ -24,8 +25,8 @@ jobs:
             security-events: write
 
     scorecard:
-        # Scorecard publishes against the default branch; skip pull-request runs.
-        if: github.event_name != 'pull_request'
+        # Publish only for the default branch, including manual workflow runs.
+        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         uses: magicsunday/.github/.github/workflows/scorecard.yml@main
         permissions:
             contents: read
@@ -46,32 +47,42 @@ jobs:
             contents: read
 
     composer-audit:
-        # dependency-review only inspects dependencies a pull request adds or changes; this audits
-        # the whole resolved set for newly published advisories, on every push and pull request and
-        # on the weekly schedule so a vulnerability disclosed against an existing dependency is
-        # caught over time rather than only when that dependency next changes.
-        name: Composer audit
+        # The audit reads the advisory database of the day. On a pull request a
+        # newly published advisory against an existing dependency would turn
+        # every open pull request red without any change in it, and
+        # dependency-review already covers what a pull request changes.
+        if: github.event_name != 'pull_request'
+        uses: magicsunday/.github/.github/workflows/composer-audit.yml@main
+        permissions:
+            contents: read
+
+    all-security-checks:
+        # One stable check name for the branch protection. It runs whatever the
+        # other jobs did, passes when each of them succeeded or was skipped, and
+        # fails on a failure, a cancellation or any other result. The needs
+        # list must name every other job of this file.
+        name: All security checks
+        if: ${{ always() }}
+        needs: [code-scanning, zizmor, scorecard, dependency-review, yamllint, composer-audit]
         runs-on: ubuntu-latest
+        timeout-minutes: 5
+        permissions: {}
 
         steps:
-            - name: Set up PHP version 8.3
-              uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
-              with:
-                  php-version: '8.3'
-                  tools: composer:v2
-
-            - name: Checkout repository
-              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  persist-credentials: false
-
-            # This library does not commit composer.lock, so there is nothing for `--locked` to
-            # audit. Resolve fresh against the declared constraints first - which is what a consumer
-            # install does - then audit that resolved set.
-            - name: Install dependencies
+            - name: Check the results of the security jobs
+              env:
+                  NEEDS: ${{ toJSON(needs) }}
               run: |
-                  composer install --prefer-dist --no-interaction --no-progress
-
-            - name: Audit resolved dependencies
-              run: |
-                  composer audit --no-interaction
+                  set -euo pipefail
+                  verdict=$(jq -rn --argjson needs "${NEEDS}" '
+                      $needs
+                      | if (type != "object") or (length == 0) then "no job results"
+                      else
+                          [to_entries[] | select(.value.result != "success" and .value.result != "skipped") | "\(.key)=\(.value.result)"]
+                          | join(" ")
+                      end')
+                  if [ -n "${verdict}" ]; then
+                      echo "::error::Security jobs did not pass: ${verdict}"
+                      exit 1
+                  fi
+                  echo 'Every security job succeeded or was skipped.'
